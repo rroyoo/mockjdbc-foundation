@@ -1,0 +1,107 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.rroyoo.mockjdbc</groupId>
+    <artifactId>mockjdbc</artifactId>
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <!-- Add submodule names here, e.g. -->
+        <!-- <module>submodule1</module> -->
+        <module>mockjdbc-proxy</module>
+        <module>mockjdbc-proto</module>
+        <module>mockjdbc-mock</module>
+    </modules>
+
+    <name>MockJDBC Ecosystem Parent</name>
+    <description>Parent POM for MockJDBC ecosystem with submodules.</description>
+
+    <properties>
+        <java.version>17</java.version>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
+        <maven.plugin.version.compiler>3.11.0</maven.plugin.version.compiler>
+        <maven.plugin.version.protobuf>5.0.0</maven.plugin.version.protobuf>
+        <maven.version.datasource-proxy>1.11.0</maven.version.datasource-proxy>
+        <maven.version.protobuf>4.34.0</maven.version.protobuf>
+        <maven.version.grpc>1.79.0</maven.version.grpc>
+        <maven.version.test.junit-jupiter>5.11.3</maven.version.test.junit-jupiter>
+        <revision>1.0.0-SNAPSHOT</revision>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>net.ttddyy</groupId>
+                <artifactId>datasource-proxy</artifactId>
+                <version>${maven.version.datasource-proxy}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${maven.version.test.junit-jupiter}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-bom</artifactId>
+                <version>${maven.version.protobuf}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-bom</artifactId>
+                <version>${maven.version.grpc}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven.plugin.version.compiler}</version>
+                    <configuration>
+                        <release>${java.version}</release>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>io.github.ascopes</groupId>
+                    <artifactId>protobuf-maven-plugin</artifactId>
+                    <version>${maven.plugin.version.protobuf}</version>
+                    <configuration>
+                        <protoc>${maven.version.protobuf}</protoc>
+                        <plugins>
+                            <plugin kind="binary-maven">
+                                <groupId>io.grpc</groupId>
+                                <artifactId>protoc-gen-grpc-java</artifactId>
+                                <version>${maven.version.grpc}</version>
+                            </plugin>
+                        </plugins>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>generate</goal>
+                            </goals>
+                            <phase>
+                                generate-sources
+                            </phase>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
+
