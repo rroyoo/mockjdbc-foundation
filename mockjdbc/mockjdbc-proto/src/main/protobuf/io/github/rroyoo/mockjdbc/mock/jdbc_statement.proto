@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package io.github.rroyoo.mockjdbc.mock;
+
+import "io/github/rroyoo/mockjdbc/mock/jdbc_types.proto";
+
+option java_package = "io.github.rroyoo.mockjdbc.mock";
+option java_multiple_files = true;
+option optimize_for = SPEED;
+
+message ParameterMetadata {
+  int32 index = 1;
+  int32 sql_type = 2;
+  string type_name = 3;
+  int32 mode = 4; // Parameter mode: IN, OUT, INOUT
+  JdbcValue value = 5; // Valor del parámetro
+}
+
+// --- STATEMENT TYPES ---
+
+message PlainStatement {
+  string sql = 1;
+}
+
+message PreparedStatement {
+  string sql = 1;
+  repeated ParameterMetadata parameters = 2;
+}
+
+message CallableStatement {
+  string call_sql = 1;
+  repeated ParameterMetadata parameters = 2;
+}

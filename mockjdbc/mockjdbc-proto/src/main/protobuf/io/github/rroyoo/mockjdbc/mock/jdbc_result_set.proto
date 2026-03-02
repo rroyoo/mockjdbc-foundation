@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package io.github.rroyoo.mockjdbc.mock;
+
+import "io/github/rroyoo/mockjdbc/mock/jdbc_types.proto";
+
+option java_package = "io.github.rroyoo.mockjdbc.mock";
+option java_multiple_files = true;
+option optimize_for = SPEED;
+
+/**
+ * Column definition from ResultSetMetaData
+ */
+message ColumnMetadata {
+  string name = 1;
+  string label = 2;
+  int32 sql_type = 3;
+  string type_name = 4;
+}
+
+/**
+ * Data Row
+ */
+message Row {
+  repeated JdbcValue values = 1;
+}
+
+/**
+ * The internal structure of the ResultSet
+ */
+message SerializedResultSet {
+  repeated ColumnMetadata metadata = 1;
+  repeated Row rows = 2;
+}

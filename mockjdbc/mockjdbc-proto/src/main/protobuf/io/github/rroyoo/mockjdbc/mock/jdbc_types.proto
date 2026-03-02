@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package io.github.rroyoo.mockjdbc.mock;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "io.github.rroyoo.mockjdbc.mock";
+option java_multiple_files = true;
+option optimize_for = SPEED;
+
+/**
+ * Atomic value from a Database Column
+ */
+message JdbcValue {
+  oneof kind {
+    bool is_null = 1;
+    string string_val = 2;
+    int64 long_val = 3;
+    double double_val = 4;
+    bool bool_val = 5;
+    bytes bytes_val = 6;
+    google.protobuf.Timestamp timestamp_val = 7;
+    string decimal_val = 8;
+  }
+}

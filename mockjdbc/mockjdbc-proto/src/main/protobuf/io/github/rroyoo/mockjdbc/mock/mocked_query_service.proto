@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package io.github.rroyoo.mockjdbc.mock;
+
+import "io/github/rroyoo/mockjdbc/mock/mocked_query.proto";
+import "io/github/rroyoo/mockjdbc/mock/jdbc_statement.proto";
+
+option java_package = "io.github.rroyoo.mockjdbc.mock";
+option java_multiple_files = true;
+option optimize_for = SPEED;
+
+message QueryLookupRequest {
+  string sql = 1;
+  repeated ParameterMetadata parameters = 2;
+}
+
+service MockQueryService {
+  rpc FindMock(QueryLookupRequest) returns (MockedQuery);
+}

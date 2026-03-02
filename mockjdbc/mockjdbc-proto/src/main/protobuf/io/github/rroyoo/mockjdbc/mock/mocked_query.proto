@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package io.github.rroyoo.mockjdbc.mock;
+
+import "io/github/rroyoo/mockjdbc/mock/jdbc_result_set.proto";
+import "io/github/rroyoo/mockjdbc/mock/jdbc_statement.proto";
+
+option java_package = "io.github.rroyoo.mockjdbc.mock";
+option java_multiple_files = true;
+option optimize_for = SPEED;
+
+/**
+ * Your main message containing the result set field
+ */
+message MockedQuery {
+  oneof statement_definition {
+    PlainStatement simple_statement = 1;
+    PreparedStatement prepared_statement = 3; // Tagged 3 to avoid collision if expanded
+    CallableStatement callable_statement = 4;
+  }
+  // This is the specific field you requested
+  SerializedResultSet result_set = 2;
+}
