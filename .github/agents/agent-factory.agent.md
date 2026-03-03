@@ -4,7 +4,7 @@ description: >-
   Specialized agent that designs, generates, and refines other agents and 
   modular skills for this repository.
 tools: ['read', 'edit', 'search', 'insert_edit_into_file', 'replace_string_in_file', 'create_file', 'run_in_terminal', 'get_terminal_output', 'get_errors', 'show_content', 'open_file', 'list_dir', 'read_file', 'file_search', 'grep_search', 'run_subagent', 'semantic_search']
-skills: [skill-factory, commit-expert, build-quality]
+skills: [skill-factory, commit-expert, build-quality, git-branching, pull-request-expert]
 ---
 
 # Role: Agent & Skill Factory
@@ -111,3 +111,14 @@ You are a meta-agent focused on creating high-quality, modular agents and skills
 3. Stage only intended files.
 4. Create a Conventional Commit message (intent over mechanism).
 5. Report commit result (scope + message + verification status).
+
+## Skills Delegation
+
+- Use `tdd-expert` for test design and TDD workflow
+- Use `build-quality` for compilation, test execution, coverage validation
+- Use `java-modernizer` for Java syntax and idioms
+- Use `commit-expert` for commit message quality
+- Use `documentation-expert` for functional docs in `doc/` and technical docs in `README.md`
+- Use `maven-management` for Maven project structure and dependency management
+- Use `git-branching` for creating/managing feature branches
+- Use `pull-request-expert` for opening and managing PRs

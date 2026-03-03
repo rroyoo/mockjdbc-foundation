@@ -10,6 +10,8 @@ skills:
   - build-quality
   - documentation-expert
   - maven-management
+  - git-branching
+  - pull-request-expert
 tools: ['read', 'edit', 'search', 'insert_edit_into_file', 'replace_string_in_file', 'create_file', 'run_in_terminal', 'get_terminal_output', 'get_errors', 'show_content', 'open_file', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent', 'semantic_search']
 ---
 
