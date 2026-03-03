@@ -3,12 +3,47 @@
 ## Context
 Use this skill when starting a new feature, bugfix, or research branch. This skill manages the entire Git branching lifecycle, from creation through merge preparation.
 
+## ⚠️ MANDATORY ACTIVATION (NEVER Skip)
+
+**This skill MUST be activated BEFORE any code changes if:**
+- User asks to implement/add/create anything (feature, functionality, component)
+- User asks to fix/correct/debug anything (bugfix)
+- User asks to refactor/improve/optimize code
+- User asks to update/change documentation
+- User asks to add/modify tests
+- **ANY task that will result in code changes**
+
+**Decision Logic:**
+```
+IF (task involves code/doc/test changes) THEN
+  1. Activate git-branching skill FIRST
+  2. Create appropriate branch
+  3. THEN make changes
+ELSE
+  Only queries/read-only operations allowed on main
+END IF
+```
+
 ## When to Use This Skill
-- **Trigger 1:** User says "start feature X" or "start bugfix Y"
-- **Trigger 2:** User says "new feature" or "new fix"
-- **Trigger 3:** Need to switch between branches
-- **Trigger 4:** Need to verify current branch status
-- **Prerequisite:** Git is configured in the project
+
+### Automatic Triggers (ALWAYS activate):
+- **Trigger 1:** User says "implement", "add", "create" → Create `feature/{name}` branch
+- **Trigger 2:** User says "fix", "correct", "debug" → Create `bugfix/{name}` branch
+- **Trigger 3:** User says "refactor", "improve", "optimize" → Create `refactor/{name}` branch
+- **Trigger 4:** User says "document", "add docs" → Create `docs/{name}` branch
+- **Trigger 5:** User says "add tests", "test coverage" → Create `test/{name}` branch
+- **Trigger 6:** User says "update dependencies", "upgrade" → Create `chore/{name}` branch
+
+### Manual Triggers:
+- User explicitly says "start feature X" or "create branch Y"
+- Need to switch between existing branches
+- Need to verify current branch status
+
+### Anti-Trigger (DO NOT activate):
+- User asks questions ("what is X?", "how does Y work?")
+- User asks to review/read code
+- User asks to explain architecture
+- Read-only operations
 
 ## Core Principles
 
