@@ -49,34 +49,35 @@ gh auth status || gh auth login
 git fetch origin
 git rebase origin/main  # NO conflicts
 
-# 2. All tests pass
+# 2. Working tree must be clean (no pending/untracked files)
+git status --porcelain
+test -z "$(git status --porcelain)"
+
+# 3. All tests pass
 mvn clean verify  # BUILD SUCCESS, 100% test pass
 
-# 3. Code coverage adequate
-mvn jacoco:report  # ≥80% coverage
+# 4. Code coverage adequate
+mvn jacoco:report  # >=80% coverage
 
-# 4. Build is green
+# 5. Build is green
 mvn clean compile  # NO errors or warnings
 
-# 5. Push branch to remote
+# 6. Push branch to remote
 git push origin feature/{feature-name}
 
-# 6. Verify remote has your commits
+# 7. Verify there are no local commits pending push
+git fetch origin
+git rev-list --count origin/feature/{feature-name}..HEAD
+# MUST be 0 before opening PR
+
+# 8. Verify remote contains your feature commits
 git log origin/main..origin/feature/{feature-name} --oneline
 ```
 
-**GitHub CLI Authentication:**
-- Run `gh auth status` to check if authenticated
-- If NOT authenticated, run `gh auth login` and follow prompts:
-  1. Select "GitHub.com"
-  2. Select "HTTPS" or "SSH" (match your git remote)
-  3. Authenticate via web browser
-  4. After success, verify with `gh auth status`
-
-**If ANY check fails:**
+**If any of these checks fails:**
 - ❌ Do NOT open PR
-- Fix the issue
-- Re-validate before opening PR
+- Fix/push/re-validate
+- Retry only when all checks pass
 
 ### 2. PR Title Format
 
@@ -208,12 +209,44 @@ The null handling is minimal and defensive — we only guard at the property ext
 
 ### 5. PR Workflow (Step by Step)
 
+#### Step 0: Ensure GitHub CLI Authentication
+```bash
+# Check if authenticated
+gh auth status
+
+# If NOT authenticated, auto-login
+if ! gh auth status >/dev/null 2>&1; then
+  echo "GitHub CLI not authenticated. Running gh auth login..."
+  gh auth login
+  # Follow prompts:
+  # 1. Select "GitHub.com"
+  # 2. Select protocol (HTTPS/SSH - match your git remote)
+  # 3. Authenticate via web browser
+  # 4. After success, verify: gh auth status
+fi
+```
+
+**Automated Authentication (for scripts):**
+```bash
+# One-liner to ensure authentication before PR
+gh auth status || gh auth login
+```
+
 #### Step 1: Verify Branch is Ready
 ```bash
 git checkout feature/{feature-name}
 git fetch origin
 git rebase origin/main  # Ensure up-to-date
-git push origin feature/{feature-name}  # Push all commits
+
+# Must be clean before PR
+test -z "$(git status --porcelain)"
+
+# Push all commits
+git push origin feature/{feature-name}
+
+# Confirm nothing remains local
+git fetch origin
+test "$(git rev-list --count origin/feature/{feature-name}..HEAD)" -eq 0
 ```
 
 #### Step 2: Validate Build
@@ -221,7 +254,31 @@ git push origin feature/{feature-name}  # Push all commits
 mvn clean verify  # MUST pass, BUILD SUCCESS
 ```
 
-#### Step 3: Open PR on GitHub
+#### Step 3: Prepare PR Body from Template (MANDATORY)
+```bash
+# Use repository template as base
+cp .github/pull_request_template.md /tmp/pr_body.md
+
+# Edit /tmp/pr_body.md and fill all sections before creating PR
+# (Summary, What Changed, How to Test, Checklist, Related Issues, Notes)
+```
+
+#### Step 4: Open PR via GitHub CLI (Automated)
+```bash
+# Ensure authenticated first
+gh auth status || gh auth login
+
+# Create PR using the filled template file
+gh pr create \
+  --base main \
+  --head feature/{feature-name} \
+  --title "feat(scope): description" \
+  --body-file /tmp/pr_body.md
+```
+
+**Rule:** Do not use inline `--body` for non-trivial PRs; use `.github/pull_request_template.md` content via `--body-file`.
+
+**Alternative: GitHub Web UI**
 - Go to repository
 - Click "New Pull Request"
 - Select base: `main`, compare: `feature/{feature-name}`
@@ -229,13 +286,13 @@ mvn clean verify  # MUST pass, BUILD SUCCESS
 - Fill description using template above
 - Click "Create Pull Request"
 
-#### Step 4: Post-PR Steps
+#### Step 5: Post-PR Steps
 - Monitor CI/CD pipeline (if configured)
 - Respond to reviewer comments
 - Make requested changes on same branch
 - Commits will automatically be added to PR
 
-#### Step 5: Merge PR
+#### Step 6: Merge PR
 Once approved:
 ```bash
 # Option A: GitHub UI (Squash and merge)
@@ -247,7 +304,7 @@ git merge --no-ff feature/{feature-name}  # Keep history
 git push origin main
 ```
 
-#### Step 6: Cleanup
+#### Step 7: Cleanup
 ```bash
 git branch -d feature/{feature-name}  # Local
 git push origin --delete feature/{feature-name}  # Remote
@@ -281,6 +338,56 @@ git push origin --delete feature/{feature-name}  # Remote
 - ❌ **Merging without approval** — Always wait for review
 
 ### 8. Troubleshooting
+
+#### Problem: "gh: command not found"
+**Solution:** Install GitHub CLI.
+```bash
+# On Ubuntu/Debian
+sudo apt install gh
+
+# On macOS
+brew install gh
+
+# On other systems: https://cli.github.com/
+```
+
+#### Problem: "gh auth status" shows "not logged in"
+**Solution:** Authenticate with GitHub.
+```bash
+# Interactive login
+gh auth login
+
+# Follow prompts:
+# 1. Select "GitHub.com"
+# 2. Select protocol (HTTPS recommended)
+# 3. Authenticate via web browser
+# 4. Verify: gh auth status
+```
+
+#### Problem: "gh auth login" hangs or fails
+**Solution:** Use token authentication.
+```bash
+# Generate token at https://github.com/settings/tokens
+# Select scopes: repo, workflow, read:org
+
+# Login with token
+gh auth login --with-token < ~/.github-token
+
+# Or set environment variable
+export GH_TOKEN=ghp_yourTokenHere
+gh auth status  # Should show authenticated
+```
+
+#### Problem: "authentication required" when creating PR
+**Solution:** Re-authenticate or refresh token.
+```bash
+# Logout and login again
+gh auth logout
+gh auth login
+
+# Or refresh authentication
+gh auth refresh -h github.com -s repo,workflow
+```
 
 #### Problem: "Merge conflict" message in PR
 **Solution:** Rebase locally and resolve.
@@ -341,20 +448,3 @@ Steps to verify.
 ## Related Issues
 Fixes #XXX
 ```
-
-## Tools & Commands
-
-```bash
-# Create PR comparison link (copy to browser)
-echo "https://github.com/{owner}/{repo}/compare/main...feature/{feature-name}"
-
-# View commits in PR
-git log main..origin/feature/{feature-name} --oneline
-
-# View files changed in PR
-git diff main...origin/feature/{feature-name} --name-only
-
-# Check PR status from CLI
-gh pr view --repo {owner}/{repo} feature/{feature-name}
-```
-
