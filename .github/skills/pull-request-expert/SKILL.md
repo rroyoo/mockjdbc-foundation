@@ -3,11 +3,37 @@
 ## Context
 Use this skill when opening a Pull Request (PR) to merge feature branches into `main`. This skill ensures PRs are high-quality, well-documented, and ready for review.
 
+## ⚠️ MANDATORY: User Confirmation Required
+
+**This skill MUST ONLY be activated when user explicitly requests it.**
+
+### Valid Triggers (user must say one of these):
+- "desarrollo completado"
+- "feature ready" / "feature complete" / "feature finished"
+- "bugfix ready" / "bugfix complete"
+- "open PR" / "create PR" / "create pull request"
+- "ready for review"
+- "merge to main"
+
+### Invalid Triggers (DO NOT activate):
+- ❌ Feature branch exists but user hasn't confirmed completion
+- ❌ All tests passing but user is still working
+- ❌ Automatic activation after commits
+- ❌ Assumption that work is done
+
+**Rule:** Even if the branch looks complete, wait for explicit user confirmation before opening PR.
+
 ## When to Use This Skill
+
+### Explicit Triggers (ONLY these):
 - **Trigger 1:** User says "open PR" or "create pull request"
-- **Trigger 2:** User says "feature is ready" or "bugfix is complete"
-- **Trigger 3:** Feature branch is ready to merge into main
-- **Prerequisite:** Feature branch exists with commits, all validations pass
+- **Trigger 2:** User says "development completed", "feature ready", or "bugfix complete"
+- **Trigger 3:** User says "ready for review" or "merge to main"
+
+### Prerequisites:
+- Feature branch exists with commits
+- All validations pass
+- **User has explicitly confirmed work is complete**
 
 ## Core Principles
 

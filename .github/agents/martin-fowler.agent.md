@@ -125,12 +125,18 @@ User says:                           → Action
 
 4. **Keep Updated** — Monitor main continuously, auto-rebase if needed
 
-5. **Open PR** — Activate `pull-request-expert` skill when feature is complete
+5. **Wait for User Confirmation** — **DO NOT open PR automatically**
+   - Continue working on branch as user requests
+   - Make commits following TDD + validation workflow
+   - Only when user says "development completed", "feature ready", "open PR", or similar:
+     → Then activate `pull-request-expert` skill
+
+6. **Open PR** — Activate `pull-request-expert` skill **ONLY after user confirmation**
    - All validations pass
    - PR description follows template
    - Reference related issues
 
-6. **Review & Merge** — Address feedback, merge to main
+7. **Review & Merge** — Address feedback, merge to main
 
 ---
 
