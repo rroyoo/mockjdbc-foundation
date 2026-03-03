@@ -3,6 +3,32 @@
 ## Context
 Use this skill when starting a new feature, bugfix, or research branch. This skill manages the entire Git branching lifecycle, from creation through merge preparation.
 
+## 🔴 CRITICAL RULES (NEVER VIOLATE)
+
+1. **ALWAYS fetch before creating branch:**
+   ```bash
+   git fetch origin  # MANDATORY first step
+   ```
+
+2. **ALWAYS create branches from main:**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/{name}
+   ```
+
+3. **NEVER create branch from another feature branch**
+   - ❌ Wrong: `git checkout feature/A && git checkout -b feature/B`
+   - ✅ Right: `git checkout main && git pull && git checkout -b feature/B`
+
+**Standard Branch Creation Workflow (use this every time):**
+```bash
+git fetch origin                    # 1. Fetch latest from remote
+git checkout main                   # 2. Switch to main
+git pull origin main                # 3. Update main to latest
+git checkout -b feature/{name}      # 4. Create branch from current main
+```
+
 ## ⚠️ MANDATORY ACTIVATION (NEVER Skip)
 
 **This skill MUST be activated BEFORE any code changes if:**
@@ -68,22 +94,37 @@ chore/{task-name}          # Maintenance (e.g., chore/update-dependencies)
 
 ### 2. Branch Lifecycle
 
-#### A) Create Branch
+#### A) Create Branch (ALWAYS from main)
+
+**MANDATORY steps (NEVER skip):**
+
 ```bash
-# Verify you're on main and up-to-date
+# 1. Fetch latest changes from remote (ALWAYS first)
+git fetch origin
+
+# 2. Switch to main branch
 git checkout main
+
+# 3. Update main to latest
 git pull origin main
 
-# Create and switch to new branch
+# 4. Create and switch to new branch from current main
 git checkout -b feature/{feature-name}
 
-# Verify branch was created
+# 5. Verify branch was created correctly
 git branch --show-current
 ```
+
+**Rules:**
+- ⚠️ **ALWAYS fetch first** (`git fetch origin`)
+- ⚠️ **ALWAYS create from main** (never from another feature branch)
+- ⚠️ **ALWAYS update main** before creating branch (`git pull origin main`)
+- ⚠️ If you're not on main, switch to it first (`git checkout main`)
 
 **Verification:**
 - Current branch shows new feature name
 - Branch tracking: `git branch -vv` shows it's based on main
+- Main is up-to-date: `git log origin/main..main` shows nothing
 
 #### B) Work on Branch
 - Make commits following `commit-expert` skill
@@ -164,7 +205,14 @@ git branch -a  # Should not show the deleted branch
 
 ### Scenario A: Simple Feature (Few Commits)
 ```bash
-# Create branch
+# 1. ALWAYS fetch first
+git fetch origin
+
+# 2. Start from main
+git checkout main
+git pull origin main
+
+# 3. Create branch
 git checkout -b feature/add-logger
 
 # Work and commit (1-3 commits)
@@ -180,7 +228,14 @@ git rebase origin/main
 
 ### Scenario B: Complex Feature (Multiple Commits)
 ```bash
-# Create branch
+# 1. ALWAYS fetch first
+git fetch origin
+
+# 2. Start from main
+git checkout main
+git pull origin main
+
+# 3. Create branch
 git checkout -b feature/redesign-api
 
 # Work on multiple areas (5+ commits)
@@ -263,11 +318,33 @@ git rebase --continue  # Not --merge!
 ### Problem: Accidental commits on main
 **Solution:** Move commits to feature branch.
 ```bash
-git log main --oneline -5  # See recent commits
-git reset --soft HEAD~1     # Undo last commit, keep changes
+# 1. FIRST, fetch to ensure you have latest main
+git fetch origin
+
+# 2. See recent commits on main
+git log main --oneline -5
+
+# 3. Undo last commit, keep changes
+git reset --soft HEAD~1
+
+# 4. Create feature branch from current main
 git checkout -b feature/{new-branch}
+
+# 5. Commit the changes
 git commit -m "feat: ..."
+
+# 6. Push to remote
 git push origin feature/{new-branch}
+```
+
+### Problem: Need to create branch but unsure if main is current
+**Solution:** Always fetch first.
+```bash
+# This is the STANDARD workflow (always use this)
+git fetch origin
+git checkout main
+git pull origin main
+git checkout -b feature/{new-feature}
 ```
 
 ## Anti-Patterns to Avoid
