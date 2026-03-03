@@ -4,15 +4,21 @@ import io.github.rroyoo.mockjdbc.mock.*;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
+import java.io.IOException;
 import java.net.PortUnreachableException;
 import java.rmi.UnknownHostException;
 import java.sql.SQLException;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-final class DefaultMockQueryServiceAdapter implements MockQueryServiceAdapter {
+/**
+ * gRPC-based implementation of QueryServiceAdapter.
+ *
+ * Uses gRPC to communicate with a remote MockQueryService for resolving
+ * mocked query definitions. Manages the lifecycle of the gRPC ManagedChannel.
+ */
+final class GrpcQueryServiceAdapter implements QueryServiceAdapter {
 
     private static final long DEFAULT_KEEP_ALIVE_TIME = 30;
     private static final TimeUnit DEFAULT_KEEP_ALIVE_TIME_UNIT = TimeUnit.SECONDS;
@@ -26,7 +32,7 @@ final class DefaultMockQueryServiceAdapter implements MockQueryServiceAdapter {
     private final ManagedChannel managedChannel;
     private final MockQueryServiceGrpc.MockQueryServiceBlockingStub mockQueryServiceBlockingStub;
 
-    public DefaultMockQueryServiceAdapter(Properties properties) throws PortUnreachableException, UnknownHostException {
+    public GrpcQueryServiceAdapter(Properties properties) throws PortUnreachableException, UnknownHostException {
         this.managedChannel = buildManagedChannel(properties);
         this.mockQueryServiceBlockingStub = MockQueryServiceGrpc.newBlockingStub(managedChannel);
     }
@@ -86,6 +92,14 @@ final class DefaultMockQueryServiceAdapter implements MockQueryServiceAdapter {
         return getPropertyOrDefault(MockConnectionProperties.IDLE_TIMEOUT_TIME_UNIT.getKey(), properties, TimeUnit::valueOf, DEFAULT_IDLE_TIMEOUT_TIME_UNIT);
     }
 
+    private <T> java.util.Optional<T> getProperty(String key, Properties properties, Function<String, T> mapper) {
+        var value = properties.getProperty(key);
+        if (value == null) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(mapper.apply(value));
+    }
+
     private <T> T getPropertyOrDefault(String key, Properties properties, Function<String, T> mapper, T defaultValue) {
         if (!properties.containsKey(key)) {
             return defaultValue;
@@ -134,3 +148,4 @@ final class DefaultMockQueryServiceAdapter implements MockQueryServiceAdapter {
         return mockQueryServiceBlockingStub.findMock(queryLookupRequest);
     }
 }
+

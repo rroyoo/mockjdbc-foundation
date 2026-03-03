@@ -21,7 +21,7 @@ public final class MockConnectionPool implements ConnectionPool {
 
         return pool.computeIfAbsent(url, k -> {
             try {
-                return new MockConnection(properties, new DefaultMockQueryServiceAdapter(properties));
+                return new MockConnection(properties, new GrpcQueryServiceAdapter(properties));
             } catch (PortUnreachableException | UnknownHostException e) {
                 throw new RuntimeException(e);
             }

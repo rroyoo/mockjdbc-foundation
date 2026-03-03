@@ -12,7 +12,7 @@ class MockConnectionTest {
     @Test
     @DisplayName("should fail to create connection without valid gRPC adapter")
     void shouldFailWithoutGrpcAdapter() throws SQLException {
-        // MockConnection requires a valid DefaultMockQueryServiceAdapter with gRPC connectivity.
+        // MockConnection requires a valid GrpcQueryServiceAdapter with gRPC connectivity.
         // Full integration test would mock the gRPC service.
         // This test structure is ready for mock adapter implementation.
 
