@@ -51,6 +51,13 @@
             </dependency>
 
             <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>${maven.version.javax-annotation-api}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>net.ttddyy</groupId>
                 <artifactId>datasource-proxy</artifactId>
                 <version>${maven.version.datasource-proxy}</version>
@@ -75,6 +82,12 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>kr.motd.maven</groupId>
+                    <artifactId>os-maven-plugin</artifactId>
+                    <version>${maven.plugin.version.os-maven}</version>
+                </plugin>
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
