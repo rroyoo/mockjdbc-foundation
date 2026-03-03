@@ -25,26 +25,15 @@
         <maven.plugin.version.compiler>3.11.0</maven.plugin.version.compiler>
         <maven.plugin.version.protobuf>5.0.0</maven.plugin.version.protobuf>
         <maven.version.datasource-proxy>1.11.0</maven.version.datasource-proxy>
-        <maven.version.protobuf>4.34.0</maven.version.protobuf>
         <maven.version.grpc>1.79.0</maven.version.grpc>
+        <maven.version.mockito>5.12.0</maven.version.mockito>
+        <maven.version.protobuf>4.34.0</maven.version.protobuf>
         <maven.version.test.junit-jupiter>5.11.3</maven.version.test.junit-jupiter>
         <revision>1.0.0-SNAPSHOT</revision>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>net.ttddyy</groupId>
-                <artifactId>datasource-proxy</artifactId>
-                <version>${maven.version.datasource-proxy}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter</artifactId>
-                <version>${maven.version.test.junit-jupiter}</version>
-            </dependency>
-
             <dependency>
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-bom</artifactId>
@@ -59,6 +48,26 @@
                 <version>${maven.version.grpc}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>net.ttddyy</groupId>
+                <artifactId>datasource-proxy</artifactId>
+                <version>${maven.version.datasource-proxy}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${maven.version.test.junit-jupiter}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${maven.version.mockito}</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
