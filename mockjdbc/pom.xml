@@ -21,9 +21,11 @@
         <java.version>17</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <maven.plugin.version.compiler>3.11.0</maven.plugin.version.compiler>
+        <maven.plugin.version.os-maven>1.7.1</maven.plugin.version.os-maven>
         <maven.plugin.version.protobuf>5.0.0</maven.plugin.version.protobuf>
         <maven.version.datasource-proxy>1.11.0</maven.version.datasource-proxy>
         <maven.version.grpc>1.79.0</maven.version.grpc>
+        <maven.version.javax-annotation-api>1.3.2</maven.version.javax-annotation-api>
         <maven.version.mockito>5.12.0</maven.version.mockito>
         <maven.version.protobuf>4.34.0</maven.version.protobuf>
         <maven.version.test.junit-jupiter>5.11.3</maven.version.test.junit-jupiter>
