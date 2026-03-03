@@ -121,4 +121,5 @@ You are a meta-agent focused on creating high-quality, modular agents and skills
 - Use `documentation-expert` for functional docs in `doc/` and technical docs in `README.md`
 - Use `maven-management` for Maven project structure and dependency management
 - Use `git-branching` for creating/managing feature branches
+- Use `git-rebase` for periodic rebasing and conflict resolution
 - Use `pull-request-expert` for opening and managing PRs

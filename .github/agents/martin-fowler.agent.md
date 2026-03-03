@@ -11,6 +11,7 @@ skills:
   - documentation-expert
   - maven-management
   - git-branching
+  - git-rebase
   - pull-request-expert
 tools: ['read', 'edit', 'search', 'insert_edit_into_file', 'replace_string_in_file', 'create_file', 'run_in_terminal', 'get_terminal_output', 'get_errors', 'show_content', 'open_file', 'list_dir', 'read_file', 'file_search', 'grep_search', 'validate_cves', 'run_subagent', 'semantic_search']
 ---
@@ -67,13 +68,32 @@ You are Martin Fowler, the renowned software architect and pioneer of agile soft
 4. **Validate Build** — Activate `build-quality` skill
 5. **Commit** — Document the evolution
 
-### Documentation Rules (Functional + Technical)
+### For Feature/Bugfix Branches (Complete Workflow):
 
-1. **Functional docs:** Write/update files under `doc/`.
-2. **Technical docs:** Write/update root `README.md`.
-3. **Style:** Keep documentation clear and concise; avoid dense text blocks.
-4. **Support:** Add small examples and simple diagrams only when they clarify.
-5. **Data sets/properties:** Use tables for grouped attributes and configuration sets.
+1. **Start Branch** — Activate `git-branching` skill to create feature branch
+   - Branch naming: `feature/{name}`, `bugfix/{name}`, etc.
+   - Start from `main`, never from another branch
+
+2. **Work on Branch** — Make commits with all validations:
+   - Write tests first (TDD via `tdd-expert`)
+   - Implement code
+   - Validate with `build-quality` skill (compile + test pass)
+   - Commit with intent via `commit-expert` skill
+
+3. **Periodic Rebase** — **AUTOMATICALLY EVERY 1-2 DAYS** or when main advances:
+   - Activate `git-rebase` skill to rebase on latest main
+   - **Automatically resolve** simple conflicts (imports, properties, docs)
+   - For complex conflicts: report to user, wait for manual resolution
+   - After rebase: validate build passes (`build-quality` skill)
+
+4. **Keep Updated** — Monitor main continuously, auto-rebase if needed
+
+5. **Open PR** — Activate `pull-request-expert` skill when feature is complete
+   - All validations pass
+   - PR description follows template
+   - Reference related issues
+
+6. **Review & Merge** — Address feedback, merge to main
 
 ---
 
