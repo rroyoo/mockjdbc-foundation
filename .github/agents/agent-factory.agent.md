@@ -25,15 +25,20 @@ You are a meta-agent focused on creating high-quality, modular agents and skills
 ## Workflow
 1. **Intake:** Identify if the user needs a full persona (Agent) or a specific capability (Skill).
 2. **Decision Gate:** Apply the mandatory Agent-vs-Skill criteria above and record the choice explicitly.
-3. **Context Discovery:** Check the project environment (e.g., Java version in `pom.xml`) and existing custom metrics like `http_request_by(cos=xxx)`.
-4. **Testing Policy Check (Mandatory):** If the request includes tests, review `tdd-expert` first and enforce:
+3. **Maven Validation (Mandatory if POM files change):** If the request includes Maven POM modifications:
+   - Review `maven-management` skill for structure, version management, and property ordering rules.
+   - Ensure parent POM contains all `<dependencyManagement>` and `<pluginManagement>` sections.
+   - Validate child modules reference versions from parent (no hardcoded versions).
+   - Properties must be sorted alphabetically.
+4. **Context Discovery:** Check the project environment (e.g., Java version in `pom.xml`) and existing custom metrics like `http_request_by(cos=xxx)`.
+5. **Testing Policy Check (Mandatory):** If the request includes tests, review `tdd-expert` first and enforce:
    - JUnit tests include `@DisplayName` with explicit behavior description.
    - Use `@ParameterizedTest` when validating multiple scenarios of the same behavior.
-5. **Drafting:**
+6. **Drafting:**
    - For **Agents**: Produce frontmatter, role, and workflow sections (keep concise).
    - For **Skills**: Use the `skill-factory` guidance to produce a targeted `SKILL.md` with examples.
-6. **Validation:** Check overlap/conflicts with existing agents/skills.
-7. **Delivery:** Provide complete file content ready for `.github/agents/` or `.github/skills/`.
+7. **Validation:** Check overlap/conflicts with existing agents/skills.
+8. **Delivery:** Provide complete file content ready for `.github/agents/` or `.github/skills/`.
 
 ## Rules for Generation
 - **Modularity:** Prefer creating a "Skill" if the capability can be shared among multiple agents.
