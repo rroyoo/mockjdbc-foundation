@@ -4,48 +4,69 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
+/**
+ * Mock JDBC Connection implementation.
+ * Provides minimal, testable connection support without actual database I/O.
+ */
 final class MockConnection implements Connection {
 
-    private final Properties properties;
+    /**
+     * Captures the default state of a newly created MockConnection.
+     * All fields are immutable; mutable state is managed separately in MockConnection.
+     */
+    private record DefaultState(
+        int holdability,
+        int transactionIsolation,
+        int networkTimeout,
+        String schema,
+        String catalog
+    ) {
+        static DefaultState create() {
+            return new DefaultState(
+                ResultSet.CLOSE_CURSORS_AT_COMMIT,
+                Connection.TRANSACTION_NONE,
+                Integer.MAX_VALUE,
+                "mockjdbcSchema",
+                "mockjdbcCatalog"
+            );
+        }
+    }
 
+    // Immutable state
+    private final Properties properties;
+    private final Map<String, Class<?>> typeMap;
+    private final MockQueryServiceAdapter mockQueryServiceAdapter;
+    private final DefaultState defaults;
+
+    // Mutable state
     private boolean closed;
     private boolean autoCommit;
     private boolean readOnly;
-
     private int holdability;
     private int transactionIsolation;
     private int networkTimeout;
-
     private String schema;
     private String catalog;
-
-    private final Map<String, Class<?>> typeMap;
-
     private SQLWarning sqlWarning;
-
-    private final MockQueryServiceAdapter mockQueryServiceAdapter;
 
     MockConnection(Properties properties, MockQueryServiceAdapter mockQueryServiceAdapter) {
         this.properties = properties;
+        this.mockQueryServiceAdapter = mockQueryServiceAdapter;
+        this.typeMap = new HashMap<>();
+        this.defaults = DefaultState.create();
+
+        // Initialize mutable state from defaults
         this.closed = false;
         this.autoCommit = false;
         this.readOnly = false;
-
-        this.holdability = ResultSet.CLOSE_CURSORS_AT_COMMIT;
-        this.transactionIsolation = Connection.TRANSACTION_NONE;
-        this.networkTimeout = Integer.MAX_VALUE;
-
-        this.schema = "mockjdbcSchema";
-        this.catalog = "mockjdbcCatalog";
-
-        this.typeMap = new ConcurrentHashMap<>();
-
+        this.holdability = defaults.holdability();
+        this.transactionIsolation = defaults.transactionIsolation();
+        this.networkTimeout = defaults.networkTimeout();
+        this.schema = defaults.schema();
+        this.catalog = defaults.catalog();
         this.sqlWarning = new SQLWarning();
-
-        this.mockQueryServiceAdapter = mockQueryServiceAdapter;
     }
 
     @Override
@@ -89,12 +110,17 @@ final class MockConnection implements Connection {
     @Override
     public void close() {
         this.closed = true;
-
         try {
-            this.mockQueryServiceAdapter.close();
+            mockQueryServiceAdapter.close();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Failed to close MockQueryServiceAdapter", e);
         }
+    }
+
+    // ... existing code ...
+
+    private void throwUnsupported(String feature) throws SQLFeatureNotSupportedException {
+        throw new SQLFeatureNotSupportedException(feature + " is not supported by MockConnection");
     }
 
     @Override
@@ -185,72 +211,84 @@ final class MockConnection implements Connection {
 
     @Override
     public Savepoint setSavepoint() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Savepoints are not supported by MockConnection");
+        throwUnsupported("Savepoints");
+        return null;
     }
 
     @Override
     public Savepoint setSavepoint(String name) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Savepoints are not supported by MockConnection");
+        throwUnsupported("Savepoints");
+        return null;
     }
 
     @Override
     public void rollback(Savepoint savepoint) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Rollback to savepoint is not supported by MockConnection");
+        throwUnsupported("Rollback to savepoint");
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Release savepoint is not supported by MockConnection");
+        throwUnsupported("Release savepoint");
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Creating statements with specific result set type, concurrency and holdability is not supported by MockConnection");
+        throwUnsupported("Creating statements with specific result set type, concurrency and holdability");
+        return null;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Preparing sql statements with specific result set type, concurrency and holdability is not supported by MockConnection");
+        throwUnsupported("Preparing sql statements with specific result set type, concurrency and holdability");
+        return null;
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Preparing callable sql statements with specific result set type, concurrency and holdability is not supported by MockConnection");
+        throwUnsupported("Preparing callable sql statements with specific result set type, concurrency and holdability");
+        return null;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Preparing sql statements with auto generated keys is not supported by MockConnection");
+        throwUnsupported("Preparing sql statements with auto generated keys");
+        return null;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Preparing sql statements with specific column indexes is not supported by MockConnection");
+        throwUnsupported("Preparing sql statements with specific column indexes");
+        return null;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Preparing sql statements with specific column names is not supported by MockConnection");
+        throwUnsupported("Preparing sql statements with specific column names");
+        return null;
     }
 
     @Override
     public Clob createClob() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Creating Clobs is not supported by MockConnection");
+        throwUnsupported("Creating Clobs");
+        return null;
     }
 
     @Override
     public Blob createBlob() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Creating Blobs is not supported by MockConnection");
+        throwUnsupported("Creating Blobs");
+        return null;
     }
 
     @Override
     public NClob createNClob() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Creating NClobs is not supported by MockConnection");
+        throwUnsupported("Creating NClobs");
+        return null;
     }
 
     @Override
     public SQLXML createSQLXML() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Creating SQLXML is not supported by MockConnection");
+        throwUnsupported("Creating SQLXML");
+        return null;
     }
 
     @Override
@@ -280,12 +318,14 @@ final class MockConnection implements Connection {
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Creating SQL arrays is not supported by MockConnection");
+        throwUnsupported("Creating SQL arrays");
+        return null;
     }
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-        throw new SQLFeatureNotSupportedException("Creating SQL structs is not supported by MockConnection");
+        throwUnsupported("Creating SQL structs");
+        return null;
     }
 
     @Override
