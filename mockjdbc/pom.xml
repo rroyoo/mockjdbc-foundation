@@ -9,8 +9,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <!-- Add submodule names here, e.g. -->
-        <!-- <module>submodule1</module> -->
         <module>mockjdbc-proxy</module>
         <module>mockjdbc-proto</module>
         <module>mockjdbc-mock</module>
