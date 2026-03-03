@@ -42,6 +42,9 @@ Use this skill when opening a Pull Request (PR) to merge feature branches into `
 **BEFORE opening any PR, MUST verify:**
 
 ```bash
+# 0. Ensure GitHub CLI is authenticated
+gh auth status || gh auth login
+
 # 1. Branch is up-to-date with main
 git fetch origin
 git rebase origin/main  # NO conflicts
@@ -61,6 +64,14 @@ git push origin feature/{feature-name}
 # 6. Verify remote has your commits
 git log origin/main..origin/feature/{feature-name} --oneline
 ```
+
+**GitHub CLI Authentication:**
+- Run `gh auth status` to check if authenticated
+- If NOT authenticated, run `gh auth login` and follow prompts:
+  1. Select "GitHub.com"
+  2. Select "HTTPS" or "SSH" (match your git remote)
+  3. Authenticate via web browser
+  4. After success, verify with `gh auth status`
 
 **If ANY check fails:**
 - ❌ Do NOT open PR
