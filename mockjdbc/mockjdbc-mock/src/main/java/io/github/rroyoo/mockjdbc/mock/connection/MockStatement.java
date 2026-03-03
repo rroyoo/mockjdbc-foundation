@@ -1018,12 +1018,12 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public int getResultSetConcurrency() throws SQLException {
-        return this.resultSetConcurrency;
+        return config.resultSetConcurrency();
     }
 
     @Override
     public int getResultSetType() throws SQLException {
-        return this.resultSetType;
+        return config.resultSetType();
     }
 
     @Override
@@ -1088,7 +1088,7 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public int getResultSetHoldability() throws SQLException {
-        return this.resultSetHoldability;
+        return config.resultSetHoldability();
     }
 
     @Override
