@@ -32,8 +32,9 @@ verify(mockRepo).save(any(Order.class));
 ```
 
 ### 3. Test Naming & Clarity
-- Use descriptive names: `testShouldReturnEmptyListWhenInputIsNull()` or `@DisplayName("should reject null input")`
-- Name pattern: `testShould{ExpectedBehavior}When{Condition}`
+- `@DisplayName` is mandatory on every JUnit test method.
+- `@DisplayName` must describe behavior and condition (e.g., "should map one event when parameters are absent").
+- Keep method names descriptive, but treat `@DisplayName` as the canonical readable contract.
 - Each test should test ONE behavior
 
 ### 4. Meaningful Assertions
@@ -60,9 +61,9 @@ verify(mockRepo).save(any(Order.class));
 
 ### JUnit5 (Jupiter)
 - `@Test` — Mark method as a test
-- `@DisplayName("description")` — Human-readable test name
+- `@DisplayName("description")` — Mandatory human-readable test behavior
 - `@BeforeEach` / `@AfterEach` — Setup and teardown per test
-- `@ParameterizedTest` with `@ValueSource`, `@CsvSource` — Test multiple scenarios
+- `@ParameterizedTest` with `@ValueSource`, `@CsvSource`, `@MethodSource` — Mandatory when validating multiple scenarios of the same behavior
 - `assertThrows()` — Verify exception handling
 
 ### Mockito
@@ -93,6 +94,8 @@ verify(mockRepo).save(any(Order.class));
 - ❌ **Poor Test Names:** `test1()`, `testMethod()` provide no context
 - ❌ **Ignoring Failures:** Don't skip tests without clear explanation
 - ❌ **Testing Getters/Setters:** Unless they're part of a contract or contain logic
+- ❌ **Missing DisplayName:** Tests without `@DisplayName` reduce readability in reports
+- ❌ **Scenario Duplication:** Multiple near-identical tests instead of one `@ParameterizedTest`
 
 ## Quality Bar & Verification
 
@@ -104,6 +107,8 @@ A test suite is complete when:
 - [ ] No flaky tests (tests that intermittently fail)
 - [ ] Edge cases and error conditions are tested
 - [ ] Mocks are used appropriately (not overused)
+- [ ] Every test method has `@DisplayName`
+- [ ] Repeated scenario checks are consolidated into `@ParameterizedTest`
 
 ## Example Application
 
@@ -163,5 +168,3 @@ void testInvalidAmounts(double amount) {
 3. **Keep Tests Simple:** If a test is hard to write, the code design is probably wrong.
 4. **Refactor Tests Too:** Tests are code; keep them clean and maintainable.
 5. **Use Parameterized Tests:** Avoid test duplication with `@ParameterizedTest`.
-
-
