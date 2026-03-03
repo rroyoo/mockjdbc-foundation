@@ -45,7 +45,9 @@ class MockDriverTest {
     })
     @DisplayName("should connect to valid mock JDBC url with properties")
     void shouldConnectToValidUrl(String url) throws SQLException {
-        assertNotNull(driver.connect(url, new Properties()));
+        try (var connection = driver.connect(url, new Properties())) {
+            assertNotNull(connection);
+        }
     }
 
     @DisplayName("should throw exception when connecting to invalid url")
