@@ -1,5 +1,6 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
+import io.github.rroyoo.mockjdbc.proxy.mapper.QueryExecutionEventMapper;
 import net.ttddyy.dsproxy.ExecutionInfo;
 import net.ttddyy.dsproxy.QueryInfo;
 import net.ttddyy.dsproxy.listener.QueryExecutionListener;
@@ -12,9 +13,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class AfterQueryExecutionListenerTest {
 
@@ -69,7 +68,7 @@ class AfterQueryExecutionListenerTest {
         listener.afterQuery(execInfo, List.of(query1, query2));
 
         ArgumentCaptor<QueryExecutionEvent> captor = ArgumentCaptor.forClass(QueryExecutionEvent.class);
-        verify(mockEventListener).onQueryExecutionEvent(captor.capture());
+        verify(mockEventListener, times(2)).onQueryExecutionEvent(captor.capture());
 
         List<QueryExecutionEvent> captured = captor.getAllValues();
         assertEquals(2, captured.size());

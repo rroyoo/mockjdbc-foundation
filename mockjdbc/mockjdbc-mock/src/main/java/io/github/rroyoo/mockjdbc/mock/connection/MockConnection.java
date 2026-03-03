@@ -1,5 +1,7 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
+import io.github.rroyoo.mockjdbc.mock.MockedQueryService;
+
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +39,7 @@ final class MockConnection implements Connection {
     // Immutable state
     private final Properties properties;
     private final Map<String, Class<?>> typeMap;
-    private final MockQueryServiceAdapter mockQueryServiceAdapter;
+    private final QueryServiceAdapter queryServiceAdapter;
     private final DefaultState defaults;
 
     // Mutable state
@@ -51,9 +53,9 @@ final class MockConnection implements Connection {
     private String catalog;
     private SQLWarning sqlWarning;
 
-    MockConnection(Properties properties, MockQueryServiceAdapter mockQueryServiceAdapter) {
+    MockConnection(Properties properties, QueryServiceAdapter queryServiceAdapter) {
         this.properties = properties;
-        this.mockQueryServiceAdapter = mockQueryServiceAdapter;
+        this.queryServiceAdapter = queryServiceAdapter;
         this.typeMap = new HashMap<>();
         this.defaults = DefaultState.create();
 
@@ -111,7 +113,7 @@ final class MockConnection implements Connection {
     public void close() {
         this.closed = true;
         try {
-            mockQueryServiceAdapter.close();
+            queryServiceAdapter.close();
         } catch (Exception e) {
             throw new RuntimeException("Failed to close MockQueryServiceAdapter", e);
         }
@@ -362,7 +364,7 @@ final class MockConnection implements Connection {
         return iface.isInstance(this);
     }
 
-    public MockQueryServiceAdapter getMockQueryServiceAdapter() {
-        return this.mockQueryServiceAdapter;
+    public QueryServiceAdapter getQueryServiceAdapter() {
+        return this.queryServiceAdapter;
     }
 }

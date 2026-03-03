@@ -3,22 +3,37 @@ package io.github.rroyoo.mockjdbc.mock.connection;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.sql.SQLException;
+import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MockConnectionTest {
 
     @Test
-    @DisplayName("should fail to create connection without valid gRPC adapter")
-    void shouldFailWithoutGrpcAdapter() throws SQLException {
-        // MockConnection requires a valid GrpcQueryServiceAdapter with gRPC connectivity.
-        // Full integration test would mock the gRPC service.
-        // This test structure is ready for mock adapter implementation.
+    @DisplayName("should create connection with valid adapter")
+    void shouldCreateConnectionWithValidAdapter() throws Exception {
+        Properties props = new Properties();
+        props.setProperty("host", "localhost");
+        props.setProperty("port", "50051");
 
-        // Placeholder: integration test with mock gRPC adapter
+        GrpcQueryServiceAdapter adapter = new GrpcQueryServiceAdapter(props);
+        MockConnection connection = new MockConnection(props, adapter);
+
+        assertNotNull(connection);
+
+        connection.close();
+        adapter.close();
+    }
+
+    @Test
+    @DisplayName("should throw when adapter creation fails due to missing host")
+    void shouldFailWithoutHost() {
+        Properties props = new Properties();
+        props.setProperty("port", "50051");
+
         assertThrows(Exception.class, () -> {
-            // Test initialization with invalid properties would fail here
+            new GrpcQueryServiceAdapter(props);
         });
     }
 }

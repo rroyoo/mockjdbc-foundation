@@ -4,7 +4,6 @@ import io.github.rroyoo.mockjdbc.mock.*;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
-import java.io.IOException;
 import java.net.PortUnreachableException;
 import java.rmi.UnknownHostException;
 import java.sql.SQLException;
@@ -108,7 +107,7 @@ final class GrpcQueryServiceAdapter implements QueryServiceAdapter {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if (managedChannel != null && !managedChannel.isShutdown()) {
             try {
                 managedChannel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
