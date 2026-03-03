@@ -9,92 +9,121 @@ import java.util.Calendar;
 import java.util.Map;
 
 /**
- * A mock implementation of the {@link CallableStatement} interface for testing purposes.
- * This class provides empty implementations for all methods, allowing it to be used in tests without
- * requiring a real database connection.
+ * Mock implementation of JDBC Statement/PreparedStatement/CallableStatement interfaces.
+ * Provides stub implementations for all methods, allowing use in tests without a real database.
+ *
+ * This class is intentionally bloated to satisfy all three statement interfaces.
+ * In production code, consider using sealed classes or composition to split responsibilities.
  */
 public final class MockStatement implements CallableStatement {
 
+    /**
+     * Encapsulates the configuration of a mock statement.
+     * Defaults match JDBC standard defaults for forward-only, read-only result sets.
+     */
+    private record StatementConfig(
+        int resultSetType,
+        int resultSetConcurrency,
+        int resultSetHoldability
+    ) {
+        static StatementConfig defaults() {
+            return new StatementConfig(
+                ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY,
+                ResultSet.CLOSE_CURSORS_AT_COMMIT
+            );
+        }
+    }
+
     private final MockConnection mockConnection;
     private final String sql;
-    private final int resultSetType;
-    private final int resultSetConcurrency;
-    private final int resultSetHoldability;
+    private final StatementConfig config;
 
     MockStatement(MockConnection mockConnection) throws SQLException {
-        this(mockConnection, null);
+        this(mockConnection, null, StatementConfig.defaults());
     }
 
     MockStatement(MockConnection mockConnection, String sql) throws SQLException {
-        this(mockConnection, sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT);
+        this(mockConnection, sql, StatementConfig.defaults());
     }
 
     MockStatement(MockConnection mockConnection, String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+        this(mockConnection, sql, new StatementConfig(resultSetType, resultSetConcurrency, resultSetHoldability));
+    }
+
+    private MockStatement(MockConnection mockConnection, String sql, StatementConfig config) {
         this.mockConnection = mockConnection;
         this.sql = sql;
-        this.resultSetType = resultSetType;
-        this.resultSetConcurrency = resultSetConcurrency;
-        this.resultSetHoldability = resultSetHoldability;
+        this.config = config;
     }
+
+    // Stub helpers to reduce boilerplate
+    private static String stubString() { return ""; }
+    private static boolean stubBoolean() { return false; }
+    private static byte stubByte() { return 0; }
+    private static short stubShort() { return 0; }
+    private static int stubInt() { return 0; }
+    private static long stubLong() { return 0L; }
+    private static float stubFloat() { return 0.0f; }
+    private static double stubDouble() { return 0.0d; }
+    private static <T> T stubNull() { return null; }
 
     @Override
     public void registerOutParameter(int parameterIndex, int sqlType) throws SQLException {
-
     }
 
     @Override
     public void registerOutParameter(int parameterIndex, int sqlType, int scale) throws SQLException {
-
     }
 
     @Override
     public boolean wasNull() throws SQLException {
-        return false;
+        return stubBoolean();
     }
 
     @Override
     public String getString(int parameterIndex) throws SQLException {
-        return "";
+        return stubString();
     }
 
     @Override
     public boolean getBoolean(int parameterIndex) throws SQLException {
-        return false;
+        return stubBoolean();
     }
 
     @Override
     public byte getByte(int parameterIndex) throws SQLException {
-        return 0;
+        return stubByte();
     }
 
     @Override
     public short getShort(int parameterIndex) throws SQLException {
-        return 0;
+        return stubShort();
     }
 
     @Override
     public int getInt(int parameterIndex) throws SQLException {
-        return 0;
+        return stubInt();
     }
 
     @Override
     public long getLong(int parameterIndex) throws SQLException {
-        return 0;
+        return stubLong();
     }
 
     @Override
     public float getFloat(int parameterIndex) throws SQLException {
-        return 0;
+        return stubFloat();
     }
 
     @Override
     public double getDouble(int parameterIndex) throws SQLException {
-        return 0;
+        return stubDouble();
     }
 
     @Override
     public BigDecimal getBigDecimal(int parameterIndex, int scale) throws SQLException {
-        return null;
+        return stubNull();
     }
 
     @Override
@@ -319,42 +348,42 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public String getString(String parameterName) throws SQLException {
-        return "";
+        return stubString();
     }
 
     @Override
     public boolean getBoolean(String parameterName) throws SQLException {
-        return false;
+        return stubBoolean();
     }
 
     @Override
     public byte getByte(String parameterName) throws SQLException {
-        return 0;
+        return stubByte();
     }
 
     @Override
     public short getShort(String parameterName) throws SQLException {
-        return 0;
+        return stubShort();
     }
 
     @Override
     public int getInt(String parameterName) throws SQLException {
-        return 0;
+        return stubInt();
     }
 
     @Override
     public long getLong(String parameterName) throws SQLException {
-        return 0;
+        return stubLong();
     }
 
     @Override
     public float getFloat(String parameterName) throws SQLException {
-        return 0;
+        return stubFloat();
     }
 
     @Override
     public double getDouble(String parameterName) throws SQLException {
-        return 0;
+        return stubDouble();
     }
 
     @Override
@@ -364,22 +393,22 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public Date getDate(String parameterName) throws SQLException {
-        return null;
+        return stubNull();
     }
 
     @Override
     public Time getTime(String parameterName) throws SQLException {
-        return null;
+        return stubNull();
     }
 
     @Override
     public Timestamp getTimestamp(String parameterName) throws SQLException {
-        return null;
+        return stubNull();
     }
 
     @Override
     public Object getObject(String parameterName) throws SQLException {
-        return null;
+        return stubNull();
     }
 
     @Override
