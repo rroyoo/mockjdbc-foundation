@@ -1,5 +1,8 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
+import io.github.rroyoo.mockjdbc.mock.MockedQuery;
+import io.github.rroyoo.mockjdbc.mock.resultset.MockResultSetConverter;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -633,7 +636,21 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public ResultSet executeQuery() throws SQLException {
-        return null;
+        if (sql == null) {
+            throw new SQLException("No SQL statement provided for PreparedStatement");
+        }
+
+        // Query gRPC service for prepared statement
+        io.github.rroyoo.mockjdbc.mock.PreparedStatement preparedStatement =
+            io.github.rroyoo.mockjdbc.mock.PreparedStatement.newBuilder()
+                .setSql(sql)
+                .build();
+
+        MockedQuery mockedQuery = mockConnection.getQueryServiceAdapter()
+            .findMockedQuery(preparedStatement);
+
+        // Convert protobuf SerializedResultSet to JDBC ResultSet
+        return MockResultSetConverter.convert(mockedQuery.getResultSet());
     }
 
     @Override
@@ -908,7 +925,17 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        return null;
+        // Query gRPC service for mocked query definition
+        io.github.rroyoo.mockjdbc.mock.PlainStatement plainStatement =
+            io.github.rroyoo.mockjdbc.mock.PlainStatement.newBuilder()
+                .setSql(sql)
+                .build();
+
+        MockedQuery mockedQuery = mockConnection.getQueryServiceAdapter()
+            .findMockedQuery(plainStatement);
+
+        // Convert protobuf SerializedResultSet to JDBC ResultSet
+        return MockResultSetConverter.convert(mockedQuery.getResultSet());
     }
 
     @Override

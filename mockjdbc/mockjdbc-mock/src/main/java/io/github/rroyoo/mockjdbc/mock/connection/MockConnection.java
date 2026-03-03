@@ -71,6 +71,7 @@ final class MockConnection implements Connection {
         this.sqlWarning = new SQLWarning();
     }
 
+
     @Override
     public Statement createStatement() throws SQLException {
         return new MockStatement(this);
