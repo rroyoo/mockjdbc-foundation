@@ -36,8 +36,8 @@ final class DefaultMockQueryServiceAdapter implements MockQueryServiceAdapter {
         var port = getPort(properties);
         var keepAliveTime = getKeepAliveTime(properties);
         var keepAliveTimeUnit = getKeepAliveTimeUnit(properties);
-        var keepAliveTimeout = getDefaultKeepAliveTimeout(properties);
-        var keepAliveTimeoutUnit = getDefaultKeepAliveTimeoutUnit(properties);
+        var keepAliveTimeout = getKeepAliveTimeout(properties);
+        var keepAliveTimeoutUnit = getKeepAliveTimeoutUnit(properties);
         var idleTimeout = getIdleTimeout(properties);
         var idleTimeoutUnit = getIdleTimeoutUnit(properties);
 
@@ -63,51 +63,45 @@ final class DefaultMockQueryServiceAdapter implements MockQueryServiceAdapter {
     }
 
     private long getKeepAliveTime(Properties properties) {
-        return getPropertyOrDefault(MockConnectionProperties.KEEP_ALIVE_TIME.getKey(), properties, Long::parseLong, DEFAULT_KEEP_ALIVE_TIME)
-                .orElseThrow(() -> new IllegalArgumentException("Keep alive time must be a valid long value."));
+        return getPropertyOrDefault(MockConnectionProperties.KEEP_ALIVE_TIME.getKey(), properties, Long::parseLong, DEFAULT_KEEP_ALIVE_TIME);
     }
 
     private TimeUnit getKeepAliveTimeUnit(Properties properties) {
-        return getPropertyOrDefault(MockConnectionProperties.KEEP_ALIVE_TIME_UNIT.getKey(), properties, TimeUnit::valueOf, DEFAULT_KEEP_ALIVE_TIME_UNIT)
-                .orElseThrow(() -> new IllegalArgumentException("Keep alive time unit must be a valid TimeUnit value."));
+        return getPropertyOrDefault(MockConnectionProperties.KEEP_ALIVE_TIME_UNIT.getKey(), properties, TimeUnit::valueOf, DEFAULT_KEEP_ALIVE_TIME_UNIT);
     }
 
-    private long getDefaultKeepAliveTimeout(Properties properties) {
-        return getPropertyOrDefault(MockConnectionProperties.KEEP_ALIVE_TIMEOUT.getKey(), properties, Long::parseLong, DEFAULT_KEEP_ALIVE_TIMEOUT)
-                .orElseThrow(() -> new IllegalArgumentException("Keep alive timeout must be a valid long value."));
+    private long getKeepAliveTimeout(Properties properties) {
+        return getPropertyOrDefault(MockConnectionProperties.KEEP_ALIVE_TIMEOUT.getKey(), properties, Long::parseLong, DEFAULT_KEEP_ALIVE_TIMEOUT);
     }
 
-    private TimeUnit getDefaultKeepAliveTimeoutUnit(Properties properties) {
-        return getPropertyOrDefault(MockConnectionProperties.KEEP_ALIVE_TIMEOUT_TIME_UNIT.getKey(), properties, TimeUnit::valueOf, DEFAULT_KEEP_ALIVE_TIMEOUT_TIME_UNIT)
-                .orElseThrow(() -> new IllegalArgumentException("Keep alive timeout unit must be a valid TimeUnit value."));
+    private TimeUnit getKeepAliveTimeoutUnit(Properties properties) {
+        return getPropertyOrDefault(MockConnectionProperties.KEEP_ALIVE_TIMEOUT_TIME_UNIT.getKey(), properties, TimeUnit::valueOf, DEFAULT_KEEP_ALIVE_TIMEOUT_TIME_UNIT);
     }
 
     private long getIdleTimeout(Properties properties) {
-        return getPropertyOrDefault(MockConnectionProperties.IDLE_TIMEOUT.getKey(), properties, Long::parseLong, DEFAULT_IDLE_TIMEOUT)
-                .orElseThrow(() -> new IllegalArgumentException("Idle timeout must be a valid long value."));
+        return getPropertyOrDefault(MockConnectionProperties.IDLE_TIMEOUT.getKey(), properties, Long::parseLong, DEFAULT_IDLE_TIMEOUT);
     }
 
     private TimeUnit getIdleTimeoutUnit(Properties properties) {
-        return getPropertyOrDefault(MockConnectionProperties.IDLE_TIMEOUT_TIME_UNIT.getKey(), properties, TimeUnit::valueOf, DEFAULT_IDLE_TIMEOUT_TIME_UNIT)
-                .orElseThrow(() -> new IllegalArgumentException("Idle timeout unit must be a valid TimeUnit value."));
+        return getPropertyOrDefault(MockConnectionProperties.IDLE_TIMEOUT_TIME_UNIT.getKey(), properties, TimeUnit::valueOf, DEFAULT_IDLE_TIMEOUT_TIME_UNIT);
     }
 
-    private <T> Optional<T> getProperty(String key, Properties properties, Function<String, T> mapper) {
-        return getPropertyOrDefault(key, properties, mapper, null);
-    }
-
-    private <T> Optional<T> getPropertyOrDefault(String key, Properties properties, Function<String, T> mapper, T defaultValue) {
-        if(!properties.containsKey(key)) {
-            return Optional.ofNullable(defaultValue);
+    private <T> T getPropertyOrDefault(String key, Properties properties, Function<String, T> mapper, T defaultValue) {
+        if (!properties.containsKey(key)) {
+            return defaultValue;
         }
-
-        return Optional.ofNullable(mapper.apply(properties.getProperty(key)));
+        return mapper.apply(properties.getProperty(key));
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         if (managedChannel != null && !managedChannel.isShutdown()) {
-            managedChannel.shutdown();
+            try {
+                managedChannel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                managedChannel.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
