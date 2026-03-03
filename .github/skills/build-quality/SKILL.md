@@ -1,7 +1,40 @@
 # Skill: Build Quality Assurance
 
 ## Context
-Use this skill when you need to validate code quality before committing. This skill ensures compilation, test execution, code coverage analysis, and static analysis checks are performed consistently. Enforce a "green build" before any commit.
+Use this skill when you need to validate code quality before committing. This skill is a **GATING SKILL** — code MUST pass ALL checks before proceeding. **NEVER commit without validating through this skill.**
+
+## CRITICAL ENFORCEMENT RULES (Non-Negotiable)
+
+### Rule 1: NEVER Commit Without Validation
+- ❌ NO commits without `mvn clean compile`
+- ❌ NO commits without `mvn test` passing
+- ❌ NO commits if ANY check fails
+- ❌ NO commits if terminal is unresponsive
+- ❌ NO commits if output is ambiguous
+
+### Rule 2: Explicit Exit Code Verification
+```bash
+mvn clean compile && echo "COMPILE_OK" || echo "COMPILE_FAILED"
+mvn test && echo "TEST_OK" || echo "TEST_FAILED"
+echo "Exit code: $?"  # MUST be 0
+```
+- Do NOT assume success from empty output
+- Do NOT trust unclear/ambiguous output
+- Capture and verify exit code explicitly
+
+### Rule 3: Terminal Responsiveness Gate
+Before running ANY validation:
+```bash
+echo "GATE_TEST" && date  # Must return immediately
+# If no response in 5 seconds: STOP, do NOT commit
+```
+
+### Rule 4: Build Success Confirmation
+You MUST see these exact strings in output:
+- `[INFO] BUILD SUCCESS` ← Mandatory indicator
+- `Tests run: X, Failures: 0, Errors: 0` ← For unit tests
+- No `[ERROR]` messages ← Absolutely required
+- No `[FATAL]` messages ← Absolutely required
 
 ## When to Use This Skill
 - **Trigger 1:** User says "I'm ready to commit" or "commit my changes"
@@ -12,34 +45,42 @@ Use this skill when you need to validate code quality before committing. This sk
 
 ## Core Principles & Guidelines
 
-### 1. Pre-Commit Validation Checklist
-Before ANY commit, execute this sequence:
+### 1. Pre-Commit Validation Checklist (Sequential Gates)
+Execute this sequence. **STOP if ANY step fails.**
+
 ```bash
-# Step 1: Clean and compile
+# Gate 1: Terminal Responsiveness
+echo "VALIDATION_GATE" && date
+# If no response: STOP, report terminal issue
+
+# Gate 2: Compilation
 mvn clean compile
+# If fails: STOP, report compilation error
 
-# Step 2: Run all unit tests
+# Gate 3: Unit Tests
 mvn test
+# If fails: STOP, report test failure
 
-# Step 3: Run integration tests and verify
+# Gate 4: Integration Tests  
 mvn verify
+# If fails: STOP, report integration failure
 
-# Step 4: Check code coverage (≥80% for modified code)
+# Gate 5: Code Coverage (if applicable)
 mvn jacoco:report
-
-# Step 5: Optional static analysis
-mvn spotbugs:check pmd:check
+# If < 80%: STOP, add tests
 ```
 
 ### 2. Build State Requirements
-- ✅ **Green Build:** All tests pass, no compilation errors
+- ✅ **Green Build:** All tests pass, no compilation errors, `[INFO] BUILD SUCCESS`
 - ✅ **Code Coverage:** ≥80% for business logic, 100% for critical paths
 - ✅ **No Warnings:** Resolve compiler warnings or document exceptions
-- ✅ **Deterministic:** Build passes consistently, no flaky tests
+- ✅ **Deterministic:** Build passes consistently, no flaky tests (each test <100ms)
+- ✅ **No Dead Code:** No unused imports, variables, or commented code (per java-modernizer)
 
 ### 3. Fail-Fast Approach
 - Stop immediately if compilation fails
 - Do NOT proceed if tests fail
+- Do NOT proceed if terminal is unresponsive
 - Report first failure clearly (not all failures at once if possible)
 - Provide actionable error messages
 
@@ -47,152 +88,117 @@ mvn spotbugs:check pmd:check
 - Validate only affected modules when possible: `mvn -pl {module-name} -am clean verify`
 - Full build validation before final commit: `mvn clean verify`
 
-## Step-by-Step Workflow
+## Step-by-Step Validation Workflow
 
-1. **Compile Check:** Run `mvn clean compile`. Fix compilation errors immediately.
-2. **Unit Test Execution:** Run `mvn test`. All tests must pass.
-3. **Integration Test Execution:** Run `mvn verify`. All integration tests must pass.
-4. **Coverage Analysis:** Run `mvn jacoco:report`. Review coverage report.
-5. **Static Analysis:** Optionally run `mvn spotbugs:check pmd:check`. Fix high-priority violations.
-6. **Green Build Confirmation:** Confirm all steps passed.
-7. **Commit:** Proceed only if all validations are green.
+1. **Terminal Gate:** Verify responsiveness with `echo "TEST" && date`
+2. **Compile Check:** Run `mvn clean compile`. Fix compilation errors immediately. **STOP if fails.**
+3. **Unit Test Execution:** Run `mvn test`. All tests must pass. **STOP if fails.**
+4. **Integration Test Execution:** Run `mvn verify`. All integration tests must pass. **STOP if fails.**
+5. **Coverage Analysis:** Run `mvn jacoco:report`. Review coverage report. **STOP if < 80%.**
+6. **Code Cleanliness:** Verify no unused code (per java-modernizer skill). **STOP if issues found.**
+7. **Green Build Confirmation:** Confirm ALL steps passed with clear indicators.
+8. **Commit Only After Step 7:** Only then proceed to `commit-expert` skill.
 
 ## Common Build Failure Scenarios
 
-### Compilation Failure
+### Scenario A: Compilation Error
 ```
-[ERROR] COMPILATION ERROR: ...
+[ERROR] COMPILATION ERROR:
+[ERROR] /path/to/File.java:[line]: error description
 ```
 **Action:** 
-1. Review error message carefully
-2. Fix the source code
-3. Recompile: `mvn clean compile`
-4. Don't proceed until compilation succeeds
+- ❌ STOP immediately
+- Report the exact compilation error
+- Do NOT proceed to testing
+- Do NOT commit
+- User must fix source code and re-validate
 
-### Test Failure
+### Scenario B: Test Failure
 ```
-[ERROR] Tests run: 5, Failures: 1, Errors: 0
+[ERROR] FAILURE: ...
+[INFO] Tests run: 5, Failures: 1, Errors: 0
+[INFO] BUILD FAILURE
 ```
 **Action:**
-1. Review failing test output
-2. Determine if test or implementation is wrong
-3. Fix the issue
-4. Rerun: `mvn test`
-5. Ensure ALL tests pass
+- ❌ STOP immediately
+- Report which test failed and why
+- Do NOT commit
+- User must fix test or implementation and re-validate
 
-### Coverage Below Threshold
+### Scenario C: Terminal Unresponsive
+```
+(no output for > 5 seconds)
+```
+**Action:**
+- ❌ STOP immediately
+- Report "Terminal is unresponsive"
+- Do NOT commit
+- User must restart terminal session
+
+### Scenario D: Ambiguous Output
+```
+(unclear if passed or failed, mixed/confusing messages)
+```
+**Action:**
+- ❌ STOP immediately
+- Report "Build output is ambiguous"
+- Re-run with plain output
+- Do NOT commit until clear
+
+### Scenario E: Coverage Below Threshold
 ```
 Line Coverage: 65% (Target: 80%)
 ```
 **Action:**
-1. Identify uncovered code
-2. Write additional unit tests
-3. Rerun: `mvn jacoco:report`
-4. Verify coverage meets target
+- ❌ STOP immediately
+- Identify uncovered code
+- User must write additional tests
+- Rerun validation after tests added
 
-### Intermittent / Flaky Test
+### Scenario F: Flaky Test
 ```
-[ERROR] TestFoo#testBar FAILED (passes locally, fails in CI)
+[ERROR] TestFoo#testBar FAILED sometimes
 ```
 **Action:**
-1. Identify test isolation issues (shared state, timing)
-2. Fix test to be deterministic
-3. Run test multiple times locally to verify
-4. Commit once test is consistently passing
+- ❌ STOP immediately
+- Identify test isolation issues
+- User must fix test to be deterministic
+- Run test 5x locally to verify before committing
 
-## Anti-Patterns to Avoid
-
-- ❌ **Committing Without Running Tests:** "I'll test it later"
-- ❌ **Ignoring Build Warnings:** Warnings often hide bugs
-- ❌ **Skipping Coverage:** Low coverage = high risk of regressions
-- ❌ **Flaky Tests:** Intermittently failing tests break trust in build
-- ❌ **Partial Builds:** Validating only one module when multi-module dependencies exist
-- ❌ **Build Cache Issues:** Not cleaning before critical builds (use `mvn clean`)
-- ❌ **Ignoring CI Failures:** Local green build ≠ CI green build; understand environment differences
-
-## Quality Bar & Verification
-
-A build is production-ready when:
-- [ ] `mvn clean compile` succeeds (no errors)
-- [ ] `mvn test` passes (all unit tests green)
-- [ ] `mvn verify` passes (all integration tests green)
-- [ ] Code coverage ≥80% for business logic
-- [ ] No compiler warnings (or documented exceptions)
-- [ ] No flaky tests (deterministic, <100ms per test)
-- [ ] Static analysis passes (spotbugs, pmd, or equivalent)
-- [ ] Build output is clean (no unexpected messages)
-
-## Example Application
-
-### Pre-Commit Validation Flow
+## Tools & Commands
 
 ```bash
-# User says: "I'm done with my changes, let's commit"
+# Gate: Terminal responsiveness
+echo "VALIDATION_TEST" && date
 
-# 1. Check compilation
-$ mvn clean compile
-[INFO] BUILD SUCCESS ✅
+# Gate: Compilation
+mvn clean compile
 
-# 2. Run unit tests
-$ mvn test
-[INFO] Tests run: 42, Failures: 0, Errors: 0
-[INFO] BUILD SUCCESS ✅
+# Gate: Unit tests
+mvn test
 
-# 3. Run integration tests
-$ mvn verify
-[INFO] All integration tests passed ✅
-[INFO] BUILD SUCCESS ✅
+# Gate: Full verification
+mvn verify
 
-# 4. Check coverage
-$ mvn jacoco:report
-[INFO] Line Coverage: 82% ✅
+# Gate: Coverage report
+mvn jacoco:report
+open target/site/jacoco/index.html
 
-# 5. Confirm all green
-[INFO] All checks passed! Ready to commit.
+# Gate: Exit code check
+echo $?  # MUST be 0, anything else = FAILURE
 
-# 6. Proceed with commit
-$ git commit -m "refactor: ..."
+# Check what changed
+git status --short
+git diff --cached
+
+# Verify commit (after passing all gates)
+git log -1 --stat
+git show --stat
 ```
 
-### Handling a Test Failure
+## Related Skills
 
-```bash
-$ mvn test
-[ERROR] TestOrderService#testShouldRejectNullCustomerId FAILED
-
-# Review the failure
-[ERROR] Expected: IllegalArgumentException
-[ERROR] Actual: NullPointerException
-
-# Fix the issue (test or implementation)
-# Update code...
-
-# Rerun tests
-$ mvn test
-[INFO] Tests run: 42, Failures: 0, Errors: 0
-[INFO] BUILD SUCCESS ✅
-
-# Now safe to commit
-```
-
-## Maven Command Reference
-
-| Command | Purpose |
-|---------|---------|
-| `mvn clean compile` | Clean, compile sources |
-| `mvn test` | Run unit tests only |
-| `mvn verify` | Full build + integration tests |
-| `mvn jacoco:report` | Generate coverage report |
-| `mvn spotbugs:check` | Check for potential bugs |
-| `mvn pmd:check` | Check code style and issues |
-| `mvn -pl {module} -am clean verify` | Validate single module and dependencies |
-
-## Tips for Build Success
-
-1. **Run Locally Before Pushing:** Never rely solely on CI to catch failures.
-2. **Understand Build Environment:** Local Java version, Maven version, OS differences can affect builds.
-3. **Use Build Profiles:** For different environments (dev, test, prod).
-4. **Cache Management:** Clear `.m2` cache if experiencing weird failures: `rm -rf ~/.m2/repository`
-5. **Fail Fast:** Address the first error immediately; subsequent errors may be cascades.
-
-
+- `commit-expert` — Use ONLY after this skill validates everything passes
+- `java-modernizer` — Code cleanliness (no dead code)
+- `tdd-expert` — Test design and test conventions
+- `maven-management` — POM structure validation
