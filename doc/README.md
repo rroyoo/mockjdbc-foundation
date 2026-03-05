@@ -13,6 +13,7 @@
 | **[Functional Overview](functional-overview.md)** | Goal, capabilities, and main actors | Product managers, QA |
 | **[Use Cases (UC-01..05)](use-cases.md)** | 5 key user scenarios with flows | Developers, testers |
 | **[Query Mocking Flow](flows/query-mocking-flow.md)** | Sequence diagram and request mapping | Developers, architects |
+| **[Feature Analysis](feature-analysis.md)** | Implemented vs missing features, roadmap | Product managers, architects |
 | **[Main README](../README.md)** | **Primary hub** — start here | Everyone |
 
 ---
@@ -73,6 +74,19 @@ Covers:
 
 **Reference this** when implementing or debugging query resolution.
 
+### [Feature Analysis](feature-analysis.md)
+**Comprehensive assessment of implemented and missing features.**
+
+Covers:
+- ✅ Implemented features (complete)
+- ⚠️ Partially implemented features (needs enhancement)
+- ❌ Missing features (not implemented)
+- Priority roadmap (Phase 1-4)
+- Completeness assessment by category
+- Next steps recommendations
+
+**Use this** to understand project maturity and plan future development.
+
 ---
 
 ## Style & Conventions
@@ -94,6 +108,7 @@ README.md (functional hub)
 ├── doc/README.md (this file)
 ├── functional-overview.md
 ├── use-cases.md
+├── feature-analysis.md
 └── flows/query-mocking-flow.md
 
 mockjdbc/README.md (technical)
