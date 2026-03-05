@@ -8,7 +8,11 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,6 +45,7 @@ public final class MockStatement implements CallableStatement {
     private final MockConnection mockConnection;
     private final String sql;
     private final StatementConfig config;
+    private final Map<Integer, Object> parameters = new HashMap<>();
 
     MockStatement(MockConnection mockConnection) throws SQLException {
         this(mockConnection, null, StatementConfig.defaults());
@@ -58,6 +63,150 @@ public final class MockStatement implements CallableStatement {
         this.mockConnection = mockConnection;
         this.sql = sql;
         this.config = config;
+    }
+
+    /**
+     * Validates that the parameter index is valid (>= 1).
+     *
+     * @param parameterIndex the parameter index to validate
+     * @throws SQLException if the index is invalid
+     */
+    private void validateParameterIndex(int parameterIndex) throws SQLException {
+        if (parameterIndex < 1) {
+            throw new SQLException("Parameter index must be >= 1, got: " + parameterIndex);
+        }
+    }
+
+    /**
+     * Returns a defensive copy of the parameters map.
+     *
+     * @return map of parameter index to value
+     */
+    Map<Integer, Object> getParameters() {
+        return new HashMap<>(parameters);
+    }
+
+    /**
+     * Converts stored parameters to a list of ParameterMetadata for gRPC calls.
+     *
+     * @return list of ParameterMetadata objects
+     */
+    private List<io.github.rroyoo.mockjdbc.mock.ParameterMetadata> convertParametersToMetadataList() {
+        if (parameters.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<io.github.rroyoo.mockjdbc.mock.ParameterMetadata> result = new ArrayList<>();
+
+        // Get all parameter indices and sort them
+        List<Integer> indices = new ArrayList<>(parameters.keySet());
+        Collections.sort(indices);
+
+        for (Integer index : indices) {
+            Object value = parameters.get(index);
+            io.github.rroyoo.mockjdbc.mock.JdbcValue jdbcValue = convertToJdbcValue(value);
+
+            io.github.rroyoo.mockjdbc.mock.ParameterMetadata metadata =
+                io.github.rroyoo.mockjdbc.mock.ParameterMetadata.newBuilder()
+                    .setIndex(index)
+                    .setSqlType(inferSqlType(value))
+                    .setTypeName(value != null ? value.getClass().getSimpleName() : "NULL")
+                    .setMode(java.sql.ParameterMetaData.parameterModeIn)
+                    .setValue(jdbcValue)
+                    .build();
+
+            result.add(metadata);
+        }
+
+        return result;
+    }
+
+    /**
+     * Converts a Java object to a JdbcValue protobuf message.
+     *
+     * @param value the Java object to convert
+     * @return the corresponding JdbcValue
+     */
+    private io.github.rroyoo.mockjdbc.mock.JdbcValue convertToJdbcValue(Object value) {
+        io.github.rroyoo.mockjdbc.mock.JdbcValue.Builder builder =
+            io.github.rroyoo.mockjdbc.mock.JdbcValue.newBuilder();
+
+        if (value == null) {
+            return builder.setIsNull(true).build();
+        }
+
+        if (value instanceof String) {
+            return builder.setStringVal((String) value).build();
+        } else if (value instanceof Integer || value instanceof Long ||
+                   value instanceof Short || value instanceof Byte) {
+            return builder.setLongVal(((Number) value).longValue()).build();
+        } else if (value instanceof Double || value instanceof Float) {
+            return builder.setDoubleVal(((Number) value).doubleValue()).build();
+        } else if (value instanceof Boolean) {
+            return builder.setBoolVal((Boolean) value).build();
+        } else if (value instanceof byte[]) {
+            return builder.setBytesVal(com.google.protobuf.ByteString.copyFrom((byte[]) value)).build();
+        } else if (value instanceof BigDecimal) {
+            return builder.setDecimalVal(value.toString()).build();
+        } else if (value instanceof Timestamp) {
+            Timestamp ts = (Timestamp) value;
+            com.google.protobuf.Timestamp pbTimestamp = com.google.protobuf.Timestamp.newBuilder()
+                .setSeconds(ts.getTime() / 1000)
+                .setNanos(ts.getNanos())
+                .build();
+            return builder.setTimestampVal(pbTimestamp).build();
+        } else if (value instanceof java.sql.Date || value instanceof Time) {
+            // Convert SQL Date/Time to timestamp
+            long millis = ((java.util.Date) value).getTime();
+            com.google.protobuf.Timestamp pbTimestamp = com.google.protobuf.Timestamp.newBuilder()
+                .setSeconds(millis / 1000)
+                .setNanos((int) ((millis % 1000) * 1_000_000))
+                .build();
+            return builder.setTimestampVal(pbTimestamp).build();
+        } else {
+            // For other types, convert to string
+            return builder.setStringVal(value.toString()).build();
+        }
+    }
+
+    /**
+     * Infers the SQL type from a Java object.
+     *
+     * @param value the Java object
+     * @return the SQL type code
+     */
+    private int inferSqlType(Object value) {
+        if (value == null) {
+            return java.sql.Types.NULL;
+        } else if (value instanceof String) {
+            return java.sql.Types.VARCHAR;
+        } else if (value instanceof Integer) {
+            return java.sql.Types.INTEGER;
+        } else if (value instanceof Long) {
+            return java.sql.Types.BIGINT;
+        } else if (value instanceof Short) {
+            return java.sql.Types.SMALLINT;
+        } else if (value instanceof Byte) {
+            return java.sql.Types.TINYINT;
+        } else if (value instanceof Double) {
+            return java.sql.Types.DOUBLE;
+        } else if (value instanceof Float) {
+            return java.sql.Types.FLOAT;
+        } else if (value instanceof Boolean) {
+            return java.sql.Types.BOOLEAN;
+        } else if (value instanceof byte[]) {
+            return java.sql.Types.VARBINARY;
+        } else if (value instanceof BigDecimal) {
+            return java.sql.Types.DECIMAL;
+        } else if (value instanceof java.sql.Date) {
+            return java.sql.Types.DATE;
+        } else if (value instanceof Time) {
+            return java.sql.Types.TIME;
+        } else if (value instanceof Timestamp) {
+            return java.sql.Types.TIMESTAMP;
+        } else {
+            return java.sql.Types.OTHER;
+        }
     }
 
     // Stub helpers to reduce boilerplate
@@ -640,10 +789,14 @@ public final class MockStatement implements CallableStatement {
             throw new SQLException("No SQL statement provided for PreparedStatement");
         }
 
+        // Convert parameters to metadata list
+        List<io.github.rroyoo.mockjdbc.mock.ParameterMetadata> paramList = convertParametersToMetadataList();
+
         // Query gRPC service for prepared statement
         io.github.rroyoo.mockjdbc.mock.PreparedStatement preparedStatement =
             io.github.rroyoo.mockjdbc.mock.PreparedStatement.newBuilder()
                 .setSql(sql)
+                .addAllParameters(paramList)
                 .build();
 
         MockedQuery mockedQuery = mockConnection.getQueryServiceAdapter()
@@ -660,102 +813,121 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, null);
     }
 
     @Override
     public void setBoolean(int parameterIndex, boolean x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setByte(int parameterIndex, byte x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setShort(int parameterIndex, short x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setInt(int parameterIndex, int x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setLong(int parameterIndex, long x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setFloat(int parameterIndex, float x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setDouble(int parameterIndex, double x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setBigDecimal(int parameterIndex, BigDecimal x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setString(int parameterIndex, String x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setBytes(int parameterIndex, byte[] x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setDate(int parameterIndex, Date x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setTime(int parameterIndex, Time x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x, int length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setUnicodeStream(int parameterIndex, InputStream x, int length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setBinaryStream(int parameterIndex, InputStream x, int length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void clearParameters() throws SQLException {
-
+        parameters.clear();
     }
 
     @Override
     public void setObject(int parameterIndex, Object x, int targetSqlType) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setObject(int parameterIndex, Object x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
@@ -770,27 +942,32 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader, int length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, reader);
     }
 
     @Override
     public void setRef(int parameterIndex, Ref x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setBlob(int parameterIndex, Blob x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setClob(int parameterIndex, Clob x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setArray(int parameterIndex, Array x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
@@ -800,27 +977,32 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setNull(int parameterIndex, int sqlType, String typeName) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, null);
     }
 
     @Override
     public void setURL(int parameterIndex, URL x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
@@ -830,97 +1012,116 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setRowId(int parameterIndex, RowId x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setNString(int parameterIndex, String value) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, value);
     }
 
     @Override
     public void setNCharacterStream(int parameterIndex, Reader value, long length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, value);
     }
 
     @Override
     public void setNClob(int parameterIndex, NClob value) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, value);
     }
 
     @Override
     public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, reader);
     }
 
     @Override
     public void setBlob(int parameterIndex, InputStream inputStream, long length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, inputStream);
     }
 
     @Override
     public void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, reader);
     }
 
     @Override
     public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, xmlObject);
     }
 
     @Override
     public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setBinaryStream(int parameterIndex, InputStream x, long length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader, long length) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, reader);
     }
 
     @Override
     public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setBinaryStream(int parameterIndex, InputStream x) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, x);
     }
 
     @Override
     public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, reader);
     }
 
     @Override
     public void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, value);
     }
 
     @Override
     public void setClob(int parameterIndex, Reader reader) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, reader);
     }
 
     @Override
     public void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, inputStream);
     }
 
     @Override
     public void setNClob(int parameterIndex, Reader reader) throws SQLException {
-
+        validateParameterIndex(parameterIndex);
+        parameters.put(parameterIndex, reader);
     }
 
     @Override
