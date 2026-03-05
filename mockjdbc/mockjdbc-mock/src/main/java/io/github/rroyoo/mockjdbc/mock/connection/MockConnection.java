@@ -1,10 +1,11 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
-import io.github.rroyoo.mockjdbc.mock.MockedQueryService;
-
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 
@@ -41,6 +42,7 @@ final class MockConnection implements Connection {
     private final Map<String, Class<?>> typeMap;
     private final QueryServiceAdapter queryServiceAdapter;
     private final DefaultState defaults;
+    private final List<CapturedQuery> capturedQueries;
 
     // Mutable state
     private boolean closed;
@@ -58,6 +60,7 @@ final class MockConnection implements Connection {
         this.queryServiceAdapter = queryServiceAdapter;
         this.typeMap = new HashMap<>();
         this.defaults = DefaultState.create();
+        this.capturedQueries = new ArrayList<>();
 
         // Initialize mutable state from defaults
         this.closed = false;
@@ -120,7 +123,6 @@ final class MockConnection implements Connection {
         }
     }
 
-    // ... existing code ...
 
     private void throwUnsupported(String feature) throws SQLFeatureNotSupportedException {
         throw new SQLFeatureNotSupportedException(feature + " is not supported by MockConnection");
@@ -363,6 +365,22 @@ final class MockConnection implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> iface) {
         return iface.isInstance(this);
+    }
+
+    void captureQuery(CapturedQuery capturedQuery) {
+        this.capturedQueries.add(Objects.requireNonNull(capturedQuery, "capturedQuery must not be null"));
+    }
+
+    List<CapturedQuery> getCapturedQueries() {
+        return List.copyOf(this.capturedQueries);
+    }
+
+    void clearCapturedQueries() {
+        this.capturedQueries.clear();
+    }
+
+    int countCapturedQueries() {
+        return this.capturedQueries.size();
     }
 
     public QueryServiceAdapter getQueryServiceAdapter() {
