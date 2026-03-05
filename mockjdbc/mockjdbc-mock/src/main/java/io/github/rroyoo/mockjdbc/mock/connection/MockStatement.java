@@ -5,8 +5,12 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.*;
+import java.time.Instant;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
 /**
  * Mock implementation of JDBC Statement/PreparedStatement/CallableStatement interfaces.
@@ -38,6 +42,7 @@ public final class MockStatement implements CallableStatement {
     private final MockConnection mockConnection;
     private final String sql;
     private final StatementConfig config;
+    private final NavigableMap<Integer, Object> indexedParameters;
 
     MockStatement(MockConnection mockConnection) throws SQLException {
         this(mockConnection, null, StatementConfig.defaults());
@@ -55,6 +60,17 @@ public final class MockStatement implements CallableStatement {
         this.mockConnection = mockConnection;
         this.sql = sql;
         this.config = config;
+        this.indexedParameters = new TreeMap<>();
+    }
+    private void setIndexedParameter(int parameterIndex, Object value) {
+        indexedParameters.put(parameterIndex, value);
+    }
+    private List<Object> getOrderedParams() {
+        return List.copyOf(indexedParameters.values());
+    }
+    private void capture(String sql, CapturedQuery.StatementType statementType) {
+        String safeSql = (sql == null) ? "" : sql;
+        mockConnection.captureQuery(new CapturedQuery(safeSql, getOrderedParams(), statementType, Instant.now()));
     }
 
     // Stub helpers to reduce boilerplate
@@ -633,6 +649,7 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public ResultSet executeQuery() throws SQLException {
+        capture(this.sql, CapturedQuery.StatementType.PREPARED);
         return null;
     }
 
@@ -643,72 +660,72 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setNull(int parameterIndex, int sqlType) throws SQLException {
-
+        setIndexedParameter(parameterIndex, null);
     }
 
     @Override
     public void setBoolean(int parameterIndex, boolean x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setByte(int parameterIndex, byte x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setShort(int parameterIndex, short x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setInt(int parameterIndex, int x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setLong(int parameterIndex, long x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setFloat(int parameterIndex, float x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setDouble(int parameterIndex, double x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setBigDecimal(int parameterIndex, BigDecimal x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setString(int parameterIndex, String x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setBytes(int parameterIndex, byte[] x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setDate(int parameterIndex, Date x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setTime(int parameterIndex, Time x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
@@ -728,17 +745,17 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void clearParameters() throws SQLException {
-
+        indexedParameters.clear();
     }
 
     @Override
     public void setObject(int parameterIndex, Object x, int targetSqlType) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setObject(int parameterIndex, Object x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
@@ -783,27 +800,27 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setNull(int parameterIndex, int sqlType, String typeName) throws SQLException {
-
+        setIndexedParameter(parameterIndex, null);
     }
 
     @Override
     public void setURL(int parameterIndex, URL x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
@@ -813,12 +830,12 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setRowId(int parameterIndex, RowId x) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
     public void setNString(int parameterIndex, String value) throws SQLException {
-
+        setIndexedParameter(parameterIndex, value);
     }
 
     @Override
@@ -828,7 +845,7 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setNClob(int parameterIndex, NClob value) throws SQLException {
-
+        setIndexedParameter(parameterIndex, value);
     }
 
     @Override
@@ -848,12 +865,12 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
-
+        setIndexedParameter(parameterIndex, xmlObject);
     }
 
     @Override
     public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) throws SQLException {
-
+        setIndexedParameter(parameterIndex, x);
     }
 
     @Override
@@ -908,6 +925,7 @@ public final class MockStatement implements CallableStatement {
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
+        capture(sql, CapturedQuery.StatementType.PLAIN);
         return null;
     }
 
