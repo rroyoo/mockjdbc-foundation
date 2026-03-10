@@ -10,6 +10,14 @@ import java.util.logging.Logger;
 
 public final class MockDriver implements Driver {
 
+    static {
+        try {
+            java.sql.DriverManager.registerDriver(new MockDriver());
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to register MockDriver", e);
+        }
+    }
+
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
         return null;

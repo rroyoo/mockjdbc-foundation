@@ -43,4 +43,12 @@ class MockDriverTest {
     void shouldReturnGlobalParentLogger() throws Exception {
         assertSame(Logger.getGlobal(), mockDriver.getParentLogger());
     }
+
+    @Test
+    @DisplayName("Given a mock driver, when getPropertyInfo is called, then it returns an empty array")
+    void shouldReturnEmptyPropertyInfo() throws Exception {
+        var propertyInfo = mockDriver.getPropertyInfo("jdbc:mock://localhost:8080", new java.util.Properties());
+
+        assertEquals(0, propertyInfo.length);
+    }
 }
