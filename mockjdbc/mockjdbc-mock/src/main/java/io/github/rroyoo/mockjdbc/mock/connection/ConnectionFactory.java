@@ -6,9 +6,8 @@ import net.bytebuddy.implementation.MethodCall;
 import net.bytebuddy.implementation.MethodDelegation;
 
 import java.sql.Connection;
-import java.util.concurrent.Executor;
-
 import java.sql.Savepoint;
+import java.util.concurrent.Executor;
 
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
@@ -25,58 +24,66 @@ final class ConnectionFactory {
         }
 
         try {
-            var stateHandler = new ConnectionStateHandler();
+            var lifecycle    = new LifecycleHandler();
+            var transaction  = new TransactionHandler();
+            var config       = new ConfigHandler();
+            var warnings     = new WarningsHandler();
 
             var connectionBuilder = new ByteBuddy()
                     .subclass(Connection.class)
+                    // --- lifecycle ---
+                    .method(named("close").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(LifecycleHandler.class.getMethod("close")).on(lifecycle))
+                    .method(named("isClosed").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(LifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
+                    // --- transaction ---
                     .method(named("commit").and(takesNoArguments()))
                     .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
                     .method(named("rollback").and(takesNoArguments()))
                     .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
                     .method(named("rollback").and(takesArguments(Savepoint.class)))
                     .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
+                    .method(named("setAutoCommit").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(TransactionHandler.class.getMethod("setAutoCommit", boolean.class)).on(transaction).withAllArguments())
+                    .method(named("getAutoCommit").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(TransactionHandler.class.getMethod("getAutoCommit")).on(transaction))
+                    // --- savepoint ---
                     .method(named("releaseSavepoint").and(takesArguments(Savepoint.class)))
                     .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
                     .method(named("setSavepoint").and(takesNoArguments()))
                     .intercept(MethodDelegation.to(NullResultHandler.class))
                     .method(named("setSavepoint").and(takesArguments(String.class)))
                     .intercept(MethodDelegation.to(NullResultHandler.class))
-                    .method(named("close").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("close")).on(stateHandler))
-                    .method(named("isClosed").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("isClosed")).on(stateHandler))
-                    .method(named("setAutoCommit").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("setAutoCommit", boolean.class)).on(stateHandler).withAllArguments())
-                    .method(named("getAutoCommit").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getAutoCommit")).on(stateHandler))
+                    // --- config ---
                     .method(named("setReadOnly").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("setReadOnly", boolean.class)).on(stateHandler).withAllArguments())
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setReadOnly", boolean.class)).on(config).withAllArguments())
                     .method(named("isReadOnly").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("isReadOnly")).on(stateHandler))
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("isReadOnly")).on(config))
                     .method(named("setTransactionIsolation").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("setTransactionIsolation", int.class)).on(stateHandler).withAllArguments())
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setTransactionIsolation", int.class)).on(config).withAllArguments())
                     .method(named("getTransactionIsolation").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getTransactionIsolation")).on(stateHandler))
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getTransactionIsolation")).on(config))
                     .method(named("setHoldability").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("setHoldability", int.class)).on(stateHandler).withAllArguments())
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setHoldability", int.class)).on(config).withAllArguments())
                     .method(named("getHoldability").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getHoldability")).on(stateHandler))
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getHoldability")).on(config))
                     .method(named("setCatalog").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("setCatalog", String.class)).on(stateHandler).withAllArguments())
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setCatalog", String.class)).on(config).withAllArguments())
                     .method(named("getCatalog").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getCatalog")).on(stateHandler))
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getCatalog")).on(config))
                     .method(named("setSchema").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("setSchema", String.class)).on(stateHandler).withAllArguments())
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setSchema", String.class)).on(config).withAllArguments())
                     .method(named("getSchema").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getSchema")).on(stateHandler))
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getSchema")).on(config))
                     .method(named("setNetworkTimeout").and(takesArguments(Executor.class, int.class)))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("setNetworkTimeout", Executor.class, int.class)).on(stateHandler).withAllArguments())
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setNetworkTimeout", Executor.class, int.class)).on(config).withAllArguments())
                     .method(named("getNetworkTimeout").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getNetworkTimeout")).on(stateHandler))
+                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getNetworkTimeout")).on(config))
+                    // --- warnings ---
                     .method(named("getWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getWarnings")).on(stateHandler))
+                    .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("getWarnings")).on(warnings))
                     .method(named("clearWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("clearWarnings")).on(stateHandler));
+                    .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("clearWarnings")).on(warnings));
 
             try (var unloaded = connectionBuilder.make()) {
                 return unloaded.load(ConnectionFactory.class.getClassLoader())
