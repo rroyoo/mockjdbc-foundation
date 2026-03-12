@@ -265,6 +265,37 @@ class ConnectionFactoryTest {
         assertNull(connection.getWarnings());
     }
 
+    // -- client info --
+
+    @Test
+    @DisplayName("Given a new connection, when getClientInfo is called, then it returns empty properties")
+    void shouldReturnEmptyClientInfoByDefault() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertTrue(connection.getClientInfo().isEmpty());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setClientInfo with key/value is called, then getClientInfo returns the value")
+    void shouldReturnClientInfoValueAfterKeyValueIsSet() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.setClientInfo("ApplicationName", "myApp");
+        assertEquals("myApp", connection.getClientInfo("ApplicationName"));
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setClientInfo with Properties is called, then getClientInfo returns all values")
+    void shouldReturnAllClientInfoAfterPropertiesAreSet() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        var props = new Properties();
+        props.setProperty("ApplicationName", "myApp");
+        props.setProperty("ClientUser", "bob");
+
+        connection.setClientInfo(props);
+
+        assertEquals("myApp", connection.getClientInfo("ApplicationName"));
+        assertEquals("bob", connection.getClientInfo("ClientUser"));
+    }
+
     private static MockConfig mockConfig() {
         var properties = new Properties();
         properties.setProperty("keepAliveTime", "60");

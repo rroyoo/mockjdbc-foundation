@@ -7,6 +7,7 @@ import net.bytebuddy.implementation.MethodDelegation;
 
 import java.sql.Connection;
 import java.sql.Savepoint;
+import java.util.Properties;
 import java.util.concurrent.Executor;
 
 import static net.bytebuddy.matcher.ElementMatchers.named;
@@ -28,6 +29,7 @@ final class ConnectionFactory {
             var transaction  = new TransactionHandler();
             var config       = new ConfigHandler();
             var warnings     = new WarningsHandler();
+            var clientInfo   = new ClientInfoHandler();
 
             var connectionBuilder = new ByteBuddy()
                     .subclass(Connection.class)
@@ -83,7 +85,16 @@ final class ConnectionFactory {
                     .method(named("getWarnings").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("getWarnings")).on(warnings))
                     .method(named("clearWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("clearWarnings")).on(warnings));
+                    .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("clearWarnings")).on(warnings))
+                    // --- client info ---
+                    .method(named("setClientInfo").and(takesArguments(String.class, String.class)))
+                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("setClientInfo", String.class, String.class)).on(clientInfo).withAllArguments())
+                    .method(named("setClientInfo").and(takesArguments(Properties.class)))
+                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("setClientInfo", Properties.class)).on(clientInfo).withAllArguments())
+                    .method(named("getClientInfo").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo")).on(clientInfo))
+                    .method(named("getClientInfo").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo", String.class)).on(clientInfo).withAllArguments());
 
             try (var unloaded = connectionBuilder.make()) {
                 return unloaded.load(ConnectionFactory.class.getClassLoader())
