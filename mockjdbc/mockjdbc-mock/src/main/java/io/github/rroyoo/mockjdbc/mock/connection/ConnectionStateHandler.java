@@ -2,6 +2,7 @@ package io.github.rroyoo.mockjdbc.mock.connection;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLWarning;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,6 +17,7 @@ public final class ConnectionStateHandler {
     private final AtomicReference<String> catalog = new AtomicReference<>(null);
     private final AtomicReference<String> schema = new AtomicReference<>(null);
     private final AtomicInteger networkTimeout = new AtomicInteger(0); // JDBC default: no timeout
+    private final AtomicReference<SQLWarning> warnings = new AtomicReference<>(null);
 
     public void close() throws SQLException { closed.set(true); }
     public boolean isClosed() throws SQLException { return closed.get(); }
@@ -40,4 +42,16 @@ public final class ConnectionStateHandler {
 
     public void setNetworkTimeout(java.util.concurrent.Executor executor, int milliseconds) throws SQLException { networkTimeout.set(milliseconds); }
     public int getNetworkTimeout() throws SQLException { return networkTimeout.get(); }
+
+    public SQLWarning getWarnings() throws SQLException { return warnings.get(); }
+
+    public void clearWarnings() throws SQLException { warnings.set(null); }
+
+    public void addWarning(SQLWarning warning) {
+        warnings.accumulateAndGet(warning, (existing, next) -> {
+            if (existing == null) return next;
+            existing.setNextWarning(next);
+            return existing;
+        });
+    }
 }

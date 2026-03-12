@@ -72,7 +72,11 @@ final class ConnectionFactory {
                     .method(named("setNetworkTimeout").and(takesArguments(Executor.class, int.class)))
                     .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("setNetworkTimeout", Executor.class, int.class)).on(stateHandler).withAllArguments())
                     .method(named("getNetworkTimeout").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getNetworkTimeout")).on(stateHandler));
+                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getNetworkTimeout")).on(stateHandler))
+                    .method(named("getWarnings").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("getWarnings")).on(stateHandler))
+                    .method(named("clearWarnings").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("clearWarnings")).on(stateHandler));
 
             try (var unloaded = connectionBuilder.make()) {
                 return unloaded.load(ConnectionFactory.class.getClassLoader())

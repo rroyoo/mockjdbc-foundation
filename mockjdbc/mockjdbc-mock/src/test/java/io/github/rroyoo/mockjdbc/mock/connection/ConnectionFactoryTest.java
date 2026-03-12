@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLWarning;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -245,6 +246,23 @@ class ConnectionFactoryTest {
     void shouldReturnNullWhenSetSavepointWithNameIsCalled() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertNull(connection.setSavepoint("sp1"));
+    }
+
+    // -- getWarnings / clearWarnings --
+
+    @Test
+    @DisplayName("Given a new connection, when getWarnings is called, then it returns null by default")
+    void shouldReturnNullWarningsByDefault() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertNull(connection.getWarnings());
+    }
+
+    @Test
+    @DisplayName("Given a connection with no warnings, when clearWarnings is called, then getWarnings still returns null")
+    void shouldReturnNullAfterClearWarningsOnFreshConnection() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.clearWarnings();
+        assertNull(connection.getWarnings());
     }
 
     private static MockConfig mockConfig() {
