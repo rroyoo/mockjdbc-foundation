@@ -8,6 +8,8 @@ import net.bytebuddy.implementation.MethodDelegation;
 import java.sql.Connection;
 import java.util.concurrent.Executor;
 
+import java.sql.Savepoint;
+
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 import static net.bytebuddy.matcher.ElementMatchers.takesNoArguments;
@@ -31,6 +33,14 @@ final class ConnectionFactory {
                     .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
                     .method(named("rollback").and(takesNoArguments()))
                     .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
+                    .method(named("rollback").and(takesArguments(Savepoint.class)))
+                    .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
+                    .method(named("releaseSavepoint").and(takesArguments(Savepoint.class)))
+                    .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
+                    .method(named("setSavepoint").and(takesNoArguments()))
+                    .intercept(MethodDelegation.to(NullResultHandler.class))
+                    .method(named("setSavepoint").and(takesArguments(String.class)))
+                    .intercept(MethodDelegation.to(NullResultHandler.class))
                     .method(named("close").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(ConnectionStateHandler.class.getMethod("close")).on(stateHandler))
                     .method(named("isClosed").and(takesNoArguments()))

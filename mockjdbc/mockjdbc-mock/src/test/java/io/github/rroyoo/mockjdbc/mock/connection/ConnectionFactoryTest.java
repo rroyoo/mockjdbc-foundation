@@ -217,6 +217,36 @@ class ConnectionFactoryTest {
         assertEquals(5000, connection.getNetworkTimeout());
     }
 
+    // -- rollback(Savepoint) / releaseSavepoint / setSavepoint --
+
+    @Test
+    @DisplayName("Given a connection, when rollback with savepoint is called, then it does nothing")
+    void shouldDoNothingWhenRollbackWithSavepointIsCalled() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertDoesNotThrow(() -> connection.rollback(null));
+    }
+
+    @Test
+    @DisplayName("Given a connection, when releaseSavepoint is called, then it does nothing")
+    void shouldDoNothingWhenReleaseSavepointIsCalled() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertDoesNotThrow(() -> connection.releaseSavepoint(null));
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setSavepoint is called, then it returns null")
+    void shouldReturnNullWhenSetSavepointIsCalled() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertNull(connection.setSavepoint());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setSavepoint with name is called, then it returns null")
+    void shouldReturnNullWhenSetSavepointWithNameIsCalled() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertNull(connection.setSavepoint("sp1"));
+    }
+
     private static MockConfig mockConfig() {
         var properties = new Properties();
         properties.setProperty("keepAliveTime", "60");
