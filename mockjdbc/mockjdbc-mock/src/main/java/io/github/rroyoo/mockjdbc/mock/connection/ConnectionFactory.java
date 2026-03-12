@@ -27,6 +27,8 @@ final class ConnectionFactory {
             var isClosedMethod = ConnectionStateHandler.class.getMethod("isClosed");
             var setAutoCommitMethod = ConnectionStateHandler.class.getMethod("setAutoCommit", boolean.class);
             var getAutoCommitMethod = ConnectionStateHandler.class.getMethod("getAutoCommit");
+            var setReadOnlyMethod = ConnectionStateHandler.class.getMethod("setReadOnly", boolean.class);
+            var isReadOnlyMethod = ConnectionStateHandler.class.getMethod("isReadOnly");
 
             var connectionBuilder = new ByteBuddy()
                     .subclass(Connection.class)
@@ -41,7 +43,11 @@ final class ConnectionFactory {
                     .method(named("setAutoCommit").and(takesArguments(boolean.class)))
                     .intercept(MethodCall.invoke(setAutoCommitMethod).on(stateHandler).withAllArguments())
                     .method(named("getAutoCommit").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(getAutoCommitMethod).on(stateHandler));
+                    .intercept(MethodCall.invoke(getAutoCommitMethod).on(stateHandler))
+                    .method(named("setReadOnly").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(setReadOnlyMethod).on(stateHandler).withAllArguments())
+                    .method(named("isReadOnly").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(isReadOnlyMethod).on(stateHandler));
 
             try (var unloaded = connectionBuilder.make()) {
                 return unloaded.load(ConnectionFactory.class.getClassLoader())

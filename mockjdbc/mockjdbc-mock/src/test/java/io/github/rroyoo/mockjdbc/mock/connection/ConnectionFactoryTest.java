@@ -91,6 +91,43 @@ class ConnectionFactoryTest {
         assertTrue(connection.getAutoCommit());
     }
 
+    @Test
+    @DisplayName("Given a new connection, when isReadOnly is called, then it returns false by default")
+    void shouldReturnReadOnlyFalseByDefault() throws Exception {
+        // Arrange
+        var connection = ConnectionFactory.create(mockConfig());
+
+        // Act + Assert
+        assertFalse(connection.isReadOnly());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setReadOnly is set to true, then isReadOnly returns true")
+    void shouldReturnTrueAfterReadOnlyIsEnabled() throws Exception {
+        // Arrange
+        var connection = ConnectionFactory.create(mockConfig());
+
+        // Act
+        connection.setReadOnly(true);
+
+        // Assert
+        assertTrue(connection.isReadOnly());
+    }
+
+    @Test
+    @DisplayName("Given a read-only connection, when setReadOnly is set to false, then isReadOnly returns false")
+    void shouldReturnFalseAfterReadOnlyIsDisabled() throws Exception {
+        // Arrange
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.setReadOnly(true);
+
+        // Act
+        connection.setReadOnly(false);
+
+        // Assert
+        assertFalse(connection.isReadOnly());
+    }
+
     private static MockConfig mockConfig() {
         var properties = new Properties();
         properties.setProperty("keepAliveTime", "60");

@@ -7,6 +7,7 @@ public final class ConnectionStateHandler {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean autoCommit = new AtomicBoolean(true); // JDBC default
+    private final AtomicBoolean readOnly = new AtomicBoolean(false);  // JDBC default
 
     public void close() throws SQLException {
         closed.set(true);
@@ -22,5 +23,13 @@ public final class ConnectionStateHandler {
 
     public boolean getAutoCommit() throws SQLException {
         return autoCommit.get();
+    }
+
+    public void setReadOnly(boolean readOnly) throws SQLException {
+        this.readOnly.set(readOnly);
+    }
+
+    public boolean isReadOnly() throws SQLException {
+        return readOnly.get();
     }
 }
