@@ -4,11 +4,15 @@ import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -126,6 +130,91 @@ class ConnectionFactoryTest {
 
         // Assert
         assertFalse(connection.isReadOnly());
+    }
+
+    // -- setTransactionIsolation / getTransactionIsolation --
+
+    @Test
+    @DisplayName("Given a new connection, when getTransactionIsolation is called, then it returns TRANSACTION_READ_COMMITTED by default")
+    void shouldReturnReadCommittedIsolationByDefault() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertEquals(Connection.TRANSACTION_READ_COMMITTED, connection.getTransactionIsolation());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setTransactionIsolation is set to SERIALIZABLE, then getTransactionIsolation returns SERIALIZABLE")
+    void shouldReturnSerializableAfterIsolationIsSet() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+        assertEquals(Connection.TRANSACTION_SERIALIZABLE, connection.getTransactionIsolation());
+    }
+
+    // -- setHoldability / getHoldability --
+
+    @Test
+    @DisplayName("Given a new connection, when getHoldability is called, then it returns CLOSE_CURSORS_AT_COMMIT by default")
+    void shouldReturnCloseCursorsAtCommitHoldabilityByDefault() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, connection.getHoldability());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setHoldability is set to HOLD_CURSORS_OVER_COMMIT, then getHoldability returns HOLD_CURSORS_OVER_COMMIT")
+    void shouldReturnHoldCursorsAfterHoldabilityIsSet() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
+        assertEquals(ResultSet.HOLD_CURSORS_OVER_COMMIT, connection.getHoldability());
+    }
+
+    // -- setCatalog / getCatalog --
+
+    @Test
+    @DisplayName("Given a new connection, when getCatalog is called, then it returns null by default")
+    void shouldReturnNullCatalogByDefault() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertNull(connection.getCatalog());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setCatalog is called, then getCatalog returns the same value")
+    void shouldReturnCatalogAfterItIsSet() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.setCatalog("my_catalog");
+        assertEquals("my_catalog", connection.getCatalog());
+    }
+
+    // -- setSchema / getSchema --
+
+    @Test
+    @DisplayName("Given a new connection, when getSchema is called, then it returns null by default")
+    void shouldReturnNullSchemaByDefault() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertNull(connection.getSchema());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setSchema is called, then getSchema returns the same value")
+    void shouldReturnSchemaAfterItIsSet() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.setSchema("my_schema");
+        assertEquals("my_schema", connection.getSchema());
+    }
+
+    // -- setNetworkTimeout / getNetworkTimeout --
+
+    @Test
+    @DisplayName("Given a new connection, when getNetworkTimeout is called, then it returns 0 by default")
+    void shouldReturnZeroNetworkTimeoutByDefault() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertEquals(0, connection.getNetworkTimeout());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setNetworkTimeout is called, then getNetworkTimeout returns the same value")
+    void shouldReturnNetworkTimeoutAfterItIsSet() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.setNetworkTimeout(null, 5000);
+        assertEquals(5000, connection.getNetworkTimeout());
     }
 
     private static MockConfig mockConfig() {
