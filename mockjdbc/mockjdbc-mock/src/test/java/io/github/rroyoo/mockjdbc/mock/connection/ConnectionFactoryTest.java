@@ -54,6 +54,43 @@ class ConnectionFactoryTest {
         assertTrue(connection.isClosed());
     }
 
+    @Test
+    @DisplayName("Given a new connection, when getAutoCommit is called, then it returns true by default")
+    void shouldReturnAutoCommitTrueByDefault() throws Exception {
+        // Arrange
+        var connection = ConnectionFactory.create(mockConfig());
+
+        // Act + Assert
+        assertTrue(connection.getAutoCommit());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when setAutoCommit is set to false, then getAutoCommit returns false")
+    void shouldReturnFalseAfterAutoCommitIsDisabled() throws Exception {
+        // Arrange
+        var connection = ConnectionFactory.create(mockConfig());
+
+        // Act
+        connection.setAutoCommit(false);
+
+        // Assert
+        assertFalse(connection.getAutoCommit());
+    }
+
+    @Test
+    @DisplayName("Given a connection with autoCommit disabled, when setAutoCommit is set to true, then getAutoCommit returns true")
+    void shouldReturnTrueAfterAutoCommitIsReEnabled() throws Exception {
+        // Arrange
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.setAutoCommit(false);
+
+        // Act
+        connection.setAutoCommit(true);
+
+        // Assert
+        assertTrue(connection.getAutoCommit());
+    }
+
     private static MockConfig mockConfig() {
         var properties = new Properties();
         properties.setProperty("keepAliveTime", "60");

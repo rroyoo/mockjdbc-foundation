@@ -8,6 +8,7 @@ import net.bytebuddy.implementation.MethodDelegation;
 import java.sql.Connection;
 
 import static net.bytebuddy.matcher.ElementMatchers.named;
+import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 import static net.bytebuddy.matcher.ElementMatchers.takesNoArguments;
 
 final class ConnectionFactory {
@@ -24,6 +25,8 @@ final class ConnectionFactory {
             var stateHandler = new ConnectionStateHandler();
             var closeMethod = ConnectionStateHandler.class.getMethod("close");
             var isClosedMethod = ConnectionStateHandler.class.getMethod("isClosed");
+            var setAutoCommitMethod = ConnectionStateHandler.class.getMethod("setAutoCommit", boolean.class);
+            var getAutoCommitMethod = ConnectionStateHandler.class.getMethod("getAutoCommit");
 
             var connectionBuilder = new ByteBuddy()
                     .subclass(Connection.class)
@@ -34,7 +37,11 @@ final class ConnectionFactory {
                     .method(named("close").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(closeMethod).on(stateHandler))
                     .method(named("isClosed").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(isClosedMethod).on(stateHandler));
+                    .intercept(MethodCall.invoke(isClosedMethod).on(stateHandler))
+                    .method(named("setAutoCommit").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(setAutoCommitMethod).on(stateHandler).withAllArguments())
+                    .method(named("getAutoCommit").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(getAutoCommitMethod).on(stateHandler));
 
             try (var unloaded = connectionBuilder.make()) {
                 return unloaded.load(ConnectionFactory.class.getClassLoader())
