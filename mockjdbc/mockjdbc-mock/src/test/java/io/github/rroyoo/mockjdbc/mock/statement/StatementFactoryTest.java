@@ -233,6 +233,57 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given a new statement, when reading config defaults, then JDBC-like defaults are returned")
+    void shouldReturnStatementConfigDefaults() throws Exception {
+        try (var statement = statementFactory.createStatement()) {
+            assertEquals(0, statement.getMaxRows());
+            assertEquals(0L, statement.getLargeMaxRows());
+            assertEquals(0, statement.getQueryTimeout());
+            assertEquals(0, statement.getFetchSize());
+            assertEquals(java.sql.ResultSet.FETCH_FORWARD, statement.getFetchDirection());
+            assertEquals(java.sql.ResultSet.TYPE_FORWARD_ONLY, statement.getResultSetType());
+            assertEquals(java.sql.ResultSet.CONCUR_READ_ONLY, statement.getResultSetConcurrency());
+            assertEquals(java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT, statement.getResultSetHoldability());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a statement, when setting config values, then getters return updated values")
+    void shouldStoreAndReturnStatementConfigValues() throws Exception {
+        try (var statement = statementFactory.createStatement()) {
+            statement.setMaxRows(50);
+            statement.setLargeMaxRows(500L);
+            statement.setQueryTimeout(12);
+            statement.setFetchSize(25);
+            statement.setFetchDirection(java.sql.ResultSet.FETCH_REVERSE);
+
+            assertEquals(50, statement.getMaxRows());
+            assertEquals(500L, statement.getLargeMaxRows());
+            assertEquals(12, statement.getQueryTimeout());
+            assertEquals(25, statement.getFetchSize());
+            assertEquals(java.sql.ResultSet.FETCH_REVERSE, statement.getFetchDirection());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setting config values, then getters return updated values")
+    void shouldStoreAndReturnPreparedStatementConfigValues() throws Exception {
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setMaxRows(7);
+            statement.setLargeMaxRows(70L);
+            statement.setQueryTimeout(3);
+            statement.setFetchSize(5);
+            statement.setFetchDirection(java.sql.ResultSet.FETCH_UNKNOWN);
+
+            assertEquals(7, statement.getMaxRows());
+            assertEquals(70L, statement.getLargeMaxRows());
+            assertEquals(3, statement.getQueryTimeout());
+            assertEquals(5, statement.getFetchSize());
+            assertEquals(java.sql.ResultSet.FETCH_UNKNOWN, statement.getFetchDirection());
+        }
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }

@@ -82,6 +82,7 @@ public final class StatementFactory {
         try {
             var lifecycle = new StatementLifecycleHandler();
             var warnings = new StatementWarningsHandler();
+            var config = new StatementConfigHandler();
             var executionState = new StatementExecutionStateHandler();
             var query = new StatementQueryHandler(mockConfig, lifecycle, executionState);
 
@@ -98,6 +99,32 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
                     .method(named("clearWarnings").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
+                    .method(named("setMaxRows").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setMaxRows", int.class)).on(config).withAllArguments())
+                    .method(named("getMaxRows").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getMaxRows")).on(config))
+                    .method(named("setLargeMaxRows").and(takesArguments(long.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setLargeMaxRows", long.class)).on(config).withAllArguments())
+                    .method(named("getLargeMaxRows").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getLargeMaxRows")).on(config))
+                    .method(named("setQueryTimeout").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setQueryTimeout", int.class)).on(config).withAllArguments())
+                    .method(named("getQueryTimeout").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getQueryTimeout")).on(config))
+                    .method(named("setFetchSize").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchSize", int.class)).on(config).withAllArguments())
+                    .method(named("getFetchSize").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchSize")).on(config))
+                    .method(named("setFetchDirection").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchDirection", int.class)).on(config).withAllArguments())
+                    .method(named("getFetchDirection").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchDirection")).on(config))
+                    .method(named("getResultSetType").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetType")).on(config))
+                    .method(named("getResultSetConcurrency").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetConcurrency")).on(config))
+                    .method(named("getResultSetHoldability").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetHoldability")).on(config))
                     .method(named("executeQuery").and(takesArguments(String.class)))
                     .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeQuery", String.class)).on(query).withAllArguments())
                     .method(named("execute").and(takesArguments(String.class)))
@@ -147,6 +174,7 @@ public final class StatementFactory {
         try {
             var lifecycle = new StatementLifecycleHandler();
             var warnings = new StatementWarningsHandler();
+            var config = new StatementConfigHandler();
             var executionState = new StatementExecutionStateHandler();
             var prepared = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, sql);
 
@@ -163,6 +191,32 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
                     .method(named("clearWarnings").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
+                    .method(named("setMaxRows").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setMaxRows", int.class)).on(config).withAllArguments())
+                    .method(named("getMaxRows").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getMaxRows")).on(config))
+                    .method(named("setLargeMaxRows").and(takesArguments(long.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setLargeMaxRows", long.class)).on(config).withAllArguments())
+                    .method(named("getLargeMaxRows").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getLargeMaxRows")).on(config))
+                    .method(named("setQueryTimeout").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setQueryTimeout", int.class)).on(config).withAllArguments())
+                    .method(named("getQueryTimeout").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getQueryTimeout")).on(config))
+                    .method(named("setFetchSize").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchSize", int.class)).on(config).withAllArguments())
+                    .method(named("getFetchSize").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchSize")).on(config))
+                    .method(named("setFetchDirection").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchDirection", int.class)).on(config).withAllArguments())
+                    .method(named("getFetchDirection").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchDirection")).on(config))
+                    .method(named("getResultSetType").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetType")).on(config))
+                    .method(named("getResultSetConcurrency").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetConcurrency")).on(config))
+                    .method(named("getResultSetHoldability").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetHoldability")).on(config))
                     .method(named("setString").and(takesArguments(int.class, String.class)))
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("setString", int.class, String.class)).on(prepared).withAllArguments())
                     .method(named("setInt").and(takesArguments(int.class, int.class)))
@@ -214,6 +268,7 @@ public final class StatementFactory {
         try {
             var lifecycle = new StatementLifecycleHandler();
             var warnings = new StatementWarningsHandler();
+            var config = new StatementConfigHandler();
             var executionState = new StatementExecutionStateHandler();
             var callable = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, sql);
 
@@ -230,6 +285,32 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
                     .method(named("clearWarnings").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
+                    .method(named("setMaxRows").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setMaxRows", int.class)).on(config).withAllArguments())
+                    .method(named("getMaxRows").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getMaxRows")).on(config))
+                    .method(named("setLargeMaxRows").and(takesArguments(long.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setLargeMaxRows", long.class)).on(config).withAllArguments())
+                    .method(named("getLargeMaxRows").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getLargeMaxRows")).on(config))
+                    .method(named("setQueryTimeout").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setQueryTimeout", int.class)).on(config).withAllArguments())
+                    .method(named("getQueryTimeout").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getQueryTimeout")).on(config))
+                    .method(named("setFetchSize").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchSize", int.class)).on(config).withAllArguments())
+                    .method(named("getFetchSize").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchSize")).on(config))
+                    .method(named("setFetchDirection").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchDirection", int.class)).on(config).withAllArguments())
+                    .method(named("getFetchDirection").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchDirection")).on(config))
+                    .method(named("getResultSetType").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetType")).on(config))
+                    .method(named("getResultSetConcurrency").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetConcurrency")).on(config))
+                    .method(named("getResultSetHoldability").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetHoldability")).on(config))
                     .method(named("setString").and(takesArguments(int.class, String.class)))
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("setString", int.class, String.class)).on(callable).withAllArguments())
                     .method(named("setInt").and(takesArguments(int.class, int.class)))
