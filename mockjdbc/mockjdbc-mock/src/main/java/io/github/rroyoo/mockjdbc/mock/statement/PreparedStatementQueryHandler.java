@@ -5,11 +5,21 @@ import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 
 import java.math.BigDecimal;
+import java.io.InputStream;
+import java.io.Reader;
+import java.net.URL;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Date;
+import java.sql.NClob;
 import java.sql.ParameterMetaData;
+import java.sql.Ref;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.RowId;
 import java.sql.SQLException;
+import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -189,6 +199,243 @@ final class PreparedStatementQueryHandler {
 
     public void clearParameters() throws SQLException {
         parameters.clear();
+    }
+
+    // --- Advanced types ---
+
+    public void setURL(int index, URL value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.DATALINK);
+        } else {
+            parameters.put(index, parameter(index, Types.DATALINK, "DATALINK",
+                    JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+        }
+    }
+
+    public void setBlob(int index, Blob value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.BLOB);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.BLOB, "BLOB",
+                        JdbcValue.newBuilder().setBytesVal(
+                                com.google.protobuf.ByteString.copyFrom(value.getBytes(1L, (int) value.length()))
+                        ).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read Blob value", e);
+            }
+        }
+    }
+
+    public void setBlob(int index, InputStream inputStream) throws SQLException {
+        if (inputStream == null) {
+            setNull(index, Types.BLOB);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.BLOB, "BLOB",
+                        JdbcValue.newBuilder().setBytesVal(
+                                com.google.protobuf.ByteString.readFrom(inputStream)
+                        ).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read Blob InputStream", e);
+            }
+        }
+    }
+
+    public void setBlob(int index, InputStream inputStream, long length) throws SQLException {
+        setBlob(index, inputStream);
+    }
+
+    public void setClob(int index, Clob value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.CLOB);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.CLOB, "CLOB",
+                        JdbcValue.newBuilder().setStringVal(value.getSubString(1L, (int) value.length())).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read Clob value", e);
+            }
+        }
+    }
+
+    public void setClob(int index, Reader reader) throws SQLException {
+        if (reader == null) {
+            setNull(index, Types.CLOB);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.CLOB, "CLOB",
+                        JdbcValue.newBuilder().setStringVal(new java.io.BufferedReader(reader).lines()
+                                .collect(java.util.stream.Collectors.joining("\n"))).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read Clob Reader", e);
+            }
+        }
+    }
+
+    public void setClob(int index, Reader reader, long length) throws SQLException {
+        setClob(index, reader);
+    }
+
+    public void setNClob(int index, NClob value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.NCLOB);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.NCLOB, "NCLOB",
+                        JdbcValue.newBuilder().setStringVal(value.getSubString(1L, (int) value.length())).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read NClob value", e);
+            }
+        }
+    }
+
+    public void setNClob(int index, Reader reader) throws SQLException {
+        if (reader == null) {
+            setNull(index, Types.NCLOB);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.NCLOB, "NCLOB",
+                        JdbcValue.newBuilder().setStringVal(new java.io.BufferedReader(reader).lines()
+                                .collect(java.util.stream.Collectors.joining("\n"))).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read NClob Reader", e);
+            }
+        }
+    }
+
+    public void setNClob(int index, Reader reader, long length) throws SQLException {
+        setNClob(index, reader);
+    }
+
+    public void setArray(int index, Array value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.ARRAY);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.ARRAY, value.getBaseTypeName(),
+                        JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read Array value", e);
+            }
+        }
+    }
+
+    public void setRef(int index, Ref value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.REF);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.REF, value.getBaseTypeName(),
+                        JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read Ref value", e);
+            }
+        }
+    }
+
+    public void setRowId(int index, RowId value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.ROWID);
+        } else {
+            parameters.put(index, parameter(index, Types.ROWID, "ROWID",
+                    JdbcValue.newBuilder().setBytesVal(
+                            com.google.protobuf.ByteString.copyFrom(value.getBytes())
+                    ).build()));
+        }
+    }
+
+    public void setSQLXML(int index, SQLXML value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.SQLXML);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.SQLXML, "SQLXML",
+                        JdbcValue.newBuilder().setStringVal(value.getString()).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read SQLXML value", e);
+            }
+        }
+    }
+
+    public void setNString(int index, String value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.NVARCHAR);
+        } else {
+            parameters.put(index, parameter(index, Types.NVARCHAR, "NVARCHAR",
+                    JdbcValue.newBuilder().setStringVal(value).build()));
+        }
+    }
+
+    public void setNCharacterStream(int index, Reader reader) throws SQLException {
+        setNClob(index, reader);
+    }
+
+    public void setNCharacterStream(int index, Reader reader, long length) throws SQLException {
+        setNClob(index, reader);
+    }
+
+    public void setCharacterStream(int index, Reader reader) throws SQLException {
+        setClob(index, reader);
+    }
+
+    public void setCharacterStream(int index, Reader reader, int length) throws SQLException {
+        setClob(index, reader);
+    }
+
+    public void setCharacterStream(int index, Reader reader, long length) throws SQLException {
+        setClob(index, reader);
+    }
+
+    public void setBinaryStream(int index, InputStream inputStream) throws SQLException {
+        setBlob(index, inputStream);
+    }
+
+    public void setBinaryStream(int index, InputStream inputStream, int length) throws SQLException {
+        setBlob(index, inputStream);
+    }
+
+    public void setBinaryStream(int index, InputStream inputStream, long length) throws SQLException {
+        setBlob(index, inputStream);
+    }
+
+    public void setAsciiStream(int index, InputStream inputStream) throws SQLException {
+        if (inputStream == null) {
+            setNull(index, Types.LONGVARCHAR);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.LONGVARCHAR, "LONGVARCHAR",
+                        JdbcValue.newBuilder().setStringVal(
+                                new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.US_ASCII)
+                        ).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read ASCII stream", e);
+            }
+        }
+    }
+
+    public void setAsciiStream(int index, InputStream inputStream, int length) throws SQLException {
+        setAsciiStream(index, inputStream);
+    }
+
+    public void setAsciiStream(int index, InputStream inputStream, long length) throws SQLException {
+        setAsciiStream(index, inputStream);
+    }
+
+    @SuppressWarnings("deprecation")
+    public void setUnicodeStream(int index, InputStream inputStream, int length) throws SQLException {
+        if (inputStream == null) {
+            setNull(index, Types.LONGVARCHAR);
+        } else {
+            try {
+                parameters.put(index, parameter(index, Types.LONGVARCHAR, "LONGVARCHAR",
+                        JdbcValue.newBuilder().setStringVal(
+                                new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                        ).build()));
+            } catch (Exception e) {
+                throw new SQLException("Failed to read Unicode stream", e);
+            }
+        }
     }
 
     public ResultSet executeQuery() throws SQLException {

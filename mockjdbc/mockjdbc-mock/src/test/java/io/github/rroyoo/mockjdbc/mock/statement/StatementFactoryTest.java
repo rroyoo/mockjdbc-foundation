@@ -560,6 +560,125 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given a prepared statement, when setURL is called, then the URL string is sent in the lookup request")
+    void shouldSendUrlParameterToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        var url = new java.net.URL("https://example.com");
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setURL(1, url);
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(1, req.getParametersCount());
+        assertEquals("https://example.com", req.getParameters(0).getValue().getStringVal());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setNString is called, then the value is sent as NVARCHAR")
+    void shouldSendNStringParameterToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setNString(1, "héllo");
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(1, req.getParametersCount());
+        assertEquals("héllo", req.getParameters(0).getValue().getStringVal());
+        assertEquals(java.sql.Types.NVARCHAR, req.getParameters(0).getSqlType());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setBinaryStream is called, then the bytes are sent in the lookup request")
+    void shouldSendBinaryStreamParameterToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        var data = new byte[]{10, 20, 30};
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setBinaryStream(1, new java.io.ByteArrayInputStream(data));
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(com.google.protobuf.ByteString.copyFrom(data), req.getParameters(0).getValue().getBytesVal());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setCharacterStream is called, then the string content is sent as CLOB")
+    void shouldSendCharacterStreamParameterToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setCharacterStream(1, new java.io.StringReader("stream content"));
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals("stream content", req.getParameters(0).getValue().getStringVal());
+        assertEquals(java.sql.Types.CLOB, req.getParameters(0).getSqlType());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setAsciiStream is called, then the ASCII string is sent in the lookup request")
+    void shouldSendAsciiStreamParameterToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        var data = "ascii text".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setAsciiStream(1, new java.io.ByteArrayInputStream(data));
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals("ascii text", req.getParameters(0).getValue().getStringVal());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setBlob with InputStream is called, then the bytes are sent in the lookup request")
+    void shouldSendBlobInputStreamParameterToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        var data = new byte[]{1, 2, 3};
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setBlob(1, new java.io.ByteArrayInputStream(data));
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(com.google.protobuf.ByteString.copyFrom(data), req.getParameters(0).getValue().getBytesVal());
+        assertEquals(java.sql.Types.BLOB, req.getParameters(0).getSqlType());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setClob with Reader is called, then the text is sent in the lookup request")
+    void shouldSendClobReaderParameterToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setClob(1, new java.io.StringReader("clob text"));
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals("clob text", req.getParameters(0).getValue().getStringVal());
+        assertEquals(java.sql.Types.CLOB, req.getParameters(0).getSqlType());
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }
