@@ -86,6 +86,14 @@ final class PreparedStatementQueryHandler {
         return true;
     }
 
+    public int executeUpdate() throws SQLException {
+        lifecycle.assertOpen();
+        var resultSet = client.findResultSet(sql, sortedParameters());
+        var count = resultSet.getRowsCount();
+        executionState.storeUpdateCount(count);
+        return count;
+    }
+
     public ResultSet getResultSet() throws SQLException {
         lifecycle.assertOpen();
         return executionState.getResultSet();
@@ -124,4 +132,3 @@ final class PreparedStatementQueryHandler {
         return JdbcValue.newBuilder().setStringVal(value).build();
     }
 }
-

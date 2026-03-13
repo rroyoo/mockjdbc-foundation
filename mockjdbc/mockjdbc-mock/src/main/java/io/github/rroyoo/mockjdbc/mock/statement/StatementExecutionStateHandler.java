@@ -16,6 +16,11 @@ final class StatementExecutionStateHandler {
         updateCount.set(-1);
     }
 
+    public void storeUpdateCount(int count) throws SQLException {
+        closeCurrentResultSet();
+        updateCount.set(count);
+    }
+
     public ResultSet getResultSet() throws SQLException {
         return currentResultSet.get();
     }
@@ -35,4 +40,3 @@ final class StatementExecutionStateHandler {
         }
     }
 }
-

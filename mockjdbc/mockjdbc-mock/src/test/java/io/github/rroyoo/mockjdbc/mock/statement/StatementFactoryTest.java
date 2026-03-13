@@ -24,6 +24,7 @@ import java.util.function.Function;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StatementFactoryTest {
@@ -128,6 +129,37 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given a statement, when executeUpdate is called, then it returns update count and clears current ResultSet")
+    void shouldReturnUpdateCountAndClearResultSetAfterStatementExecuteUpdate() throws Exception {
+        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+
+        try (var statement = statementFactory.createStatement()) {
+            var updatedRows = statement.executeUpdate("UPDATE users SET active=true");
+            assertEquals(2, updatedRows);
+            assertEquals(2, statement.getUpdateCount());
+            assertNull(statement.getResultSet());
+            assertFalse(statement.getMoreResults());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when executeUpdate is called, then it returns update count and clears current ResultSet")
+    void shouldReturnUpdateCountAndClearResultSetAfterPreparedStatementExecuteUpdate() throws Exception {
+        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET active=? WHERE id=?")) {
+            statement.setBoolean(1, true);
+            statement.setInt(2, 10);
+
+            var updatedRows = statement.executeUpdate();
+            assertEquals(2, updatedRows);
+            assertEquals(2, statement.getUpdateCount());
+            assertNull(statement.getResultSet());
+            assertFalse(statement.getMoreResults());
+        }
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }
@@ -150,6 +182,19 @@ class StatementFactoryTest {
                 .build();
     }
 
+    private static SerializedResultSet twoRowResultSet(String name, String label) {
+        return SerializedResultSet.newBuilder()
+                .addMetadata(ColumnMetadata.newBuilder()
+                        .setName(name)
+                        .setLabel(label)
+                        .setSqlType(Types.INTEGER)
+                        .setTypeName("INTEGER")
+                        .build())
+                .addRows(Row.newBuilder().addValues(JdbcValue.newBuilder().setLongVal(1).build()).build())
+                .addRows(Row.newBuilder().addValues(JdbcValue.newBuilder().setLongVal(2).build()).build())
+                .build();
+    }
+
     private static final class TestMockQueryService extends MockQueryServiceGrpc.MockQueryServiceImplBase {
 
         private final AtomicReference<QueryLookupRequest> lastRequest = new AtomicReference<>();
@@ -163,4 +208,3 @@ class StatementFactoryTest {
         }
     }
 }
-
