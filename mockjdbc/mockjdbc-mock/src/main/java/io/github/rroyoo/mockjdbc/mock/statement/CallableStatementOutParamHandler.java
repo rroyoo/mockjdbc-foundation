@@ -5,6 +5,7 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -142,6 +143,23 @@ final class CallableStatementOutParamHandler {
         return null;
     }
 
+    public Date getDate(int parameterIndex, Calendar cal) throws SQLException {
+        return getDate(parameterIndex);
+    }
+
+    public Time getTime(int parameterIndex, Calendar cal) throws SQLException {
+        return getTime(parameterIndex);
+    }
+
+    public Timestamp getTimestamp(int parameterIndex, Calendar cal) throws SQLException {
+        return getTimestamp(parameterIndex);
+    }
+
+    public <T> T getObject(int parameterIndex, Class<T> type) throws SQLException {
+        assertRegistered(parameterIndex);
+        return null;
+    }
+
     // ---- getters by name ----------------------------------------------------
 
     public String getString(String parameterName) throws SQLException {
@@ -214,6 +232,23 @@ final class CallableStatementOutParamHandler {
         return null;
     }
 
+    public Date getDate(String parameterName, Calendar cal) throws SQLException {
+        return getDate(parameterName);
+    }
+
+    public Time getTime(String parameterName, Calendar cal) throws SQLException {
+        return getTime(parameterName);
+    }
+
+    public Timestamp getTimestamp(String parameterName, Calendar cal) throws SQLException {
+        return getTimestamp(parameterName);
+    }
+
+    public <T> T getObject(String parameterName, Class<T> type) throws SQLException {
+        assertRegistered(parameterName);
+        return null;
+    }
+
     // ---- helpers ------------------------------------------------------------
 
     private void assertRegistered(int index) throws SQLException {
@@ -232,4 +267,3 @@ final class CallableStatementOutParamHandler {
 
     private record OutParam(int sqlType, String typeName) {}
 }
-

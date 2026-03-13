@@ -585,14 +585,14 @@ class StatementFactoryTest {
         service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
 
         try (var statement = statementFactory.prepareStatement("SELECT ?")) {
-            statement.setNString(1, "héllo");
+            statement.setNString(1, "hélo");
             statement.executeUpdate();
         }
 
         var req = service.lastRequest.get();
         assertNotNull(req);
         assertEquals(1, req.getParametersCount());
-        assertEquals("héllo", req.getParameters(0).getValue().getStringVal());
+        assertEquals("hélo", req.getParameters(0).getValue().getStringVal());
         assertEquals(java.sql.Types.NVARCHAR, req.getParameters(0).getSqlType());
     }
 
@@ -710,6 +710,30 @@ class StatementFactoryTest {
         try (var callable = statementFactory.prepareCall("{ call demo(?) }")) {
             assertThrows(java.sql.SQLException.class, () -> callable.getInt(1));
             assertThrows(java.sql.SQLException.class, () -> callable.getString("missing_out"));
+        }
+    }
+
+    @Test
+    @DisplayName("Given a callable statement with registered OUT index, when Calendar and typed getObject overloads are used, then they return default values")
+    void shouldSupportCalendarAndTypedObjectOutGettersByIndex() throws Exception {
+        try (var callable = statementFactory.prepareCall("{ call demo(?) }")) {
+            callable.registerOutParameter(1, Types.TIMESTAMP);
+
+            assertNull(callable.getTimestamp(1, Calendar.getInstance()));
+            assertNull(callable.getObject(1, String.class));
+            assertTrue(callable.wasNull());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a callable statement with registered OUT name, when Calendar and typed getObject overloads are used, then they return default values")
+    void shouldSupportCalendarAndTypedObjectOutGettersByName() throws Exception {
+        try (var callable = statementFactory.prepareCall("{ call demo(?) }")) {
+            callable.registerOutParameter("out_created", Types.DATE);
+
+            assertNull(callable.getDate("out_created", Calendar.getInstance()));
+            assertNull(callable.getObject("out_created", String.class));
+            assertTrue(callable.wasNull());
         }
     }
 
