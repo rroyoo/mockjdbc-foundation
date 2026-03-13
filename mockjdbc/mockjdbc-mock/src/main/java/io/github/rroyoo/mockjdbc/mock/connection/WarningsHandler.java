@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.util.concurrent.atomic.AtomicReference;
 
-public final class WarningsHandler {
+final class WarningsHandler {
 
     private final AtomicReference<SQLWarning> warnings = new AtomicReference<>(null);
 
@@ -20,4 +20,3 @@ public final class WarningsHandler {
         });
     }
 }
-

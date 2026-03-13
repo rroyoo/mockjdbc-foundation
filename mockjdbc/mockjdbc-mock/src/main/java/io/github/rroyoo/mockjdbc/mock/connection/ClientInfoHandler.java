@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class ClientInfoHandler {
+final class ClientInfoHandler {
 
     private final ConcurrentHashMap<String, String> clientInfo = new ConcurrentHashMap<>();
 
@@ -33,4 +33,3 @@ public final class ClientInfoHandler {
         return properties;
     }
 }
-

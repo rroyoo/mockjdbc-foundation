@@ -6,7 +6,7 @@ import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 
-public final class GenericVoidMethodHandler {
+final class GenericVoidMethodHandler {
 
     @RuntimeType
     public static void handle(@Origin Method method) throws SQLException {

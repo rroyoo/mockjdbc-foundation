@@ -4,11 +4,10 @@ import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 
 import java.sql.SQLException;
 
-public final class NullResultHandler {
+final class NullResultHandler {
 
     @RuntimeType
     public static Object handle() throws SQLException {
         return null;
     }
 }
-

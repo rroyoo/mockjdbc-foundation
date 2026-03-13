@@ -3,7 +3,7 @@ package io.github.rroyoo.mockjdbc.mock.connection;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public final class TransactionHandler {
+final class TransactionHandler {
 
     private final AtomicBoolean autoCommit = new AtomicBoolean(true); // JDBC default
 
@@ -11,4 +11,3 @@ public final class TransactionHandler {
 
     public boolean getAutoCommit() throws SQLException { return autoCommit.get(); }
 }
-

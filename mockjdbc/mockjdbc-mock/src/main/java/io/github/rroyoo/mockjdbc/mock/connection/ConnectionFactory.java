@@ -2,6 +2,7 @@ package io.github.rroyoo.mockjdbc.mock.connection;
 
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.MethodCall;
 import net.bytebuddy.implementation.MethodDelegation;
 
@@ -9,12 +10,15 @@ import java.sql.Connection;
 import java.sql.Savepoint;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 import static net.bytebuddy.matcher.ElementMatchers.takesNoArguments;
 
-final class ConnectionFactory {
+public final class ConnectionFactory {
+
+    private static final AtomicLong CONNECTION_SEQUENCE = new AtomicLong(0L);
 
     private ConnectionFactory() {}
 
@@ -31,8 +35,12 @@ final class ConnectionFactory {
             var warnings     = new WarningsHandler();
             var clientInfo   = new ClientInfoHandler();
 
+            var generatedTypeName = ConnectionFactory.class.getPackageName()
+                    + ".MockConnection$" + CONNECTION_SEQUENCE.incrementAndGet();
+
             var connectionBuilder = new ByteBuddy()
                     .subclass(Connection.class)
+                    .name(generatedTypeName)
                     // --- lifecycle ---
                     .method(named("close").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(LifecycleHandler.class.getMethod("close")).on(lifecycle))
@@ -97,7 +105,10 @@ final class ConnectionFactory {
                     .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo", String.class)).on(clientInfo).withAllArguments());
 
             try (var unloaded = connectionBuilder.make()) {
-                return unloaded.load(ConnectionFactory.class.getClassLoader())
+                return unloaded.load(
+                                ConnectionFactory.class.getClassLoader(),
+                                ClassLoadingStrategy.Default.INJECTION
+                        )
                         .getLoaded()
                         .getDeclaredConstructor()
                         .newInstance();

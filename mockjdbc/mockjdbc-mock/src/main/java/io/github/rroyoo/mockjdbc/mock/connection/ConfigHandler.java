@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public final class ConfigHandler {
+final class ConfigHandler {
 
     private final AtomicBoolean readOnly = new AtomicBoolean(false);                                            // JDBC default
     private final AtomicInteger transactionIsolation = new AtomicInteger(Connection.TRANSACTION_READ_COMMITTED); // JDBC default
@@ -35,4 +35,3 @@ public final class ConfigHandler {
     public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException { networkTimeout.set(milliseconds); }
     public int getNetworkTimeout() throws SQLException { return networkTimeout.get(); }
 }
-
