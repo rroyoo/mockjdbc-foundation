@@ -96,6 +96,38 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given a statement, when execute is called, then it returns true and exposes the current ResultSet")
+    void shouldExposeCurrentResultSetAfterStatementExecute() throws Exception {
+        service.responder = request -> mockedQuery(singleColumnResultSet("greeting", "greeting", JdbcValue.newBuilder().setStringVal("hello").build()));
+
+        try (var statement = statementFactory.createStatement()) {
+            assertTrue(statement.execute("SELECT greeting"));
+            assertEquals(-1, statement.getUpdateCount());
+            assertNotNull(statement.getResultSet());
+            assertTrue(statement.getResultSet().next());
+            assertEquals("hello", statement.getResultSet().getString(1));
+            assertFalse(statement.getMoreResults());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when execute is called, then it returns true and exposes the current ResultSet")
+    void shouldExposeCurrentResultSetAfterPreparedStatementExecute() throws Exception {
+        service.responder = request -> mockedQuery(singleColumnResultSet("name", "name", JdbcValue.newBuilder().setStringVal("bob").build()));
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setString(1, "bob");
+
+            assertTrue(statement.execute());
+            assertEquals(-1, statement.getUpdateCount());
+            assertNotNull(statement.getResultSet());
+            assertTrue(statement.getResultSet().next());
+            assertEquals("bob", statement.getResultSet().getString(1));
+            assertFalse(statement.getMoreResults());
+        }
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }

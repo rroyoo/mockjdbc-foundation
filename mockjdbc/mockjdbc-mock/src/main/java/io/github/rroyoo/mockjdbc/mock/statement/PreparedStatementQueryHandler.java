@@ -5,7 +5,7 @@ import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 
 import java.math.BigDecimal;
-import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -16,12 +16,14 @@ import java.util.concurrent.ConcurrentHashMap;
 final class PreparedStatementQueryHandler {
 
     private final StatementLifecycleHandler lifecycle;
+    private final StatementExecutionStateHandler executionState;
     private final GrpcMockQueryClient client;
     private final String sql;
     private final ConcurrentHashMap<Integer, ParameterMetadata> parameters = new ConcurrentHashMap<>();
 
-    PreparedStatementQueryHandler(MockConfig mockConfig, StatementLifecycleHandler lifecycle, String sql) {
+    PreparedStatementQueryHandler(MockConfig mockConfig, StatementLifecycleHandler lifecycle, StatementExecutionStateHandler executionState, String sql) {
         this.lifecycle = lifecycle;
+        this.executionState = executionState;
         this.client = new GrpcMockQueryClient(mockConfig);
         this.sql = sql;
     }
@@ -72,11 +74,37 @@ final class PreparedStatementQueryHandler {
         parameters.clear();
     }
 
-    public java.sql.ResultSet executeQuery() throws SQLException {
+    public ResultSet executeQuery() throws SQLException {
         lifecycle.assertOpen();
+        var resultSet = ResultSetFactory.create(client.findResultSet(sql, sortedParameters()));
+        executionState.storeResultSet(resultSet);
+        return resultSet;
+    }
+
+    public boolean execute() throws SQLException {
+        executeQuery();
+        return true;
+    }
+
+    public ResultSet getResultSet() throws SQLException {
+        lifecycle.assertOpen();
+        return executionState.getResultSet();
+    }
+
+    public int getUpdateCount() throws SQLException {
+        lifecycle.assertOpen();
+        return executionState.getUpdateCount();
+    }
+
+    public boolean getMoreResults() throws SQLException {
+        lifecycle.assertOpen();
+        return executionState.getMoreResults();
+    }
+
+    private java.util.List<ParameterMetadata> sortedParameters() {
         var sortedParameters = new ArrayList<>(parameters.entrySet());
         sortedParameters.sort(Comparator.comparingInt(Map.Entry::getKey));
-        return ResultSetFactory.create(client.findResultSet(sql, sortedParameters.stream().map(Map.Entry::getValue).toList()));
+        return sortedParameters.stream().map(Map.Entry::getValue).toList();
     }
 
     private static ParameterMetadata parameter(int index, int sqlType, String typeName, JdbcValue value) {

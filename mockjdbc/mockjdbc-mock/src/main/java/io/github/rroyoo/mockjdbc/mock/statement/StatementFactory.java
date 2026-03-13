@@ -82,7 +82,8 @@ public final class StatementFactory {
         try {
             var lifecycle = new StatementLifecycleHandler();
             var warnings = new StatementWarningsHandler();
-            var query = new StatementQueryHandler(mockConfig, lifecycle);
+            var executionState = new StatementExecutionStateHandler();
+            var query = new StatementQueryHandler(mockConfig, lifecycle, executionState);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockStatement$" + STATEMENT_SEQUENCE.incrementAndGet();
 
@@ -99,6 +100,14 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
                     .method(named("executeQuery").and(takesArguments(String.class)))
                     .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeQuery", String.class)).on(query).withAllArguments())
+                    .method(named("execute").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("execute", String.class)).on(query).withAllArguments())
+                    .method(named("getResultSet").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getResultSet")).on(query))
+                    .method(named("getUpdateCount").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getUpdateCount")).on(query))
+                    .method(named("getMoreResults").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getMoreResults")).on(query))
                     .make()) {
                 return unloaded.load(StatementFactory.class.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
                         .getLoaded()
@@ -114,7 +123,8 @@ public final class StatementFactory {
         try {
             var lifecycle = new StatementLifecycleHandler();
             var warnings = new StatementWarningsHandler();
-            var prepared = new PreparedStatementQueryHandler(mockConfig, lifecycle, sql);
+            var executionState = new StatementExecutionStateHandler();
+            var prepared = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, sql);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockPreparedStatement$" + PREPARED_STATEMENT_SEQUENCE.incrementAndGet();
 
@@ -145,6 +155,14 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("clearParameters")).on(prepared))
                     .method(named("executeQuery").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("executeQuery")).on(prepared))
+                    .method(named("execute").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("execute")).on(prepared))
+                    .method(named("getResultSet").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getResultSet")).on(prepared))
+                    .method(named("getUpdateCount").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getUpdateCount")).on(prepared))
+                    .method(named("getMoreResults").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getMoreResults")).on(prepared))
                     .make()) {
                 return unloaded.load(StatementFactory.class.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
                         .getLoaded()
@@ -160,7 +178,8 @@ public final class StatementFactory {
         try {
             var lifecycle = new StatementLifecycleHandler();
             var warnings = new StatementWarningsHandler();
-            var callable = new PreparedStatementQueryHandler(mockConfig, lifecycle, sql);
+            var executionState = new StatementExecutionStateHandler();
+            var callable = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, sql);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockCallableStatement$" + CALLABLE_STATEMENT_SEQUENCE.incrementAndGet();
 
@@ -191,6 +210,14 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("clearParameters")).on(callable))
                     .method(named("executeQuery").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("executeQuery")).on(callable))
+                    .method(named("execute").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("execute")).on(callable))
+                    .method(named("getResultSet").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getResultSet")).on(callable))
+                    .method(named("getUpdateCount").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getUpdateCount")).on(callable))
+                    .method(named("getMoreResults").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getMoreResults")).on(callable))
                     .make()) {
                 return unloaded.load(StatementFactory.class.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
                         .getLoaded()
