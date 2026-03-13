@@ -89,66 +89,13 @@ public final class StatementFactory {
             var query = new StatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockStatement$" + STATEMENT_SEQUENCE.incrementAndGet();
-            var baseBuilder = applyCommonInterceptors(
+            var builder = applyStatmentQueryInteceptors(
                     new ByteBuddy().subclass(Statement.class).name(typeName),
-                    lifecycle,
-                    misc,
-                    warnings,
-                    config
+                    StatementQueryHandler.class, query,
+                    lifecycle, misc, warnings, config
             );
 
-            try (var unloaded = baseBuilder
-                    .method(named("executeQuery").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeQuery", String.class)).on(query).withAllArguments())
-                    .method(named("execute").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("execute", String.class)).on(query).withAllArguments())
-                    .method(named("execute").and(takesArguments(String.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("execute", String.class, int.class)).on(query).withAllArguments())
-                    .method(named("execute").and(takesArguments(String.class, int[].class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("execute", String.class, int[].class)).on(query).withAllArguments())
-                    .method(named("execute").and(takesArguments(String.class, String[].class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("execute", String.class, String[].class)).on(query).withAllArguments())
-                    .method(named("executeUpdate").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeUpdate", String.class)).on(query).withAllArguments())
-                    .method(named("executeUpdate").and(takesArguments(String.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeUpdate", String.class, int.class)).on(query).withAllArguments())
-                    .method(named("executeUpdate").and(takesArguments(String.class, int[].class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeUpdate", String.class, int[].class)).on(query).withAllArguments())
-                    .method(named("executeUpdate").and(takesArguments(String.class, String[].class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeUpdate", String.class, String[].class)).on(query).withAllArguments())
-                    .method(named("executeLargeUpdate").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeLargeUpdate", String.class)).on(query).withAllArguments())
-                    .method(named("executeLargeUpdate").and(takesArguments(String.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeLargeUpdate", String.class, int.class)).on(query).withAllArguments())
-                    .method(named("executeLargeUpdate").and(takesArguments(String.class, int[].class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeLargeUpdate", String.class, int[].class)).on(query).withAllArguments())
-                    .method(named("executeLargeUpdate").and(takesArguments(String.class, String[].class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeLargeUpdate", String.class, String[].class)).on(query).withAllArguments())
-                    .method(named("addBatch").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("addBatch", String.class)).on(query).withAllArguments())
-                    .method(named("clearBatch").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("clearBatch")).on(query))
-                    .method(named("executeBatch").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeBatch")).on(query))
-                    .method(named("executeLargeBatch").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeLargeBatch")).on(query))
-                    .method(named("getResultSet").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getResultSet")).on(query))
-                    .method(named("getUpdateCount").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getUpdateCount")).on(query))
-                    .method(named("getLargeUpdateCount").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getLargeUpdateCount")).on(query))
-                    .method(named("getGeneratedKeys").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getGeneratedKeys")).on(query))
-                    .method(named("getMoreResults").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getMoreResults")).on(query))
-                    .method(named("getMoreResults").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("getMoreResults", int.class)).on(query).withAllArguments())
-                    .method(named("closeOnCompletion").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("closeOnCompletion")).on(query))
-                    .method(named("isCloseOnCompletion").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("isCloseOnCompletion")).on(query))
-                    .make()) {
+            try (var unloaded = builder.make()) {
                 return unloaded.load(StatementFactory.class.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
                         .getLoaded()
                         .getDeclaredConstructor()
@@ -170,16 +117,13 @@ public final class StatementFactory {
             var prepared = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys, returnGeneratedKeys, sql);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockPreparedStatement$" + PREPARED_STATEMENT_SEQUENCE.incrementAndGet();
-            var baseBuilder = applyCommonInterceptors(
+            var builder = applyStatmentQueryInteceptors(
                     new ByteBuddy().subclass(PreparedStatement.class).name(typeName),
-                    lifecycle,
-                    misc,
-                    warnings,
-                    config
+                    PreparedStatementQueryHandler.class, prepared,
+                    lifecycle, misc, warnings, config
             );
-            var preparedBuilder = applyPreparedQueryInterceptors(baseBuilder, prepared);
 
-            try (var unloaded = preparedBuilder.make()) {
+            try (var unloaded = applyPreparedQueryInterceptors(builder, prepared).make()) {
                 return unloaded.load(StatementFactory.class.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
                         .getLoaded()
                         .getDeclaredConstructor()
@@ -202,17 +146,13 @@ public final class StatementFactory {
             var outParams = new CallableStatementOutParamHandler(lifecycle);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockCallableStatement$" + CALLABLE_STATEMENT_SEQUENCE.incrementAndGet();
-            var baseBuilder = applyCommonInterceptors(
+            var builder = applyStatmentQueryInteceptors(
                     new ByteBuddy().subclass(CallableStatement.class).name(typeName),
-                    lifecycle,
-                    misc,
-                    warnings,
-                    config
+                    PreparedStatementQueryHandler.class, callable,
+                    lifecycle, misc, warnings, config
             );
-            var preparedLikeBuilder = applyPreparedQueryInterceptors(baseBuilder, callable);
-            var callableBuilder = applyCallableOutInterceptors(preparedLikeBuilder, outParams);
 
-            try (var unloaded = callableBuilder.make()) {
+            try (var unloaded = applyCallableOutInterceptors(applyPreparedQueryInterceptors(builder, callable), outParams).make()) {
                 return unloaded.load(StatementFactory.class.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
                         .getLoaded()
                         .getDeclaredConstructor()
@@ -223,18 +163,86 @@ public final class StatementFactory {
         }
     }
 
-    private <T> DynamicType.Builder<T> applyCommonInterceptors(
+    private boolean hasMethod(Class<?> clazz, String name, Class<?>... params) {
+        try {
+            clazz.getMethod(name, params);
+            return true;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
+    private <T> DynamicType.Builder<T> applyStatmentQueryInteceptors(
             DynamicType.Builder<T> builder,
+            Class<?> handlerClass,
+            Object handler,
             StatementLifecycleHandler lifecycle,
             StatementMiscHandler misc,
             StatementWarningsHandler warnings,
             StatementConfigHandler config
     ) throws NoSuchMethodException {
+        // --- query execution (String variants, only present on StatementQueryHandler) ---
+        if (hasMethod(handlerClass, "executeQuery", String.class)) {
+            builder = builder
+                    .method(named("executeQuery").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeQuery", String.class)).on(handler).withAllArguments())
+                    .method(named("execute").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("execute", String.class)).on(handler).withAllArguments())
+                    .method(named("execute").and(takesArguments(String.class, int.class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("execute", String.class, int.class)).on(handler).withAllArguments())
+                    .method(named("execute").and(takesArguments(String.class, int[].class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("execute", String.class, int[].class)).on(handler).withAllArguments())
+                    .method(named("execute").and(takesArguments(String.class, String[].class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("execute", String.class, String[].class)).on(handler).withAllArguments())
+                    .method(named("executeUpdate").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeUpdate", String.class)).on(handler).withAllArguments())
+                    .method(named("executeUpdate").and(takesArguments(String.class, int.class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeUpdate", String.class, int.class)).on(handler).withAllArguments())
+                    .method(named("executeUpdate").and(takesArguments(String.class, int[].class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeUpdate", String.class, int[].class)).on(handler).withAllArguments())
+                    .method(named("executeUpdate").and(takesArguments(String.class, String[].class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeUpdate", String.class, String[].class)).on(handler).withAllArguments())
+                    .method(named("executeLargeUpdate").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeLargeUpdate", String.class)).on(handler).withAllArguments())
+                    .method(named("executeLargeUpdate").and(takesArguments(String.class, int.class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeLargeUpdate", String.class, int.class)).on(handler).withAllArguments())
+                    .method(named("executeLargeUpdate").and(takesArguments(String.class, int[].class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeLargeUpdate", String.class, int[].class)).on(handler).withAllArguments())
+                    .method(named("executeLargeUpdate").and(takesArguments(String.class, String[].class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("executeLargeUpdate", String.class, String[].class)).on(handler).withAllArguments())
+                    .method(named("addBatch").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(handlerClass.getMethod("addBatch", String.class)).on(handler).withAllArguments());
+        }
         return builder
+                // --- batch / result state (shared by all statement types) ---
+                .method(named("clearBatch").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("clearBatch")).on(handler))
+                .method(named("executeBatch").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("executeBatch")).on(handler))
+                .method(named("executeLargeBatch").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("executeLargeBatch")).on(handler))
+                .method(named("getResultSet").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("getResultSet")).on(handler))
+                .method(named("getUpdateCount").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("getUpdateCount")).on(handler))
+                .method(named("getLargeUpdateCount").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("getLargeUpdateCount")).on(handler))
+                .method(named("getGeneratedKeys").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("getGeneratedKeys")).on(handler))
+                .method(named("getMoreResults").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("getMoreResults")).on(handler))
+                .method(named("getMoreResults").and(takesArguments(int.class)))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("getMoreResults", int.class)).on(handler).withAllArguments())
+                .method(named("closeOnCompletion").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("closeOnCompletion")).on(handler))
+                .method(named("isCloseOnCompletion").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(handlerClass.getMethod("isCloseOnCompletion")).on(handler))
+                // --- lifecycle ---
                 .method(named("close").and(takesNoArguments()))
                 .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("close")).on(lifecycle))
                 .method(named("isClosed").and(takesNoArguments()))
                 .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
+                // --- misc ---
                 .method(named("setPoolable").and(takesArguments(boolean.class)))
                 .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setPoolable", boolean.class)).on(misc).withAllArguments())
                 .method(named("isPoolable").and(takesNoArguments()))
@@ -247,10 +255,12 @@ public final class StatementFactory {
                 .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("cancel")).on(misc))
                 .method(named("getConnection").and(takesNoArguments()))
                 .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("getConnection")).on(misc))
+                // --- warnings ---
                 .method(named("getWarnings").and(takesNoArguments()))
                 .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
                 .method(named("clearWarnings").and(takesNoArguments()))
                 .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
+                // --- config ---
                 .method(named("setMaxRows").and(takesArguments(int.class)))
                 .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setMaxRows", int.class)).on(config).withAllArguments())
                 .method(named("getMaxRows").and(takesNoArguments()))
@@ -386,12 +396,6 @@ public final class StatementFactory {
                 .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("setUnicodeStream", int.class, java.io.InputStream.class, int.class)).on(prepared).withAllArguments())
                 .method(named("addBatch").and(takesNoArguments()))
                 .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("addBatch")).on(prepared))
-                .method(named("clearBatch").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("clearBatch")).on(prepared))
-                .method(named("executeBatch").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("executeBatch")).on(prepared))
-                .method(named("executeLargeBatch").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("executeLargeBatch")).on(prepared))
                 .method(named("clearParameters").and(takesNoArguments()))
                 .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("clearParameters")).on(prepared))
                 .method(named("executeQuery").and(takesNoArguments()))
@@ -401,23 +405,7 @@ public final class StatementFactory {
                 .method(named("executeUpdate").and(takesNoArguments()))
                 .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("executeUpdate")).on(prepared))
                 .method(named("executeLargeUpdate").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("executeLargeUpdate")).on(prepared))
-                .method(named("getResultSet").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getResultSet")).on(prepared))
-                .method(named("getUpdateCount").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getUpdateCount")).on(prepared))
-                .method(named("getLargeUpdateCount").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getLargeUpdateCount")).on(prepared))
-                .method(named("getGeneratedKeys").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getGeneratedKeys")).on(prepared))
-                .method(named("getMoreResults").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getMoreResults")).on(prepared))
-                .method(named("getMoreResults").and(takesArguments(int.class)))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("getMoreResults", int.class)).on(prepared).withAllArguments())
-                .method(named("closeOnCompletion").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("closeOnCompletion")).on(prepared))
-                .method(named("isCloseOnCompletion").and(takesNoArguments()))
-                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("isCloseOnCompletion")).on(prepared));
+                .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("executeLargeUpdate")).on(prepared));
     }
 
     private <T> DynamicType.Builder<T> applyCallableOutInterceptors(
