@@ -41,6 +41,14 @@ Use the skill that best matches the task, and combine multiple skills when requi
 6. Attach `MethodDelegation` rules in the builder.
 7. Update tests for expected behavior and edge cases.
 
+## Handler Design Principles
+
+- **One handler per feature group** — never add unrelated methods to an existing handler.
+- **State belongs in its handler** — each handler owns and encapsulates its own state fields.
+- **State is always per-instance** — never use `static` fields for state; each `Connection` gets its own handler instances.
+- See `delegation-handler-catalog` for the canonical feature group table.
+- See `connection-state-semantics` for state ownership rules per handler.
+
 ## ByteBuddy Guardrails
 
 - Prefer explicit matchers (`named`, `takesArguments`, etc.) over broad catch-all matchers.
@@ -51,6 +59,6 @@ Use the skill that best matches the task, and combine multiple skills when requi
 
 Deliver:
 - updated factory/builder wiring
-- new or updated handler classes
+- new handler classes scoped to a single feature group (never a catch-all)
 - tests aligned with expected behavior
 - minimal, focused changes without unrelated refactors
