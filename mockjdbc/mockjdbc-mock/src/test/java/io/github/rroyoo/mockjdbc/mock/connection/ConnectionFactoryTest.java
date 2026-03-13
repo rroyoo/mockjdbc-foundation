@@ -296,6 +296,20 @@ class ConnectionFactoryTest {
         assertEquals("bob", connection.getClientInfo("ClientUser"));
     }
 
+    @Test
+    @DisplayName("Given a connection, when createStatement is called, then it returns a statement instance")
+    void shouldCreateStatementFromConnectionFactory() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertNotNull(connection.createStatement());
+    }
+
+    @Test
+    @DisplayName("Given a connection, when prepareStatement is called, then it returns a prepared statement instance")
+    void shouldCreatePreparedStatementFromConnectionFactory() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        assertNotNull(connection.prepareStatement("SELECT 1"));
+    }
+
     private static MockConfig mockConfig() {
         var properties = new Properties();
         properties.setProperty("keepAliveTime", "60");

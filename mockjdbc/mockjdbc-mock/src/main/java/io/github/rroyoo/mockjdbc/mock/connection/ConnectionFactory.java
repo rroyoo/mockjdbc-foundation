@@ -1,6 +1,7 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
+import io.github.rroyoo.mockjdbc.mock.statement.StatementFactory;
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.MethodCall;
@@ -34,6 +35,7 @@ public final class ConnectionFactory {
             var config       = new ConfigHandler();
             var warnings     = new WarningsHandler();
             var clientInfo   = new ClientInfoHandler();
+            var statements   = new StatementFactory(mockConfig);
 
             var generatedTypeName = ConnectionFactory.class.getPackageName()
                     + ".MockConnection$" + CONNECTION_SEQUENCE.incrementAndGet();
@@ -102,7 +104,32 @@ public final class ConnectionFactory {
                     .method(named("getClientInfo").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo")).on(clientInfo))
                     .method(named("getClientInfo").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo", String.class)).on(clientInfo).withAllArguments());
+                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo", String.class)).on(clientInfo).withAllArguments())
+                    // --- statements ---
+                    .method(named("createStatement").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement")).on(statements))
+                    .method(named("createStatement").and(takesArguments(int.class, int.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement", int.class, int.class)).on(statements).withAllArguments())
+                    .method(named("createStatement").and(takesArguments(int.class, int.class, int.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement", int.class, int.class, int.class)).on(statements).withAllArguments())
+                    .method(named("prepareStatement").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class)).on(statements).withAllArguments())
+                    .method(named("prepareStatement").and(takesArguments(String.class, int.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class)).on(statements).withAllArguments())
+                    .method(named("prepareStatement").and(takesArguments(String.class, int.class, int.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class, int.class)).on(statements).withAllArguments())
+                    .method(named("prepareStatement").and(takesArguments(String.class, int.class, int.class, int.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class, int.class, int.class)).on(statements).withAllArguments())
+                    .method(named("prepareStatement").and(takesArguments(String.class, int[].class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int[].class)).on(statements).withAllArguments())
+                    .method(named("prepareStatement").and(takesArguments(String.class, String[].class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, String[].class)).on(statements).withAllArguments())
+                    .method(named("prepareCall").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class)).on(statements).withAllArguments())
+                    .method(named("prepareCall").and(takesArguments(String.class, int.class, int.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class, int.class, int.class)).on(statements).withAllArguments())
+                    .method(named("prepareCall").and(takesArguments(String.class, int.class, int.class, int.class)))
+                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class, int.class, int.class, int.class)).on(statements).withAllArguments());
 
             try (var unloaded = connectionBuilder.make()) {
                 return unloaded.load(
