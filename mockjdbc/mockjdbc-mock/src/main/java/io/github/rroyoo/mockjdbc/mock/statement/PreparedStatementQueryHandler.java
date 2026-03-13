@@ -5,8 +5,11 @@ import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -52,6 +55,67 @@ final class PreparedStatementQueryHandler {
 
     public void setBoolean(int index, boolean value) throws SQLException {
         parameters.put(index, parameter(index, Types.BOOLEAN, "BOOLEAN", JdbcValue.newBuilder().setBoolVal(value).build()));
+    }
+
+    public void setDouble(int index, double value) throws SQLException {
+        parameters.put(index, parameter(index, Types.DOUBLE, "DOUBLE", JdbcValue.newBuilder().setDoubleVal(value).build()));
+    }
+
+    public void setFloat(int index, float value) throws SQLException {
+        parameters.put(index, parameter(index, Types.FLOAT, "FLOAT", JdbcValue.newBuilder().setDoubleVal(value).build()));
+    }
+
+    public void setShort(int index, short value) throws SQLException {
+        parameters.put(index, parameter(index, Types.SMALLINT, "SMALLINT", JdbcValue.newBuilder().setLongVal(value).build()));
+    }
+
+    public void setByte(int index, byte value) throws SQLException {
+        parameters.put(index, parameter(index, Types.TINYINT, "TINYINT", JdbcValue.newBuilder().setLongVal(value).build()));
+    }
+
+    public void setBytes(int index, byte[] value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.BINARY);
+        } else {
+            parameters.put(index, parameter(index, Types.BINARY, "BINARY",
+                    JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(value)).build()));
+        }
+    }
+
+    public void setBigDecimal(int index, BigDecimal value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.DECIMAL);
+        } else {
+            parameters.put(index, parameter(index, Types.DECIMAL, "DECIMAL",
+                    JdbcValue.newBuilder().setDecimalVal(value.toPlainString()).build()));
+        }
+    }
+
+    public void setDate(int index, Date value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.DATE);
+        } else {
+            parameters.put(index, parameter(index, Types.DATE, "DATE",
+                    JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+        }
+    }
+
+    public void setTime(int index, Time value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.TIME);
+        } else {
+            parameters.put(index, parameter(index, Types.TIME, "TIME",
+                    JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+        }
+    }
+
+    public void setTimestamp(int index, Timestamp value) throws SQLException {
+        if (value == null) {
+            setNull(index, Types.TIMESTAMP);
+        } else {
+            parameters.put(index, parameter(index, Types.TIMESTAMP, "TIMESTAMP",
+                    JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+        }
     }
 
     public void setObject(int index, Object value) throws SQLException {

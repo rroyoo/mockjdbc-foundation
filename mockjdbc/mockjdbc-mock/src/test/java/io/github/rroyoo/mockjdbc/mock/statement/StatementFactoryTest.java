@@ -16,6 +16,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -409,6 +413,72 @@ class StatementFactoryTest {
             assertNotNull(connection);
             assertFalse(connection.isClosed());
         }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when numeric type setters are called, then they are sent in the lookup request")
+    void shouldSendNumericTypeParametersToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?,?,?,?,?")) {
+            statement.setDouble(1, 3.14);
+            statement.setFloat(2, 2.72f);
+            statement.setShort(3, (short) 42);
+            statement.setByte(4, (byte) 7);
+            statement.setBigDecimal(5, new BigDecimal("123.456"));
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(5, req.getParametersCount());
+        assertEquals(3.14, req.getParameters(0).getValue().getDoubleVal(), 0.001);
+        assertEquals(2.72f, (float) req.getParameters(1).getValue().getDoubleVal(), 0.001f);
+        assertEquals(42L, req.getParameters(2).getValue().getLongVal());
+        assertEquals(7L, req.getParameters(3).getValue().getLongVal());
+        assertEquals("123.456", req.getParameters(4).getValue().getDecimalVal());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when temporal setters are called, then they are sent as strings in the lookup request")
+    void shouldSendTemporalParametersToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        var date = Date.valueOf("2026-03-13");
+        var time = Time.valueOf("12:00:00");
+        var timestamp = Timestamp.valueOf("2026-03-13 12:00:00");
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?,?,?")) {
+            statement.setDate(1, date);
+            statement.setTime(2, time);
+            statement.setTimestamp(3, timestamp);
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(3, req.getParametersCount());
+        assertEquals(date.toString(), req.getParameters(0).getValue().getStringVal());
+        assertEquals(time.toString(), req.getParameters(1).getValue().getStringVal());
+        assertEquals(timestamp.toString(), req.getParameters(2).getValue().getStringVal());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setBytes is called with a non-null value, then it is sent in the lookup request")
+    void shouldSendBytesParameterToGrpc() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        var data = new byte[]{1, 2, 3, 4};
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setBytes(1, data);
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(1, req.getParametersCount());
+        assertEquals(com.google.protobuf.ByteString.copyFrom(data), req.getParameters(0).getValue().getBytesVal());
     }
 
     private static MockConfig mockConfig(int port) {
