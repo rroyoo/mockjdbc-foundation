@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -357,6 +358,56 @@ class StatementFactoryTest {
             assertEquals(2, result[1]);
             assertEquals(2, service.callCount.get());
             assertEquals(-1, statement.getUpdateCount());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a new statement, when isPoolable is called, then it returns true by default")
+    void shouldReturnTrueByDefaultForPoolable() throws Exception {
+        try (var statement = statementFactory.createStatement()) {
+            assertTrue(statement.isPoolable());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a statement, when setPoolable false is called, then isPoolable returns false")
+    void shouldStorePoolableFlag() throws Exception {
+        try (var statement = statementFactory.createStatement()) {
+            statement.setPoolable(false);
+            assertFalse(statement.isPoolable());
+
+            statement.setPoolable(true);
+            assertTrue(statement.isPoolable());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a statement, when setEscapeProcessing and setCursorName are called, then they do not throw")
+    void shouldAcceptEscapeProcessingAndCursorNameWithoutThrowing() throws Exception {
+        try (var statement = statementFactory.createStatement()) {
+            assertDoesNotThrow(() -> statement.setEscapeProcessing(false));
+            assertDoesNotThrow(() -> statement.setEscapeProcessing(true));
+            assertDoesNotThrow(() -> statement.setCursorName("my_cursor"));
+        }
+    }
+
+    @Test
+    @DisplayName("Given a statement, when cancel is called, then it does not throw")
+    void shouldCancelWithoutThrowing() throws Exception {
+        try (var statement = statementFactory.createStatement()) {
+            assertDoesNotThrow(statement::cancel);
+        }
+    }
+
+    @Test
+    @DisplayName("Given a statement, when getConnection is called, then it returns a non-null open connection")
+    void shouldReturnOpenConnectionFromStatement() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.createStatement();
+             var connection = statement.getConnection()) {
+            assertNotNull(connection);
+            assertFalse(connection.isClosed());
         }
     }
 

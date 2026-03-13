@@ -85,6 +85,7 @@ public final class StatementFactory {
             var config = new StatementConfigHandler();
             var executionState = new StatementExecutionStateHandler();
             var generatedKeys = new GeneratedKeysHandler();
+            var misc = new StatementMiscHandler(mockConfig, lifecycle);
             var query = new StatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockStatement$" + STATEMENT_SEQUENCE.incrementAndGet();
@@ -96,6 +97,18 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("close")).on(lifecycle))
                     .method(named("isClosed").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
+                    .method(named("setPoolable").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setPoolable", boolean.class)).on(misc).withAllArguments())
+                    .method(named("isPoolable").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("isPoolable")).on(misc))
+                    .method(named("setEscapeProcessing").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setEscapeProcessing", boolean.class)).on(misc).withAllArguments())
+                    .method(named("setCursorName").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setCursorName", String.class)).on(misc).withAllArguments())
+                    .method(named("cancel").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("cancel")).on(misc))
+                    .method(named("getConnection").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("getConnection")).on(misc))
                     .method(named("getWarnings").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
                     .method(named("clearWarnings").and(takesNoArguments()))
@@ -194,6 +207,7 @@ public final class StatementFactory {
             var config = new StatementConfigHandler();
             var executionState = new StatementExecutionStateHandler();
             var generatedKeys = new GeneratedKeysHandler();
+            var misc = new StatementMiscHandler(mockConfig, lifecycle);
             var prepared = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys, returnGeneratedKeys, sql);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockPreparedStatement$" + PREPARED_STATEMENT_SEQUENCE.incrementAndGet();
@@ -205,6 +219,18 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("close")).on(lifecycle))
                     .method(named("isClosed").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
+                    .method(named("setPoolable").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setPoolable", boolean.class)).on(misc).withAllArguments())
+                    .method(named("isPoolable").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("isPoolable")).on(misc))
+                    .method(named("setEscapeProcessing").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setEscapeProcessing", boolean.class)).on(misc).withAllArguments())
+                    .method(named("setCursorName").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setCursorName", String.class)).on(misc).withAllArguments())
+                    .method(named("cancel").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("cancel")).on(misc))
+                    .method(named("getConnection").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("getConnection")).on(misc))
                     .method(named("getWarnings").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
                     .method(named("clearWarnings").and(takesNoArguments()))
@@ -299,6 +325,7 @@ public final class StatementFactory {
             var config = new StatementConfigHandler();
             var executionState = new StatementExecutionStateHandler();
             var generatedKeys = new GeneratedKeysHandler();
+            var misc = new StatementMiscHandler(mockConfig, lifecycle);
             var callable = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys, false, sql);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockCallableStatement$" + CALLABLE_STATEMENT_SEQUENCE.incrementAndGet();
@@ -310,6 +337,18 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("close")).on(lifecycle))
                     .method(named("isClosed").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
+                    .method(named("setPoolable").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setPoolable", boolean.class)).on(misc).withAllArguments())
+                    .method(named("isPoolable").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("isPoolable")).on(misc))
+                    .method(named("setEscapeProcessing").and(takesArguments(boolean.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setEscapeProcessing", boolean.class)).on(misc).withAllArguments())
+                    .method(named("setCursorName").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setCursorName", String.class)).on(misc).withAllArguments())
+                    .method(named("cancel").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("cancel")).on(misc))
+                    .method(named("getConnection").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("getConnection")).on(misc))
                     .method(named("getWarnings").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
                     .method(named("clearWarnings").and(takesNoArguments()))
