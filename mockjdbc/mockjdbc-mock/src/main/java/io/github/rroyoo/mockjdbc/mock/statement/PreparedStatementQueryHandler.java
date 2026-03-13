@@ -143,11 +143,25 @@ final class PreparedStatementQueryHandler {
         } else if (value instanceof Boolean booleanValue) {
             setBoolean(index, booleanValue);
         } else if (value instanceof Double doubleValue) {
-            parameters.put(index, parameter(index, Types.DOUBLE, "DOUBLE", JdbcValue.newBuilder().setDoubleVal(doubleValue).build()));
+            setDouble(index, doubleValue);
+        } else if (value instanceof Float floatValue) {
+            setFloat(index, floatValue);
+        } else if (value instanceof Short shortValue) {
+            setShort(index, shortValue);
+        } else if (value instanceof Byte byteValue) {
+            setByte(index, byteValue);
         } else if (value instanceof byte[] bytesValue) {
-            parameters.put(index, parameter(index, Types.BINARY, "BINARY", JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(bytesValue)).build()));
+            setBytes(index, bytesValue);
         } else if (value instanceof BigDecimal decimalValue) {
-            parameters.put(index, parameter(index, Types.DECIMAL, "DECIMAL", JdbcValue.newBuilder().setDecimalVal(decimalValue.toPlainString()).build()));
+            setBigDecimal(index, decimalValue);
+        } else if (value instanceof Date dateValue) {
+            setDate(index, dateValue);
+        } else if (value instanceof Time timeValue) {
+            setTime(index, timeValue);
+        } else if (value instanceof Timestamp timestampValue) {
+            setTimestamp(index, timestampValue);
+        } else if (value instanceof URL urlValue) {
+            setURL(index, urlValue);
         } else {
             parameters.put(index, parameter(index, Types.JAVA_OBJECT, value.getClass().getSimpleName(), jdbcValue(value.toString())));
         }
@@ -165,8 +179,37 @@ final class PreparedStatementQueryHandler {
     public void setObject(int index, Object value, int targetSqlType) throws SQLException {
         if (value == null) {
             setNull(index, targetSqlType);
-        } else {
-            setObject(index, value);
+            return;
+        }
+
+        switch (targetSqlType) {
+            case Types.VARCHAR, Types.CHAR, Types.LONGVARCHAR, Types.NVARCHAR, Types.NCHAR, Types.LONGNVARCHAR ->
+                    parameters.put(index, parameter(index, targetSqlType, "VARCHAR", jdbcValue(String.valueOf(value))));
+            case Types.INTEGER ->
+                    parameters.put(index, parameter(index, Types.INTEGER, "INTEGER", JdbcValue.newBuilder().setLongVal(((Number) value).intValue()).build()));
+            case Types.BIGINT ->
+                    parameters.put(index, parameter(index, Types.BIGINT, "BIGINT", JdbcValue.newBuilder().setLongVal(((Number) value).longValue()).build()));
+            case Types.SMALLINT ->
+                    parameters.put(index, parameter(index, Types.SMALLINT, "SMALLINT", JdbcValue.newBuilder().setLongVal(((Number) value).shortValue()).build()));
+            case Types.TINYINT ->
+                    parameters.put(index, parameter(index, Types.TINYINT, "TINYINT", JdbcValue.newBuilder().setLongVal(((Number) value).byteValue()).build()));
+            case Types.FLOAT, Types.REAL, Types.DOUBLE ->
+                    parameters.put(index, parameter(index, targetSqlType, "DOUBLE", JdbcValue.newBuilder().setDoubleVal(((Number) value).doubleValue()).build()));
+            case Types.DECIMAL, Types.NUMERIC ->
+                    parameters.put(index, parameter(index, targetSqlType, "DECIMAL", JdbcValue.newBuilder().setDecimalVal(String.valueOf(value)).build()));
+            case Types.BOOLEAN, Types.BIT ->
+                    parameters.put(index, parameter(index, targetSqlType, "BOOLEAN", JdbcValue.newBuilder().setBoolVal((Boolean) value).build()));
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> {
+                if (value instanceof byte[] bytesValue) {
+                    parameters.put(index, parameter(index, targetSqlType, "BINARY", JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(bytesValue)).build()));
+                } else {
+                    parameters.put(index, parameter(index, targetSqlType, "BINARY", JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(String.valueOf(value).getBytes())).build()));
+                }
+            }
+            case Types.DATE -> parameters.put(index, parameter(index, Types.DATE, "DATE", JdbcValue.newBuilder().setStringVal(String.valueOf(value)).build()));
+            case Types.TIME -> parameters.put(index, parameter(index, Types.TIME, "TIME", JdbcValue.newBuilder().setStringVal(String.valueOf(value)).build()));
+            case Types.TIMESTAMP -> parameters.put(index, parameter(index, Types.TIMESTAMP, "TIMESTAMP", JdbcValue.newBuilder().setStringVal(String.valueOf(value)).build()));
+            default -> setObject(index, value);
         }
     }
 

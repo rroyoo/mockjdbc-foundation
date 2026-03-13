@@ -737,6 +737,52 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given a prepared statement, when setObject receives Float/Date/Timestamp, then values are encoded with expected JDBC types")
+    void shouldEncodeAdditionalSetObjectJavaTypes() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        var date = Date.valueOf("2026-03-13");
+        var ts = Timestamp.valueOf("2026-03-13 11:22:33");
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?,?,?")) {
+            statement.setObject(1, 1.5f);
+            statement.setObject(2, date);
+            statement.setObject(3, ts);
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(3, req.getParametersCount());
+        assertEquals(Types.FLOAT, req.getParameters(0).getSqlType());
+        assertEquals(1.5d, req.getParameters(0).getValue().getDoubleVal(), 0.0001d);
+        assertEquals(Types.DATE, req.getParameters(1).getSqlType());
+        assertEquals(date.toString(), req.getParameters(1).getValue().getStringVal());
+        assertEquals(Types.TIMESTAMP, req.getParameters(2).getSqlType());
+        assertEquals(ts.toString(), req.getParameters(2).getValue().getStringVal());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setObject uses targetSqlType, then parameter type follows targetSqlType")
+    void shouldHonorTargetSqlTypeInSetObject() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?,?")) {
+            statement.setObject(1, 123, Types.BIGINT);
+            statement.setObject(2, "42", Types.VARCHAR);
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(2, req.getParametersCount());
+        assertEquals(Types.BIGINT, req.getParameters(0).getSqlType());
+        assertEquals(123L, req.getParameters(0).getValue().getLongVal());
+        assertEquals(Types.VARCHAR, req.getParameters(1).getSqlType());
+        assertEquals("42", req.getParameters(1).getValue().getStringVal());
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }
