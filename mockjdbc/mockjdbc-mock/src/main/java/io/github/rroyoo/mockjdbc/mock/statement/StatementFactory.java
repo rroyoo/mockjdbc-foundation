@@ -5,10 +5,14 @@ import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.MethodCall;
 
+import java.math.BigDecimal;
 import java.sql.CallableStatement;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -416,6 +420,7 @@ public final class StatementFactory {
             var generatedKeys = new GeneratedKeysHandler();
             var misc = new StatementMiscHandler(mockConfig, lifecycle);
             var callable = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys, false, sql);
+            var outParams = new CallableStatementOutParamHandler(lifecycle);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockCallableStatement$" + CALLABLE_STATEMENT_SEQUENCE.incrementAndGet();
 
@@ -602,6 +607,79 @@ public final class StatementFactory {
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("closeOnCompletion")).on(callable))
                     .method(named("isCloseOnCompletion").and(takesNoArguments()))
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("isCloseOnCompletion")).on(callable))
+                    // OUT params
+                    .method(named("registerOutParameter").and(takesArguments(int.class, int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("registerOutParameter", int.class, int.class)).on(outParams).withAllArguments())
+                    .method(named("registerOutParameter").and(takesArguments(int.class, int.class, int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("registerOutParameter", int.class, int.class, int.class)).on(outParams).withAllArguments())
+                    .method(named("registerOutParameter").and(takesArguments(int.class, int.class, String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("registerOutParameter", int.class, int.class, String.class)).on(outParams).withAllArguments())
+                    .method(named("registerOutParameter").and(takesArguments(String.class, int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("registerOutParameter", String.class, int.class)).on(outParams).withAllArguments())
+                    .method(named("registerOutParameter").and(takesArguments(String.class, int.class, int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("registerOutParameter", String.class, int.class, int.class)).on(outParams).withAllArguments())
+                    .method(named("registerOutParameter").and(takesArguments(String.class, int.class, String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("registerOutParameter", String.class, int.class, String.class)).on(outParams).withAllArguments())
+                    .method(named("wasNull").and(takesNoArguments()))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("wasNull")).on(outParams))
+                    // getters by index
+                    .method(named("getString").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getString", int.class)).on(outParams).withAllArguments())
+                    .method(named("getBoolean").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getBoolean", int.class)).on(outParams).withAllArguments())
+                    .method(named("getByte").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getByte", int.class)).on(outParams).withAllArguments())
+                    .method(named("getShort").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getShort", int.class)).on(outParams).withAllArguments())
+                    .method(named("getInt").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getInt", int.class)).on(outParams).withAllArguments())
+                    .method(named("getLong").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getLong", int.class)).on(outParams).withAllArguments())
+                    .method(named("getFloat").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getFloat", int.class)).on(outParams).withAllArguments())
+                    .method(named("getDouble").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getDouble", int.class)).on(outParams).withAllArguments())
+                    .method(named("getBytes").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getBytes", int.class)).on(outParams).withAllArguments())
+                    .method(named("getBigDecimal").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getBigDecimal", int.class)).on(outParams).withAllArguments())
+                    .method(named("getObject").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getObject", int.class)).on(outParams).withAllArguments())
+                    .method(named("getDate").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getDate", int.class)).on(outParams).withAllArguments())
+                    .method(named("getTime").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getTime", int.class)).on(outParams).withAllArguments())
+                    .method(named("getTimestamp").and(takesArguments(int.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getTimestamp", int.class)).on(outParams).withAllArguments())
+                    // getters by name
+                    .method(named("getString").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getString", String.class)).on(outParams).withAllArguments())
+                    .method(named("getBoolean").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getBoolean", String.class)).on(outParams).withAllArguments())
+                    .method(named("getByte").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getByte", String.class)).on(outParams).withAllArguments())
+                    .method(named("getShort").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getShort", String.class)).on(outParams).withAllArguments())
+                    .method(named("getInt").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getInt", String.class)).on(outParams).withAllArguments())
+                    .method(named("getLong").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getLong", String.class)).on(outParams).withAllArguments())
+                    .method(named("getFloat").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getFloat", String.class)).on(outParams).withAllArguments())
+                    .method(named("getDouble").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getDouble", String.class)).on(outParams).withAllArguments())
+                    .method(named("getBytes").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getBytes", String.class)).on(outParams).withAllArguments())
+                    .method(named("getBigDecimal").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getBigDecimal", String.class)).on(outParams).withAllArguments())
+                    .method(named("getObject").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getObject", String.class)).on(outParams).withAllArguments())
+                    .method(named("getDate").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getDate", String.class)).on(outParams).withAllArguments())
+                    .method(named("getTime").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getTime", String.class)).on(outParams).withAllArguments())
+                    .method(named("getTimestamp").and(takesArguments(String.class)))
+                    .intercept(MethodCall.invoke(CallableStatementOutParamHandler.class.getMethod("getTimestamp", String.class)).on(outParams).withAllArguments())
                     .make()) {
                 return unloaded.load(StatementFactory.class.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
                         .getLoaded()

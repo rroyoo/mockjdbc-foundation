@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StatementFactoryTest {
@@ -677,6 +678,39 @@ class StatementFactoryTest {
         assertNotNull(req);
         assertEquals("clob text", req.getParameters(0).getValue().getStringVal());
         assertEquals(java.sql.Types.CLOB, req.getParameters(0).getSqlType());
+    }
+
+    @Test
+    @DisplayName("Given a callable statement, when OUT parameter is registered by index, then typed getters return default values")
+    void shouldReturnDefaultOutValuesForRegisteredIndexParameter() throws Exception {
+        try (var callable = statementFactory.prepareCall("{ call demo(?) }")) {
+            callable.registerOutParameter(1, Types.INTEGER);
+
+            assertEquals(0, callable.getInt(1));
+            assertNull(callable.getObject(1));
+            assertTrue(callable.wasNull());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a callable statement, when OUT parameter is registered by name, then typed getters return default values")
+    void shouldReturnDefaultOutValuesForRegisteredNamedParameter() throws Exception {
+        try (var callable = statementFactory.prepareCall("{ call demo(?) }")) {
+            callable.registerOutParameter("out_status", Types.VARCHAR);
+
+            assertNull(callable.getString("out_status"));
+            assertEquals(0, callable.getInt("out_status"));
+            assertTrue(callable.wasNull());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a callable statement, when OUT parameter is not registered, then getter throws SQLException")
+    void shouldFailWhenReadingUnregisteredOutParameter() throws Exception {
+        try (var callable = statementFactory.prepareCall("{ call demo(?) }")) {
+            assertThrows(java.sql.SQLException.class, () -> callable.getInt(1));
+            assertThrows(java.sql.SQLException.class, () -> callable.getString("missing_out"));
+        }
     }
 
     private static MockConfig mockConfig(int port) {
