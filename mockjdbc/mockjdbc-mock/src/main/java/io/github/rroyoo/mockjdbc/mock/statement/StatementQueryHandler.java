@@ -5,6 +5,7 @@ import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 
 final class StatementQueryHandler {
@@ -13,6 +14,7 @@ final class StatementQueryHandler {
     private final StatementExecutionStateHandler executionState;
     private final GrpcMockQueryClient client;
     private final GeneratedKeysHandler generatedKeys;
+    private final List<String> batchSql = new ArrayList<>();
 
     StatementQueryHandler(MockConfig mockConfig,
                           StatementLifecycleHandler lifecycle,
@@ -207,5 +209,43 @@ final class StatementQueryHandler {
     public ResultSet getGeneratedKeys() throws SQLException {
         lifecycle.assertOpen();
         return generatedKeys.getGeneratedKeys();
+    }
+
+    public void addBatch(String sql) throws SQLException {
+        lifecycle.assertOpen();
+        batchSql.add(sql);
+    }
+
+    public void clearBatch() throws SQLException {
+        lifecycle.assertOpen();
+        batchSql.clear();
+    }
+
+    public int[] executeBatch() throws SQLException {
+        lifecycle.assertOpen();
+        generatedKeys.clearGeneratedKeys();
+
+        var result = new int[batchSql.size()];
+        for (int i = 0; i < batchSql.size(); i++) {
+            result[i] = client.findResultSet(batchSql.get(i), List.of()).getRowsCount();
+        }
+
+        batchSql.clear();
+        executionState.storeUpdateCount(-1);
+        return result;
+    }
+
+    public long[] executeLargeBatch() throws SQLException {
+        lifecycle.assertOpen();
+        generatedKeys.clearGeneratedKeys();
+
+        var result = new long[batchSql.size()];
+        for (int i = 0; i < batchSql.size(); i++) {
+            result[i] = client.findResultSet(batchSql.get(i), List.of()).getRowsCount();
+        }
+
+        batchSql.clear();
+        executionState.storeLargeUpdateCount(-1L);
+        return result;
     }
 }

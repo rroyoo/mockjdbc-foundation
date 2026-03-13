@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -40,6 +41,7 @@ class StatementFactoryTest {
                 .build()
                 .start();
 
+        service.reset();
         statementFactory = new StatementFactory(mockConfig(server.getPort()));
     }
 
@@ -315,6 +317,49 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given a statement with batched SQLs, when executeBatch is called, then it returns deterministic update counts")
+    void shouldExecuteStatementBatchAndReturnCounts() throws Exception {
+        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+
+        try (var statement = statementFactory.createStatement()) {
+            statement.addBatch("UPDATE users SET active=true WHERE id=1");
+            statement.addBatch("UPDATE users SET active=true WHERE id=2");
+
+            var result = statement.executeBatch();
+
+            assertEquals(2, result.length);
+            assertEquals(2, result[0]);
+            assertEquals(2, result[1]);
+            assertEquals(2, service.callCount.get());
+            assertEquals(-1, statement.getUpdateCount());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement with batched parameter sets, when executeBatch is called, then it returns deterministic update counts")
+    void shouldExecutePreparedStatementBatchAndReturnCounts() throws Exception {
+        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET active=? WHERE id=?")) {
+            statement.setBoolean(1, true);
+            statement.setInt(2, 1);
+            statement.addBatch();
+
+            statement.setBoolean(1, false);
+            statement.setInt(2, 2);
+            statement.addBatch();
+
+            var result = statement.executeBatch();
+
+            assertEquals(2, result.length);
+            assertEquals(2, result[0]);
+            assertEquals(2, result[1]);
+            assertEquals(2, service.callCount.get());
+            assertEquals(-1, statement.getUpdateCount());
+        }
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }
@@ -353,10 +398,18 @@ class StatementFactoryTest {
     private static final class TestMockQueryService extends MockQueryServiceGrpc.MockQueryServiceImplBase {
 
         private final AtomicReference<QueryLookupRequest> lastRequest = new AtomicReference<>();
+        private final AtomicInteger callCount = new AtomicInteger(0);
         private volatile Function<QueryLookupRequest, MockedQuery> responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        void reset() {
+            lastRequest.set(null);
+            callCount.set(0);
+            responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+        }
 
         @Override
         public void findMock(QueryLookupRequest request, StreamObserver<MockedQuery> responseObserver) {
+            callCount.incrementAndGet();
             lastRequest.set(request);
             responseObserver.onNext(responder.apply(request));
             responseObserver.onCompleted();

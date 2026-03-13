@@ -22,6 +22,7 @@ final class PreparedStatementQueryHandler {
     private final GeneratedKeysHandler generatedKeys;
     private final boolean returnGeneratedKeys;
     private final ConcurrentHashMap<Integer, ParameterMetadata> parameters = new ConcurrentHashMap<>();
+    private final java.util.List<java.util.List<ParameterMetadata>> parameterBatches = new ArrayList<>();
 
     PreparedStatementQueryHandler(MockConfig mockConfig,
                                   StatementLifecycleHandler lifecycle,
@@ -160,6 +161,44 @@ final class PreparedStatementQueryHandler {
     public ResultSet getGeneratedKeys() throws SQLException {
         lifecycle.assertOpen();
         return generatedKeys.getGeneratedKeys();
+    }
+
+    public void addBatch() throws SQLException {
+        lifecycle.assertOpen();
+        parameterBatches.add(sortedParameters());
+    }
+
+    public void clearBatch() throws SQLException {
+        lifecycle.assertOpen();
+        parameterBatches.clear();
+    }
+
+    public int[] executeBatch() throws SQLException {
+        lifecycle.assertOpen();
+        generatedKeys.clearGeneratedKeys();
+
+        var result = new int[parameterBatches.size()];
+        for (int i = 0; i < parameterBatches.size(); i++) {
+            result[i] = client.findResultSet(sql, parameterBatches.get(i)).getRowsCount();
+        }
+
+        parameterBatches.clear();
+        executionState.storeUpdateCount(-1);
+        return result;
+    }
+
+    public long[] executeLargeBatch() throws SQLException {
+        lifecycle.assertOpen();
+        generatedKeys.clearGeneratedKeys();
+
+        var result = new long[parameterBatches.size()];
+        for (int i = 0; i < parameterBatches.size(); i++) {
+            result[i] = client.findResultSet(sql, parameterBatches.get(i)).getRowsCount();
+        }
+
+        parameterBatches.clear();
+        executionState.storeLargeUpdateCount(-1L);
+        return result;
     }
 
     private java.util.List<ParameterMetadata> sortedParameters() {
