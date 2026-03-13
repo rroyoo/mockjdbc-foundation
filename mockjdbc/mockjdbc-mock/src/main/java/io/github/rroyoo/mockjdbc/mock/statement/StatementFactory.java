@@ -2,23 +2,18 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.MethodCall;
 
-import java.math.BigDecimal;
 import java.sql.CallableStatement;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static net.bytebuddy.matcher.ElementMatchers.named;
-import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
-import static net.bytebuddy.matcher.ElementMatchers.takesNoArguments;
+import static net.bytebuddy.matcher.ElementMatchers.*;
 
 public final class StatementFactory {
 
@@ -94,56 +89,15 @@ public final class StatementFactory {
             var query = new StatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockStatement$" + STATEMENT_SEQUENCE.incrementAndGet();
+            var baseBuilder = applyCommonInterceptors(
+                    new ByteBuddy().subclass(Statement.class).name(typeName),
+                    lifecycle,
+                    misc,
+                    warnings,
+                    config
+            );
 
-            try (var unloaded = new ByteBuddy()
-                    .subclass(Statement.class)
-                    .name(typeName)
-                    .method(named("close").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("close")).on(lifecycle))
-                    .method(named("isClosed").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
-                    .method(named("setPoolable").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setPoolable", boolean.class)).on(misc).withAllArguments())
-                    .method(named("isPoolable").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("isPoolable")).on(misc))
-                    .method(named("setEscapeProcessing").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setEscapeProcessing", boolean.class)).on(misc).withAllArguments())
-                    .method(named("setCursorName").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setCursorName", String.class)).on(misc).withAllArguments())
-                    .method(named("cancel").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("cancel")).on(misc))
-                    .method(named("getConnection").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("getConnection")).on(misc))
-                    .method(named("getWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
-                    .method(named("clearWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
-                    .method(named("setMaxRows").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setMaxRows", int.class)).on(config).withAllArguments())
-                    .method(named("getMaxRows").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getMaxRows")).on(config))
-                    .method(named("setLargeMaxRows").and(takesArguments(long.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setLargeMaxRows", long.class)).on(config).withAllArguments())
-                    .method(named("getLargeMaxRows").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getLargeMaxRows")).on(config))
-                    .method(named("setQueryTimeout").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setQueryTimeout", int.class)).on(config).withAllArguments())
-                    .method(named("getQueryTimeout").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getQueryTimeout")).on(config))
-                    .method(named("setFetchSize").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchSize", int.class)).on(config).withAllArguments())
-                    .method(named("getFetchSize").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchSize")).on(config))
-                    .method(named("setFetchDirection").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchDirection", int.class)).on(config).withAllArguments())
-                    .method(named("getFetchDirection").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchDirection")).on(config))
-                    .method(named("getResultSetType").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetType")).on(config))
-                    .method(named("getResultSetConcurrency").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetConcurrency")).on(config))
-                    .method(named("getResultSetHoldability").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetHoldability")).on(config))
+            try (var unloaded = baseBuilder
                     .method(named("executeQuery").and(takesArguments(String.class)))
                     .intercept(MethodCall.invoke(StatementQueryHandler.class.getMethod("executeQuery", String.class)).on(query).withAllArguments())
                     .method(named("execute").and(takesArguments(String.class)))
@@ -216,56 +170,15 @@ public final class StatementFactory {
             var prepared = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys, returnGeneratedKeys, sql);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockPreparedStatement$" + PREPARED_STATEMENT_SEQUENCE.incrementAndGet();
+            var baseBuilder = applyCommonInterceptors(
+                    new ByteBuddy().subclass(PreparedStatement.class).name(typeName),
+                    lifecycle,
+                    misc,
+                    warnings,
+                    config
+            );
 
-            try (var unloaded = new ByteBuddy()
-                    .subclass(PreparedStatement.class)
-                    .name(typeName)
-                    .method(named("close").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("close")).on(lifecycle))
-                    .method(named("isClosed").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
-                    .method(named("setPoolable").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setPoolable", boolean.class)).on(misc).withAllArguments())
-                    .method(named("isPoolable").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("isPoolable")).on(misc))
-                    .method(named("setEscapeProcessing").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setEscapeProcessing", boolean.class)).on(misc).withAllArguments())
-                    .method(named("setCursorName").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setCursorName", String.class)).on(misc).withAllArguments())
-                    .method(named("cancel").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("cancel")).on(misc))
-                    .method(named("getConnection").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("getConnection")).on(misc))
-                    .method(named("getWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
-                    .method(named("clearWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
-                    .method(named("setMaxRows").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setMaxRows", int.class)).on(config).withAllArguments())
-                    .method(named("getMaxRows").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getMaxRows")).on(config))
-                    .method(named("setLargeMaxRows").and(takesArguments(long.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setLargeMaxRows", long.class)).on(config).withAllArguments())
-                    .method(named("getLargeMaxRows").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getLargeMaxRows")).on(config))
-                    .method(named("setQueryTimeout").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setQueryTimeout", int.class)).on(config).withAllArguments())
-                    .method(named("getQueryTimeout").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getQueryTimeout")).on(config))
-                    .method(named("setFetchSize").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchSize", int.class)).on(config).withAllArguments())
-                    .method(named("getFetchSize").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchSize")).on(config))
-                    .method(named("setFetchDirection").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchDirection", int.class)).on(config).withAllArguments())
-                    .method(named("getFetchDirection").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchDirection")).on(config))
-                    .method(named("getResultSetType").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetType")).on(config))
-                    .method(named("getResultSetConcurrency").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetConcurrency")).on(config))
-                    .method(named("getResultSetHoldability").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetHoldability")).on(config))
+            try (var unloaded = baseBuilder
                     .method(named("setString").and(takesArguments(int.class, String.class)))
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("setString", int.class, String.class)).on(prepared).withAllArguments())
                     .method(named("setInt").and(takesArguments(int.class, int.class)))
@@ -423,56 +336,15 @@ public final class StatementFactory {
             var outParams = new CallableStatementOutParamHandler(lifecycle);
 
             var typeName = StatementFactory.class.getPackageName() + ".MockCallableStatement$" + CALLABLE_STATEMENT_SEQUENCE.incrementAndGet();
+            var baseBuilder = applyCommonInterceptors(
+                    new ByteBuddy().subclass(CallableStatement.class).name(typeName),
+                    lifecycle,
+                    misc,
+                    warnings,
+                    config
+            );
 
-            try (var unloaded = new ByteBuddy()
-                    .subclass(CallableStatement.class)
-                    .name(typeName)
-                    .method(named("close").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("close")).on(lifecycle))
-                    .method(named("isClosed").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
-                    .method(named("setPoolable").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setPoolable", boolean.class)).on(misc).withAllArguments())
-                    .method(named("isPoolable").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("isPoolable")).on(misc))
-                    .method(named("setEscapeProcessing").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setEscapeProcessing", boolean.class)).on(misc).withAllArguments())
-                    .method(named("setCursorName").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setCursorName", String.class)).on(misc).withAllArguments())
-                    .method(named("cancel").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("cancel")).on(misc))
-                    .method(named("getConnection").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("getConnection")).on(misc))
-                    .method(named("getWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
-                    .method(named("clearWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
-                    .method(named("setMaxRows").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setMaxRows", int.class)).on(config).withAllArguments())
-                    .method(named("getMaxRows").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getMaxRows")).on(config))
-                    .method(named("setLargeMaxRows").and(takesArguments(long.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setLargeMaxRows", long.class)).on(config).withAllArguments())
-                    .method(named("getLargeMaxRows").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getLargeMaxRows")).on(config))
-                    .method(named("setQueryTimeout").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setQueryTimeout", int.class)).on(config).withAllArguments())
-                    .method(named("getQueryTimeout").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getQueryTimeout")).on(config))
-                    .method(named("setFetchSize").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchSize", int.class)).on(config).withAllArguments())
-                    .method(named("getFetchSize").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchSize")).on(config))
-                    .method(named("setFetchDirection").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchDirection", int.class)).on(config).withAllArguments())
-                    .method(named("getFetchDirection").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchDirection")).on(config))
-                    .method(named("getResultSetType").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetType")).on(config))
-                    .method(named("getResultSetConcurrency").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetConcurrency")).on(config))
-                    .method(named("getResultSetHoldability").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetHoldability")).on(config))
+            try (var unloaded = baseBuilder
                     .method(named("setString").and(takesArguments(int.class, String.class)))
                     .intercept(MethodCall.invoke(PreparedStatementQueryHandler.class.getMethod("setString", int.class, String.class)).on(callable).withAllArguments())
                     .method(named("setInt").and(takesArguments(int.class, int.class)))
@@ -709,5 +581,61 @@ public final class StatementFactory {
         } catch (Exception e) {
             throw new SQLException("Failed to create mock CallableStatement", e);
         }
+    }
+
+    private <T> DynamicType.Builder<T> applyCommonInterceptors(
+            DynamicType.Builder<T> builder,
+            StatementLifecycleHandler lifecycle,
+            StatementMiscHandler misc,
+            StatementWarningsHandler warnings,
+            StatementConfigHandler config
+    ) throws NoSuchMethodException {
+        return builder
+                .method(named("close").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("close")).on(lifecycle))
+                .method(named("isClosed").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementLifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
+                .method(named("setPoolable").and(takesArguments(boolean.class)))
+                .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setPoolable", boolean.class)).on(misc).withAllArguments())
+                .method(named("isPoolable").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("isPoolable")).on(misc))
+                .method(named("setEscapeProcessing").and(takesArguments(boolean.class)))
+                .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setEscapeProcessing", boolean.class)).on(misc).withAllArguments())
+                .method(named("setCursorName").and(takesArguments(String.class)))
+                .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("setCursorName", String.class)).on(misc).withAllArguments())
+                .method(named("cancel").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("cancel")).on(misc))
+                .method(named("getConnection").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementMiscHandler.class.getMethod("getConnection")).on(misc))
+                .method(named("getWarnings").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("getWarnings")).on(warnings))
+                .method(named("clearWarnings").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementWarningsHandler.class.getMethod("clearWarnings")).on(warnings))
+                .method(named("setMaxRows").and(takesArguments(int.class)))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setMaxRows", int.class)).on(config).withAllArguments())
+                .method(named("getMaxRows").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getMaxRows")).on(config))
+                .method(named("setLargeMaxRows").and(takesArguments(long.class)))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setLargeMaxRows", long.class)).on(config).withAllArguments())
+                .method(named("getLargeMaxRows").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getLargeMaxRows")).on(config))
+                .method(named("setQueryTimeout").and(takesArguments(int.class)))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setQueryTimeout", int.class)).on(config).withAllArguments())
+                .method(named("getQueryTimeout").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getQueryTimeout")).on(config))
+                .method(named("setFetchSize").and(takesArguments(int.class)))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchSize", int.class)).on(config).withAllArguments())
+                .method(named("getFetchSize").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchSize")).on(config))
+                .method(named("setFetchDirection").and(takesArguments(int.class)))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("setFetchDirection", int.class)).on(config).withAllArguments())
+                .method(named("getFetchDirection").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getFetchDirection")).on(config))
+                .method(named("getResultSetType").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetType")).on(config))
+                .method(named("getResultSetConcurrency").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetConcurrency")).on(config))
+                .method(named("getResultSetHoldability").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementConfigHandler.class.getMethod("getResultSetHoldability")).on(config));
     }
 }
