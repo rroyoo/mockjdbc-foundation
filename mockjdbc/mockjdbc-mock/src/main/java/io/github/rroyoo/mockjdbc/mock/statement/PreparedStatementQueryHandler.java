@@ -6,12 +6,15 @@ import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.ParameterMetaData;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -142,6 +145,46 @@ final class PreparedStatementQueryHandler {
 
     public void setNull(int index, int sqlType) throws SQLException {
         parameters.put(index, parameter(index, sqlType, "NULL", JdbcValue.newBuilder().setIsNull(true).build()));
+    }
+
+    public void setNull(int index, int sqlType, String typeName) throws SQLException {
+        parameters.put(index, parameter(index, sqlType, typeName != null ? typeName : "NULL",
+                JdbcValue.newBuilder().setIsNull(true).build()));
+    }
+
+    public void setObject(int index, Object value, int targetSqlType) throws SQLException {
+        if (value == null) {
+            setNull(index, targetSqlType);
+        } else {
+            setObject(index, value);
+        }
+    }
+
+    public void setObject(int index, Object value, int targetSqlType, int scaleOrLength) throws SQLException {
+        setObject(index, value, targetSqlType);
+    }
+
+    public void setDate(int index, Date value, Calendar cal) throws SQLException {
+        setDate(index, value);
+    }
+
+    public void setTime(int index, Time value, Calendar cal) throws SQLException {
+        setTime(index, value);
+    }
+
+    public void setTimestamp(int index, Timestamp value, Calendar cal) throws SQLException {
+        setTimestamp(index, value);
+    }
+
+    public ParameterMetaData getParameterMetaData() throws SQLException {
+        lifecycle.assertOpen();
+        return new MockParameterMetaData(sortedParameters());
+    }
+
+    public ResultSetMetaData getMetaData() throws SQLException {
+        lifecycle.assertOpen();
+        // Metadata is only known at runtime after execution; return null as per JDBC spec.
+        return null;
     }
 
     public void clearParameters() throws SQLException {

@@ -21,6 +21,7 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.Calendar;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -479,6 +480,84 @@ class StatementFactoryTest {
         assertNotNull(req);
         assertEquals(1, req.getParametersCount());
         assertEquals(com.google.protobuf.ByteString.copyFrom(data), req.getParameters(0).getValue().getBytesVal());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setNull(int,int,String) is called, then a null parameter is sent with the given type name")
+    void shouldSendNullParameterWithTypeName() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setNull(1, Types.VARCHAR, "VARCHAR");
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(1, req.getParametersCount());
+        assertTrue(req.getParameters(0).getValue().getIsNull());
+        assertEquals("VARCHAR", req.getParameters(0).getTypeName());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when setObject(int,Object,int) is called, then the value is sent")
+    void shouldSendObjectParameterWithTargetType() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            statement.setObject(1, "hello", Types.VARCHAR);
+            statement.executeUpdate();
+        }
+
+        var req = service.lastRequest.get();
+        assertNotNull(req);
+        assertEquals(1, req.getParametersCount());
+        assertEquals("hello", req.getParameters(0).getValue().getStringVal());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when temporal Calendar overloads are called, then they do not throw")
+    void shouldAcceptCalendarOverloadsWithoutThrowing() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        var cal = Calendar.getInstance();
+        var date = Date.valueOf("2026-03-13");
+        var time = Time.valueOf("10:00:00");
+        var timestamp = Timestamp.valueOf("2026-03-13 10:00:00");
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?,?,?")) {
+            assertDoesNotThrow(() -> statement.setDate(1, date, cal));
+            assertDoesNotThrow(() -> statement.setTime(2, time, cal));
+            assertDoesNotThrow(() -> statement.setTimestamp(3, timestamp, cal));
+            statement.executeUpdate();
+        }
+
+        assertEquals(3, service.lastRequest.get().getParametersCount());
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement with bound parameters, when getParameterMetaData is called, then it returns count and types")
+    void shouldReturnParameterMetaDataWithCorrectCountAndTypes() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("SELECT ?,?")) {
+            statement.setString(1, "hello");
+            statement.setInt(2, 42);
+
+            var meta = statement.getParameterMetaData();
+            assertNotNull(meta);
+            assertEquals(2, meta.getParameterCount());
+            assertEquals(Types.VARCHAR, meta.getParameterType(1));
+            assertEquals(Types.INTEGER, meta.getParameterType(2));
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when getMetaData is called before execution, then it returns null")
+    void shouldReturnNullForGetMetaDataBeforeExecution() throws Exception {
+        try (var statement = statementFactory.prepareStatement("SELECT ?")) {
+            assertNull(statement.getMetaData());
+        }
     }
 
     private static MockConfig mockConfig(int port) {
