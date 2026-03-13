@@ -160,6 +160,39 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given a statement, when executeLargeUpdate is called, then it returns large update count and clears current ResultSet")
+    void shouldReturnLargeUpdateCountAndClearResultSetAfterStatementExecuteLargeUpdate() throws Exception {
+        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+
+        try (var statement = statementFactory.createStatement()) {
+            var updatedRows = statement.executeLargeUpdate("UPDATE users SET active=true");
+            assertEquals(2L, updatedRows);
+            assertEquals(2L, statement.getLargeUpdateCount());
+            assertEquals(2, statement.getUpdateCount());
+            assertNull(statement.getResultSet());
+            assertFalse(statement.getMoreResults());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when executeLargeUpdate is called, then it returns large update count and clears current ResultSet")
+    void shouldReturnLargeUpdateCountAndClearResultSetAfterPreparedStatementExecuteLargeUpdate() throws Exception {
+        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET active=? WHERE id=?")) {
+            statement.setBoolean(1, true);
+            statement.setInt(2, 10);
+
+            var updatedRows = statement.executeLargeUpdate();
+            assertEquals(2L, updatedRows);
+            assertEquals(2L, statement.getLargeUpdateCount());
+            assertEquals(2, statement.getUpdateCount());
+            assertNull(statement.getResultSet());
+            assertFalse(statement.getMoreResults());
+        }
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }

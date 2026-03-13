@@ -94,6 +94,14 @@ final class PreparedStatementQueryHandler {
         return count;
     }
 
+    public long executeLargeUpdate() throws SQLException {
+        lifecycle.assertOpen();
+        var resultSet = client.findResultSet(sql, sortedParameters());
+        var count = (long) resultSet.getRowsCount();
+        executionState.storeLargeUpdateCount(count);
+        return count;
+    }
+
     public ResultSet getResultSet() throws SQLException {
         lifecycle.assertOpen();
         return executionState.getResultSet();
@@ -102,6 +110,11 @@ final class PreparedStatementQueryHandler {
     public int getUpdateCount() throws SQLException {
         lifecycle.assertOpen();
         return executionState.getUpdateCount();
+    }
+
+    public long getLargeUpdateCount() throws SQLException {
+        lifecycle.assertOpen();
+        return executionState.getLargeUpdateCount();
     }
 
     public boolean getMoreResults() throws SQLException {
