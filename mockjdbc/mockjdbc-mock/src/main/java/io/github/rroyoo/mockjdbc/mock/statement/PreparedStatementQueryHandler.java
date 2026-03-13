@@ -19,11 +19,20 @@ final class PreparedStatementQueryHandler {
     private final StatementExecutionStateHandler executionState;
     private final GrpcMockQueryClient client;
     private final String sql;
+    private final GeneratedKeysHandler generatedKeys;
+    private final boolean returnGeneratedKeys;
     private final ConcurrentHashMap<Integer, ParameterMetadata> parameters = new ConcurrentHashMap<>();
 
-    PreparedStatementQueryHandler(MockConfig mockConfig, StatementLifecycleHandler lifecycle, StatementExecutionStateHandler executionState, String sql) {
+    PreparedStatementQueryHandler(MockConfig mockConfig,
+                                  StatementLifecycleHandler lifecycle,
+                                  StatementExecutionStateHandler executionState,
+                                  GeneratedKeysHandler generatedKeys,
+                                  boolean returnGeneratedKeys,
+                                  String sql) {
         this.lifecycle = lifecycle;
         this.executionState = executionState;
+        this.generatedKeys = generatedKeys;
+        this.returnGeneratedKeys = returnGeneratedKeys;
         this.client = new GrpcMockQueryClient(mockConfig);
         this.sql = sql;
     }
@@ -76,6 +85,7 @@ final class PreparedStatementQueryHandler {
 
     public ResultSet executeQuery() throws SQLException {
         lifecycle.assertOpen();
+        generatedKeys.clearGeneratedKeys();
         var resultSet = ResultSetFactory.create(client.findResultSet(sql, sortedParameters()));
         executionState.storeResultSet(resultSet);
         return resultSet;
@@ -91,6 +101,11 @@ final class PreparedStatementQueryHandler {
         var resultSet = client.findResultSet(sql, sortedParameters());
         var count = resultSet.getRowsCount();
         executionState.storeUpdateCount(count);
+        if (returnGeneratedKeys) {
+            generatedKeys.storeGeneratedKeys(resultSet);
+        } else {
+            generatedKeys.clearGeneratedKeys();
+        }
         return count;
     }
 
@@ -99,6 +114,11 @@ final class PreparedStatementQueryHandler {
         var resultSet = client.findResultSet(sql, sortedParameters());
         var count = (long) resultSet.getRowsCount();
         executionState.storeLargeUpdateCount(count);
+        if (returnGeneratedKeys) {
+            generatedKeys.storeGeneratedKeys(resultSet);
+        } else {
+            generatedKeys.clearGeneratedKeys();
+        }
         return count;
     }
 
@@ -135,6 +155,11 @@ final class PreparedStatementQueryHandler {
     public boolean isCloseOnCompletion() throws SQLException {
         lifecycle.assertOpen();
         return executionState.isCloseOnCompletion();
+    }
+
+    public ResultSet getGeneratedKeys() throws SQLException {
+        lifecycle.assertOpen();
+        return generatedKeys.getGeneratedKeys();
     }
 
     private java.util.List<ParameterMetadata> sortedParameters() {

@@ -284,6 +284,37 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given statement executeUpdate with RETURN_GENERATED_KEYS, when getGeneratedKeys is called, then it returns keys from grpc result")
+    void shouldReturnGeneratedKeysAfterStatementExecuteUpdateWithGeneratedKeysFlag() throws Exception {
+        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+
+        try (var statement = statementFactory.createStatement()) {
+            statement.executeUpdate("UPDATE users SET active=true", java.sql.Statement.RETURN_GENERATED_KEYS);
+
+            try (var generatedKeys = statement.getGeneratedKeys()) {
+                assertTrue(generatedKeys.next());
+                assertEquals(1L, generatedKeys.getObject(1));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Given prepared statement created with generated keys mode, when executeUpdate is called, then getGeneratedKeys returns keys")
+    void shouldReturnGeneratedKeysAfterPreparedStatementExecuteUpdateWhenConfigured() throws Exception {
+        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET active=?", java.sql.Statement.RETURN_GENERATED_KEYS)) {
+            statement.setBoolean(1, true);
+            statement.executeUpdate();
+
+            try (var generatedKeys = statement.getGeneratedKeys()) {
+                assertTrue(generatedKeys.next());
+                assertEquals(1L, generatedKeys.getObject(1));
+            }
+        }
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }
