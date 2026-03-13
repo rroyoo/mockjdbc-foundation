@@ -3,6 +3,7 @@ package io.github.rroyoo.mockjdbc.mock.connection;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import io.github.rroyoo.mockjdbc.mock.statement.StatementFactory;
 import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.MethodCall;
 import net.bytebuddy.implementation.MethodDelegation;
@@ -30,106 +31,84 @@ public final class ConnectionFactory {
         }
 
         try {
-            var lifecycle    = new LifecycleHandler();
-            var transaction  = new TransactionHandler();
-            var config       = new ConfigHandler();
-            var warnings     = new WarningsHandler();
-            var clientInfo   = new ClientInfoHandler();
-            var statements   = new StatementFactory(mockConfig);
+            var lifecycle = new LifecycleHandler();
+            var transaction = new TransactionHandler();
+            var config = new ConfigHandler();
+            var warnings = new WarningsHandler();
+            var clientInfo = new ClientInfoHandler();
+            var statements = new StatementFactory(mockConfig);
 
             var generatedTypeName = ConnectionFactory.class.getPackageName()
                     + ".MockConnection$" + CONNECTION_SEQUENCE.incrementAndGet();
 
-            var connectionBuilder = new ByteBuddy()
-                    .subclass(Connection.class)
-                    .name(generatedTypeName)
-                    // --- lifecycle ---
-                    .method(named("close").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(LifecycleHandler.class.getMethod("close")).on(lifecycle))
-                    .method(named("isClosed").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(LifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
-                    // --- transaction ---
-                    .method(named("commit").and(takesNoArguments()))
-                    .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
-                    .method(named("rollback").and(takesNoArguments()))
-                    .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
-                    .method(named("rollback").and(takesArguments(Savepoint.class)))
-                    .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
-                    .method(named("setAutoCommit").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(TransactionHandler.class.getMethod("setAutoCommit", boolean.class)).on(transaction).withAllArguments())
-                    .method(named("getAutoCommit").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(TransactionHandler.class.getMethod("getAutoCommit")).on(transaction))
-                    // --- savepoint ---
-                    .method(named("releaseSavepoint").and(takesArguments(Savepoint.class)))
-                    .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
-                    .method(named("setSavepoint").and(takesNoArguments()))
-                    .intercept(MethodDelegation.to(NullResultHandler.class))
-                    .method(named("setSavepoint").and(takesArguments(String.class)))
-                    .intercept(MethodDelegation.to(NullResultHandler.class))
-                    // --- config ---
-                    .method(named("setReadOnly").and(takesArguments(boolean.class)))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setReadOnly", boolean.class)).on(config).withAllArguments())
-                    .method(named("isReadOnly").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("isReadOnly")).on(config))
-                    .method(named("setTransactionIsolation").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setTransactionIsolation", int.class)).on(config).withAllArguments())
-                    .method(named("getTransactionIsolation").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getTransactionIsolation")).on(config))
-                    .method(named("setHoldability").and(takesArguments(int.class)))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setHoldability", int.class)).on(config).withAllArguments())
-                    .method(named("getHoldability").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getHoldability")).on(config))
-                    .method(named("setCatalog").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setCatalog", String.class)).on(config).withAllArguments())
-                    .method(named("getCatalog").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getCatalog")).on(config))
-                    .method(named("setSchema").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setSchema", String.class)).on(config).withAllArguments())
-                    .method(named("getSchema").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getSchema")).on(config))
-                    .method(named("setNetworkTimeout").and(takesArguments(Executor.class, int.class)))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setNetworkTimeout", Executor.class, int.class)).on(config).withAllArguments())
-                    .method(named("getNetworkTimeout").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getNetworkTimeout")).on(config))
-                    // --- warnings ---
-                    .method(named("getWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("getWarnings")).on(warnings))
-                    .method(named("clearWarnings").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("clearWarnings")).on(warnings))
-                    // --- client info ---
-                    .method(named("setClientInfo").and(takesArguments(String.class, String.class)))
-                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("setClientInfo", String.class, String.class)).on(clientInfo).withAllArguments())
-                    .method(named("setClientInfo").and(takesArguments(Properties.class)))
-                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("setClientInfo", Properties.class)).on(clientInfo).withAllArguments())
-                    .method(named("getClientInfo").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo")).on(clientInfo))
-                    .method(named("getClientInfo").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo", String.class)).on(clientInfo).withAllArguments())
-                    // --- statements ---
-                    .method(named("createStatement").and(takesNoArguments()))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement")).on(statements))
-                    .method(named("createStatement").and(takesArguments(int.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement", int.class, int.class)).on(statements).withAllArguments())
-                    .method(named("createStatement").and(takesArguments(int.class, int.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement", int.class, int.class, int.class)).on(statements).withAllArguments())
-                    .method(named("prepareStatement").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class)).on(statements).withAllArguments())
-                    .method(named("prepareStatement").and(takesArguments(String.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class)).on(statements).withAllArguments())
-                    .method(named("prepareStatement").and(takesArguments(String.class, int.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class, int.class)).on(statements).withAllArguments())
-                    .method(named("prepareStatement").and(takesArguments(String.class, int.class, int.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class, int.class, int.class)).on(statements).withAllArguments())
-                    .method(named("prepareStatement").and(takesArguments(String.class, int[].class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int[].class)).on(statements).withAllArguments())
-                    .method(named("prepareStatement").and(takesArguments(String.class, String[].class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, String[].class)).on(statements).withAllArguments())
-                    .method(named("prepareCall").and(takesArguments(String.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class)).on(statements).withAllArguments())
-                    .method(named("prepareCall").and(takesArguments(String.class, int.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class, int.class, int.class)).on(statements).withAllArguments())
-                    .method(named("prepareCall").and(takesArguments(String.class, int.class, int.class, int.class)))
-                    .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class, int.class, int.class, int.class)).on(statements).withAllArguments());
+            var connectionBuilder = applyStatementFactoryInterceptors(
+                    new ByteBuddy()
+                            .subclass(Connection.class)
+                            .name(generatedTypeName)
+                            // --- lifecycle ---
+                            .method(named("close").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(LifecycleHandler.class.getMethod("close")).on(lifecycle))
+                            .method(named("isClosed").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(LifecycleHandler.class.getMethod("isClosed")).on(lifecycle))
+                            // --- transaction ---
+                            .method(named("commit").and(takesNoArguments()))
+                            .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
+                            .method(named("rollback").and(takesNoArguments()))
+                            .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
+                            .method(named("rollback").and(takesArguments(Savepoint.class)))
+                            .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
+                            .method(named("setAutoCommit").and(takesArguments(boolean.class)))
+                            .intercept(MethodCall.invoke(TransactionHandler.class.getMethod("setAutoCommit", boolean.class)).on(transaction).withAllArguments())
+                            .method(named("getAutoCommit").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(TransactionHandler.class.getMethod("getAutoCommit")).on(transaction))
+                            // --- savepoint ---
+                            .method(named("releaseSavepoint").and(takesArguments(Savepoint.class)))
+                            .intercept(MethodDelegation.to(GenericVoidMethodHandler.class))
+                            .method(named("setSavepoint").and(takesNoArguments()))
+                            .intercept(MethodDelegation.to(NullResultHandler.class))
+                            .method(named("setSavepoint").and(takesArguments(String.class)))
+                            .intercept(MethodDelegation.to(NullResultHandler.class))
+                            // --- config ---
+                            .method(named("setReadOnly").and(takesArguments(boolean.class)))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setReadOnly", boolean.class)).on(config).withAllArguments())
+                            .method(named("isReadOnly").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("isReadOnly")).on(config))
+                            .method(named("setTransactionIsolation").and(takesArguments(int.class)))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setTransactionIsolation", int.class)).on(config).withAllArguments())
+                            .method(named("getTransactionIsolation").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getTransactionIsolation")).on(config))
+                            .method(named("setHoldability").and(takesArguments(int.class)))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setHoldability", int.class)).on(config).withAllArguments())
+                            .method(named("getHoldability").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getHoldability")).on(config))
+                            .method(named("setCatalog").and(takesArguments(String.class)))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setCatalog", String.class)).on(config).withAllArguments())
+                            .method(named("getCatalog").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getCatalog")).on(config))
+                            .method(named("setSchema").and(takesArguments(String.class)))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setSchema", String.class)).on(config).withAllArguments())
+                            .method(named("getSchema").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getSchema")).on(config))
+                            .method(named("setNetworkTimeout").and(takesArguments(Executor.class, int.class)))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("setNetworkTimeout", Executor.class, int.class)).on(config).withAllArguments())
+                            .method(named("getNetworkTimeout").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(ConfigHandler.class.getMethod("getNetworkTimeout")).on(config))
+                            // --- warnings ---
+                            .method(named("getWarnings").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("getWarnings")).on(warnings))
+                            .method(named("clearWarnings").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(WarningsHandler.class.getMethod("clearWarnings")).on(warnings))
+                            // --- client info ---
+                            .method(named("setClientInfo").and(takesArguments(String.class, String.class)))
+                            .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("setClientInfo", String.class, String.class)).on(clientInfo).withAllArguments())
+                            .method(named("setClientInfo").and(takesArguments(Properties.class)))
+                            .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("setClientInfo", Properties.class)).on(clientInfo).withAllArguments())
+                            .method(named("getClientInfo").and(takesNoArguments()))
+                            .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo")).on(clientInfo))
+                            .method(named("getClientInfo").and(takesArguments(String.class)))
+                            .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo", String.class)).on(clientInfo).withAllArguments()),
+                    statements
+            );
 
             try (var unloaded = connectionBuilder.make()) {
                 return unloaded.load(
@@ -143,5 +122,36 @@ public final class ConnectionFactory {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static <T> DynamicType.Builder<T> applyStatementFactoryInterceptors(
+            DynamicType.Builder<T> builder,
+            StatementFactory statements
+    ) throws NoSuchMethodException {
+        return builder
+                .method(named("createStatement").and(takesNoArguments()))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement")).on(statements))
+                .method(named("createStatement").and(takesArguments(int.class, int.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement", int.class, int.class)).on(statements).withAllArguments())
+                .method(named("createStatement").and(takesArguments(int.class, int.class, int.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("createStatement", int.class, int.class, int.class)).on(statements).withAllArguments())
+                .method(named("prepareStatement").and(takesArguments(String.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class)).on(statements).withAllArguments())
+                .method(named("prepareStatement").and(takesArguments(String.class, int.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class)).on(statements).withAllArguments())
+                .method(named("prepareStatement").and(takesArguments(String.class, int.class, int.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class, int.class)).on(statements).withAllArguments())
+                .method(named("prepareStatement").and(takesArguments(String.class, int.class, int.class, int.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int.class, int.class, int.class)).on(statements).withAllArguments())
+                .method(named("prepareStatement").and(takesArguments(String.class, int[].class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, int[].class)).on(statements).withAllArguments())
+                .method(named("prepareStatement").and(takesArguments(String.class, String[].class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareStatement", String.class, String[].class)).on(statements).withAllArguments())
+                .method(named("prepareCall").and(takesArguments(String.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class)).on(statements).withAllArguments())
+                .method(named("prepareCall").and(takesArguments(String.class, int.class, int.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class, int.class, int.class)).on(statements).withAllArguments())
+                .method(named("prepareCall").and(takesArguments(String.class, int.class, int.class, int.class)))
+                .intercept(MethodCall.invoke(StatementFactory.class.getMethod("prepareCall", String.class, int.class, int.class, int.class)).on(statements).withAllArguments());
     }
 }
