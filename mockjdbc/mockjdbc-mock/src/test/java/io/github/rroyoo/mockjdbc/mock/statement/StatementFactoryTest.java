@@ -193,6 +193,46 @@ class StatementFactoryTest {
         }
     }
 
+    @Test
+    @DisplayName("Given a statement with current ResultSet, when getMoreResults CLOSE_CURRENT_RESULT is called, then it returns false and clears current ResultSet")
+    void shouldClearCurrentResultSetWhenGetMoreResultsCloseCurrentResultIsCalled() throws Exception {
+        service.responder = request -> mockedQuery(singleColumnResultSet("greeting", "greeting", JdbcValue.newBuilder().setStringVal("hello").build()));
+
+        try (var statement = statementFactory.createStatement()) {
+            statement.execute("SELECT greeting");
+            assertNotNull(statement.getResultSet());
+
+            assertFalse(statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT));
+            assertNull(statement.getResultSet());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a statement with current ResultSet, when getMoreResults KEEP_CURRENT_RESULT is called, then it keeps current ResultSet")
+    void shouldKeepCurrentResultSetWhenGetMoreResultsKeepCurrentResultIsCalled() throws Exception {
+        service.responder = request -> mockedQuery(singleColumnResultSet("greeting", "greeting", JdbcValue.newBuilder().setStringVal("hello").build()));
+
+        try (var statement = statementFactory.createStatement()) {
+            statement.execute("SELECT greeting");
+            assertNotNull(statement.getResultSet());
+
+            assertFalse(statement.getMoreResults(java.sql.Statement.KEEP_CURRENT_RESULT));
+            assertNotNull(statement.getResultSet());
+            assertTrue(statement.getResultSet().next());
+            assertEquals("hello", statement.getResultSet().getString(1));
+        }
+    }
+
+    @Test
+    @DisplayName("Given a new statement, when closeOnCompletion is called, then isCloseOnCompletion returns true")
+    void shouldEnableCloseOnCompletionFlag() throws Exception {
+        try (var statement = statementFactory.createStatement()) {
+            assertFalse(statement.isCloseOnCompletion());
+            statement.closeOnCompletion();
+            assertTrue(statement.isCloseOnCompletion());
+        }
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }

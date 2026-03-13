@@ -89,4 +89,19 @@ final class StatementQueryHandler {
         lifecycle.assertOpen();
         return executionState.getMoreResults();
     }
+
+    public boolean getMoreResults(int current) throws SQLException {
+        lifecycle.assertOpen();
+        return executionState.getMoreResults(current);
+    }
+
+    public void closeOnCompletion() throws SQLException {
+        lifecycle.assertOpen();
+        executionState.closeOnCompletion();
+    }
+
+    public boolean isCloseOnCompletion() throws SQLException {
+        lifecycle.assertOpen();
+        return executionState.isCloseOnCompletion();
+    }
 }
