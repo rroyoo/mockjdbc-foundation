@@ -3,10 +3,13 @@ package io.github.rroyoo.mockjdbc.mock.driver;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.Properties;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,5 +53,21 @@ class MockDriverTest {
         var propertyInfo = mockDriver.getPropertyInfo("jdbc:mock://localhost:8080", new java.util.Properties());
 
         assertEquals(0, propertyInfo.length);
+    }
+
+    @Test
+    @DisplayName("Given a valid mock URL, when connect is called, then it returns a connection")
+    void shouldCreateConnectionForValidMockUrl() throws Exception {
+        var connection = mockDriver.connect("jdbc:mock://localhost:50051", new Properties());
+
+        assertNotNull(connection);
+    }
+
+    @Test
+    @DisplayName("Given a non-mock URL, when connect is called, then it returns null")
+    void shouldReturnNullForUnsupportedUrlOnConnect() throws Exception {
+        var connection = mockDriver.connect("jdbc:mysql://localhost:3306", new Properties());
+
+        assertNull(connection);
     }
 }

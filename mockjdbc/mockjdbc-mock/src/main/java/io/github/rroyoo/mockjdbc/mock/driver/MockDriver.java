@@ -1,5 +1,7 @@
 package io.github.rroyoo.mockjdbc.mock.driver;
 
+import io.github.rroyoo.mockjdbc.mock.connection.ConnectionFactory;
+
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
@@ -12,7 +14,18 @@ public final class MockDriver implements Driver {
 
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
-        return null;
+        if (!acceptsURL(url)) {
+            return null;
+        }
+
+        try {
+            var mockConfig = URLParser.parse(url, info);
+            return ConnectionFactory.create(mockConfig);
+        } catch (RuntimeException e) {
+            throw new SQLException("Error creating mock connection", e);
+        } catch (Exception e) {
+            throw new SQLException("Invalid mock JDBC URL: " + url, e);
+        }
     }
 
     @Override
