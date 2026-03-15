@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: mockjdbc-spring-users
+
+server:
+  port: 8080
+

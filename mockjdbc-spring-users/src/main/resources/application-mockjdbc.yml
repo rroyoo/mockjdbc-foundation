@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    type: org.springframework.jdbc.datasource.SimpleDriverDataSource
+    url: jdbc:mock://localhost:50051
+    driver-class-name: io.github.rroyoo.mockjdbc.mock.driver.MockDriver
+  sql:
+    init:
+      mode: never
+
+mockjdbc:
+  grpc:
+    port: 50051
