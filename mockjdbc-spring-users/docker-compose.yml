@@ -1,0 +1,52 @@
+services:
+  wiremock-grpc-extension:
+    image: curlimages/curl:8.12.1
+    user: "0:0"
+    command:
+      - -fsSL
+      - -o
+      - /extensions/wiremock-grpc-extension-standalone-0.11.0.jar
+      - https://repo1.maven.org/maven2/org/wiremock/wiremock-grpc-extension-standalone/0.11.0/wiremock-grpc-extension-standalone-0.11.0.jar
+    volumes:
+      - wiremock_extensions:/extensions
+
+  wiremock-grpc-descriptors:
+    image: debian:12-slim
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        apt-get update
+        apt-get install -y --no-install-recommends protobuf-compiler libprotobuf-dev ca-certificates
+        protoc \
+          -I=/proto \
+          -I=/usr/include \
+          --include_imports \
+          --descriptor_set_out=/grpc/mockjdbc-services.dsc \
+          /proto/io/github/rroyoo/mockjdbc/mock/mocked_query_service.proto
+    volumes:
+      - ../mockjdbc/mockjdbc-proto/src/main/protobuf:/proto:ro
+      - wiremock_grpc_descriptors:/grpc
+
+  wiremock-grpc:
+    image: wiremock/wiremock:3.13.1
+    depends_on:
+      wiremock-grpc-extension:
+        condition: service_completed_successfully
+      wiremock-grpc-descriptors:
+        condition: service_completed_successfully
+    command:
+      - --port
+      - "8080"
+      - --root-dir
+      - /home/wiremock
+    ports:
+      - "8088:8080"
+    volumes:
+      - ./docker/wiremock/mappings:/home/wiremock/mappings:ro
+      - wiremock_grpc_descriptors:/home/wiremock/grpc:ro
+      - wiremock_extensions:/var/wiremock/extensions:ro
+
+volumes:
+  wiremock_extensions:
+  wiremock_grpc_descriptors:

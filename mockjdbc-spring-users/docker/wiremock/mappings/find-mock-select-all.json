@@ -1,0 +1,84 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "POST",
+    "urlPath": "/io.github.rroyoo.mockjdbc.mock.MockQueryService/FindMock",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.sql == 'select id, name, email from users order by id')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json",
+      "grpc-status-name": "OK"
+    },
+    "jsonBody": {
+      "resultSet": {
+        "metadata": [
+          {
+            "name": "id",
+            "label": "id",
+            "sqlType": -5,
+            "typeName": "BIGINT"
+          },
+          {
+            "name": "name",
+            "label": "name",
+            "sqlType": 12,
+            "typeName": "VARCHAR"
+          },
+          {
+            "name": "email",
+            "label": "email",
+            "sqlType": 12,
+            "typeName": "VARCHAR"
+          }
+        ],
+        "rows": [
+          {
+            "values": [
+              {
+                "longVal": "1"
+              },
+              {
+                "stringVal": "Ada Lovelace"
+              },
+              {
+                "stringVal": "ada@mockjdbc.dev"
+              }
+            ]
+          },
+          {
+            "values": [
+              {
+                "longVal": "2"
+              },
+              {
+                "stringVal": "Grace Hopper"
+              },
+              {
+                "stringVal": "grace@mockjdbc.dev"
+              }
+            ]
+          },
+          {
+            "values": [
+              {
+                "longVal": "3"
+              },
+              {
+                "stringVal": "Donald Knuth"
+              },
+              {
+                "stringVal": "knuth@mockjdbc.dev"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

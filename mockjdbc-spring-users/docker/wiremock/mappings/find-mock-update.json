@@ -1,0 +1,27 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "POST",
+    "urlPath": "/io.github.rroyoo.mockjdbc.mock.MockQueryService/FindMock",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.sql == 'update users set name = ?, email = ? where id = ?')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json",
+      "grpc-status-name": "OK"
+    },
+    "jsonBody": {
+      "resultSet": {
+        "metadata": [],
+        "rows": [
+          {}
+        ]
+      }
+    }
+  }
+}

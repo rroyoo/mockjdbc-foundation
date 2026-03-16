@@ -5,7 +5,7 @@ Independent Maven Spring Boot project at the repository root with a basic users 
 ## Profiles
 
 - `h2`: uses in-memory H2 datasource.
-- `mockjdbc`: uses `io.github.rroyoo.mockjdbc.mock.driver.MockDriver` and a local in-process gRPC mock service.
+- `mockjdbc`: uses `io.github.rroyoo.mockjdbc.mock.driver.MockDriver` and an external WireMock gRPC server.
 
 ## Endpoints
 
@@ -29,9 +29,23 @@ mvn spring-boot:run -Dspring-boot.run.profiles=h2
 
 ## Run with mockjdbc profile
 
+Start WireMock gRPC first:
+
+```bash
+docker compose up -d wiremock-grpc
+```
+
+Then run the service:
+
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=mockjdbc
 ```
+
+## WireMock assets
+
+- `docker-compose.yml`
+- `docker/wiremock/mappings/` contains gRPC stubs for `MockQueryService/FindMock`
+- descriptors are generated at startup from `../mockjdbc/mockjdbc-proto/src/main/protobuf`
 
 ## Notes
 
@@ -45,4 +59,11 @@ If those jars do not exist yet, build them first from the repository root:
 ```bash
 cd mockjdbc
 mvn package -DskipTests
+```
+
+To point to another WireMock host/port, use:
+
+```bash
+MOCKJDBC_GRPC_HOST=localhost
+MOCKJDBC_GRPC_PORT=50051
 ```
