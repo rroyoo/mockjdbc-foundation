@@ -35,16 +35,20 @@ Use the skill that best matches the task, and combine multiple skills when requi
 - `connection-state-semantics` -> `.github/skills/connection-state-semantics/SKILL.md`
 - `sql-exception-policy` -> `.github/skills/sql-exception-policy/SKILL.md`
 - `connection-factory-tests` -> `.github/skills/connection-factory-tests/SKILL.md`
+- `mockjdbc-mock-coding-style` -> `.github/skills/mockjdbc-mock-coding-style/SKILL.md`
+- `mockjdbc-mock-testing-style` -> `.github/skills/mockjdbc-mock-testing-style/SKILL.md`
+- `mockjdbc-mock-naming-conventions` -> `.github/skills/mockjdbc-mock-naming-conventions/SKILL.md`
 
 ## Default Workflow
 
 1. Apply `model-selection-policy` and choose model strategy (`auto` by default).
-2. Inspect the target factory, handlers, and tests.
-3. Inventory target interface methods and detect gaps.
-4. Select and apply the relevant specialist skills.
-5. Add or update focused handler classes.
-6. Attach precise ByteBuddy rules in the builder.
-7. Update tests for expected behavior and edge cases.
+2. Apply `mockjdbc-mock-coding-style`, `mockjdbc-mock-testing-style`, and `mockjdbc-mock-naming-conventions` as baseline conventions.
+3. Inspect the target factory, handlers, and tests.
+4. Inventory target interface methods and detect gaps.
+5. Select and apply the relevant specialist skills.
+6. Add or update focused handler classes.
+7. Attach precise ByteBuddy rules in the builder.
+8. Update tests for expected behavior and edge cases.
 
 ## Handler Design Principles
 

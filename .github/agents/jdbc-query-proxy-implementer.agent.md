@@ -28,16 +28,20 @@ Use the most relevant skills and combine when needed.
 - `model-selection-policy` -> `.github/skills/model-selection-policy/SKILL.md`
 - `bytebuddy-matcher-safety` -> `.github/skills/bytebuddy-matcher-safety/SKILL.md`
 - `datasource-proxy-expertise` -> `.github/skills/datasource-proxy-expertise/SKILL.md`
+- `mockjdbc-mock-coding-style` -> `.github/skills/mockjdbc-mock-coding-style/SKILL.md`
+- `mockjdbc-mock-testing-style` -> `.github/skills/mockjdbc-mock-testing-style/SKILL.md`
+- `mockjdbc-mock-naming-conventions` -> `.github/skills/mockjdbc-mock-naming-conventions/SKILL.md`
 
 ## Default Workflow
 
 1. Apply `model-selection-policy` (`auto` by default).
-2. Inspect current delegation entry points and handler split (`StatementFactory`, query handlers).
-3. Inventory missing/incorrect proxy behavior by JDBC method family.
-4. Implement or adjust transport call flow and payload mapping.
-5. Implement or adjust response-to-JDBC mapping (`ResultSet`, update counts, generated keys).
-6. Wire delegation matchers safely in builders.
-7. Add or update tests for happy path, edge cases, and backend failures.
+2. Apply `mockjdbc-mock-coding-style`, `mockjdbc-mock-testing-style`, and `mockjdbc-mock-naming-conventions` as baseline conventions.
+3. Inspect current delegation entry points and handler split (`StatementFactory`, query handlers).
+4. Inventory missing/incorrect proxy behavior by JDBC method family.
+5. Implement or adjust transport call flow and payload mapping.
+6. Implement or adjust response-to-JDBC mapping (`ResultSet`, update counts, generated keys).
+7. Wire delegation matchers safely in builders.
+8. Add or update tests for happy path, edge cases, and backend failures.
 
 ## Query Proxy Design Principles
 
