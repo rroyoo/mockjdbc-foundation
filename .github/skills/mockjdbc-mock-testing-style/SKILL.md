@@ -11,7 +11,6 @@ Use this skill when creating or updating tests under `mockjdbc/mockjdbc-mock/src
 ## Actions
 - Use JUnit 5 with `@DisplayName` in Given-When-Then style for every test.
 - Name test methods with `should...` behavior-driven naming.
-- Prefer local type inference (`var`) in tests for arrange/act variables when the type is evident.
 - Keep tests behavior-focused: assert externally observable JDBC behavior, not internals.
 - Follow Arrange/Act/Assert structure; add section comments when it improves readability.
 - Prefer direct assertions from `org.junit.jupiter.api.Assertions` (`assertEquals`, `assertThrows`, `assertDoesNotThrow`, etc.).
