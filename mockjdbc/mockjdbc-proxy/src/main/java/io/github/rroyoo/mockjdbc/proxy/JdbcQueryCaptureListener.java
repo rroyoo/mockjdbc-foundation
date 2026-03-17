@@ -110,7 +110,8 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
         if (executionInfo != null && executionInfo.getResult() instanceof ResultSet resultSet) {
             try {
                 var wrapped = resultSetWrapperFactory.wrap(resultSet, serialized ->
-                        protoDispatcher.publish(buildMockedQuery(sql, parameterMetadata, serialized)));
+                        protoDispatcher.publish(buildMockedQuery(sql, parameterMetadata, serialized,
+                                executionInfo != null ? executionInfo.getThrowable() : null)));
                 executionInfo.setResult(wrapped);
                 return;
             } catch (SQLException e) {
@@ -120,14 +121,23 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
 
         var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(
                 executionInfo != null ? executionInfo.getResult() : null);
-        protoDispatcher.publish(buildMockedQuery(sql, parameterMetadata, serializedResultSet));
+        protoDispatcher.publish(buildMockedQuery(sql, parameterMetadata, serializedResultSet,
+                executionInfo != null ? executionInfo.getThrowable() : null));
     }
 
     private static MockedQuery buildMockedQuery(String sql,
                                                 List<ParameterMetadata> parameters,
-                                                SerializedResultSet serializedResultSet) {
+                                                SerializedResultSet serializedResultSet,
+                                                Throwable error) {
         var builder = MockedQuery.newBuilder().setResultSet(serializedResultSet);
         var normalizedSql = sql == null ? "" : sql.trim();
+
+        if (error != null) {
+            builder.setError(io.github.rroyoo.mockjdbc.mock.QueryError.newBuilder()
+                    .setType(error.getClass().getName())
+                    .setMessage(error.getMessage() == null ? "" : error.getMessage())
+                    .build());
+        }
 
         if (normalizedSql.startsWith("{") || normalizedSql.toLowerCase().startsWith("call")) {
             builder.setCallableStatement(CallableStatement.newBuilder()

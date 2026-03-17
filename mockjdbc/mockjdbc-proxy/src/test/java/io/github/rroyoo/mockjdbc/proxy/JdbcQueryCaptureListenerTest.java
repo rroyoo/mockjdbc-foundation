@@ -155,6 +155,35 @@ class JdbcQueryCaptureListenerTest {
         listener.close();
     }
 
+    @Test
+    @DisplayName("Given a failing query execution, when proto event is emitted, then it includes error type and message")
+    void shouldIncludeErrorPayloadInProtoEventWhenExecutionFails() throws Exception {
+        var protoEvent = new AtomicReference<MockedQuery>();
+        var latch = new CountDownLatch(1);
+        var listener = new JdbcQueryCaptureListener(
+                event -> {},
+                mockedQuery -> {
+                    protoEvent.set(mockedQuery);
+                    latch.countDown();
+                }
+        );
+
+        var executionInfo = new ExecutionInfo();
+        executionInfo.setSuccess(false);
+        executionInfo.setResult(0);
+        executionInfo.setThrowable(new IllegalStateException("boom-query"));
+
+        listener.afterQuery(executionInfo, List.of(new QueryInfo("SELECT * FROM users")));
+
+        assertTrue(latch.await(2, TimeUnit.SECONDS));
+        assertNotNull(protoEvent.get());
+        assertTrue(protoEvent.get().hasError());
+        assertEquals(IllegalStateException.class.getName(), protoEvent.get().getError().getType());
+        assertEquals("boom-query", protoEvent.get().getError().getMessage());
+
+        listener.close();
+    }
+
     private static java.sql.ResultSet usersRowSet() throws Exception {
         var metadata = new RowSetMetaDataImpl();
         metadata.setColumnCount(2);

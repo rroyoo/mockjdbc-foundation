@@ -9,6 +9,11 @@ option java_package = "io.github.rroyoo.mockjdbc.mock";
 option java_multiple_files = true;
 option optimize_for = SPEED;
 
+message QueryError {
+  string type = 1;
+  string message = 2;
+}
+
 /**
  * Your main message containing the result set field
  */
@@ -20,4 +25,5 @@ message MockedQuery {
   }
   // This is the specific field you requested
   SerializedResultSet result_set = 2;
+  QueryError error = 5;
 }
