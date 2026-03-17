@@ -13,8 +13,19 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.github.rroyoo.mockjdbc</groupId>
+            <artifactId>mockjdbc-proto</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
+        <dependency>
             <groupId>net.ttddyy</groupId>
             <artifactId>datasource-proxy</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
         </dependency>
 
         <dependency>
