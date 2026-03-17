@@ -1,10 +1,6 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
-import io.github.rroyoo.mockjdbc.mock.MockQueryServiceGrpc;
-import io.github.rroyoo.mockjdbc.mock.MockedQuery;
-import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
-import io.github.rroyoo.mockjdbc.mock.QueryLookupRequest;
-import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
+import io.github.rroyoo.mockjdbc.mock.*;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -23,7 +19,7 @@ final class GrpcMockQueryClient {
     }
 
     SerializedResultSet findResultSet(String sql, List<ParameterMetadata> parameters) throws SQLException {
-        ManagedChannel channel = null;
+        var channel = (ManagedChannel) null;
         try {
             channel = ManagedChannelBuilder
                     .forAddress(mockConfig.mockServer().host(), mockConfig.mockServer().port())
@@ -35,7 +31,10 @@ final class GrpcMockQueryClient {
                     .addAllParameters(parameters)
                     .build();
 
-            MockedQuery response = MockQueryServiceGrpc.newBlockingStub(channel).findMock(request);
+            var response = MockQueryServiceGrpc.newBlockingStub(channel).findMock(request);
+            if (response.hasError()) {
+                throw toSqlException(response.getError());
+            }
             return response.getResultSet();
         } catch (StatusRuntimeException e) {
             throw new SQLException("Failed to query mock server for SQL: " + sql, e);
@@ -48,6 +47,42 @@ final class GrpcMockQueryClient {
                     Thread.currentThread().interrupt();
                 }
             }
+        }
+    }
+
+    private static SQLException toSqlException(QueryError error) {
+        var type = error.getType();
+        var message = error.getMessage();
+        var hasMessage = message != null && !message.isBlank();
+
+        if (type == null || type.isBlank()) {
+            return hasMessage ? new SQLException(message) : new SQLException();
+        }
+
+        try {
+            var clazz = Class.forName(type);
+            if (!SQLException.class.isAssignableFrom(clazz)) {
+                return hasMessage ? new SQLException(message) : new SQLException();
+            }
+
+            @SuppressWarnings("unchecked")
+            var sqlExceptionClass = (Class<? extends SQLException>) clazz;
+
+            if (!hasMessage) {
+                try {
+                    return sqlExceptionClass.getDeclaredConstructor().newInstance();
+                } catch (ReflectiveOperationException ignored) {
+                    return new SQLException();
+                }
+            }
+
+            try {
+                return sqlExceptionClass.getDeclaredConstructor(String.class).newInstance(message);
+            } catch (ReflectiveOperationException ignored) {
+                return new SQLException(message);
+            }
+        } catch (ClassNotFoundException e) {
+            return hasMessage ? new SQLException(message) : new SQLException();
         }
     }
 }

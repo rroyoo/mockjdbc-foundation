@@ -5,6 +5,7 @@ import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.MockQueryServiceGrpc;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
+import io.github.rroyoo.mockjdbc.mock.QueryError;
 import io.github.rroyoo.mockjdbc.mock.QueryLookupRequest;
 import io.github.rroyoo.mockjdbc.mock.Row;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.sql.SQLDataException;
+import java.sql.SQLSyntaxErrorException;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
@@ -87,6 +90,38 @@ class GrpcMockQueryClientTest {
         assertTrue(sqlException.getMessage().contains("SELECT 1"));
         assertNotNull(sqlException.getCause());
         assertSame(StatusRuntimeException.class, sqlException.getCause().getClass());
+    }
+
+    @Test
+    @DisplayName("Given a MockedQuery containing QueryError type and message, when findResultSet is called, then it throws the mapped SQLException subtype")
+    void shouldThrowMappedSQLExceptionSubtypeFromProtoError() {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setError(QueryError.newBuilder()
+                        .setType(SQLSyntaxErrorException.class.getName())
+                        .setMessage("bad sql")
+                        .build())
+                .build();
+        var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
+
+        var exception = assertThrows(SQLSyntaxErrorException.class, () -> client.findResultSet("SELECT *", List.of()));
+
+        assertEquals("bad sql", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Given a MockedQuery containing QueryError type with empty message, when findResultSet is called, then it creates the mapped exception without message")
+    void shouldCreateMappedSQLExceptionWithoutMessageWhenProtoMessageIsEmpty() {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setError(QueryError.newBuilder()
+                        .setType(SQLDataException.class.getName())
+                        .setMessage("")
+                        .build())
+                .build();
+        var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
+
+        var exception = assertThrows(SQLDataException.class, () -> client.findResultSet("SELECT *", List.of()));
+
+        assertTrue(exception.getMessage() == null || exception.getMessage().isBlank());
     }
 
     private static MockConfig mockConfig(int port) {
