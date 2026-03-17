@@ -11,6 +11,7 @@ Use this skill when changing production code under `mockjdbc/mockjdbc-mock/src/m
 ## Actions
 - Keep classes single-purpose and feature-scoped (factory wiring, handler state, transport client, converter).
 - Prefer `final` classes where extension is not required and small, explicit constructors.
+- Prefer local type inference (`var`) for local variables when the inferred type is obvious from the right-hand side.
 - Validate mandatory inputs early and fail fast with `IllegalArgumentException`.
 - Keep method behavior deterministic and explicit (no hidden fallback paths).
 - Wrap lower-level failures into JDBC-oriented exceptions/messages (`SQLException` for JDBC flows).
