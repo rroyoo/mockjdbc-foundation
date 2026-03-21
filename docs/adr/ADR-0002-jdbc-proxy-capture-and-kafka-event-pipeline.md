@@ -63,14 +63,14 @@ Guides must include:
 
 ## Acceptance checklist
 
-- [ ] Define and version Proxy Event Proto schema in `mockjdbc-proto`.
-- [ ] Implement datasource-aware statement capture in `mockjdbc-proxy`.
+- [x] Define and version Proxy Event Proto schema in `mockjdbc-proto`.
+- [x] Implement datasource-aware statement capture in `mockjdbc-proxy`.
 - [ ] Implement datasource identity resolver with precedence policy.
-- [ ] Implement Kafka publisher for Proto events.
-- [ ] Add unit tests for event mapping (query + result + error).
-- [ ] Add tests for multi-datasource capture and identity consistency.
+- [x] Implement Kafka publisher for Proto events.
+- [x] Add unit tests for event mapping (query + result + error).
+- [x] Add tests for multi-datasource capture and identity consistency.
 - [ ] Add Kafka publication tests (unit and integration-level).
-- [ ] Publish integration guides for generic Java JDBC usage.
+- [x] Publish integration guides for generic Java JDBC usage.
 - [ ] Add sample proving two datasources emitting events.
 
 ## Consequences
@@ -88,4 +88,3 @@ Guides must include:
 
 - `docs/adr/ADR-0001-project-stewardship-and-gap-closure.md`
 - `docs/adr/ADR-0003-mock-driver-scope-and-jdbc-compatibility.md`
-

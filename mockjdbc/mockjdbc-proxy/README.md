@@ -6,30 +6,73 @@ Utility module for JDBC interception based on `datasource-proxy`.
 
 `JdbcQueryCaptureListener` implements datasource-proxy `QueryExecutionListener` and captures immutable events (`JdbcQueryInterceptedEvent`) for each executed SQL.
 
-It also emits protobuf events (`MockedQuery`) asynchronously through an injectable external producer.
+It emits protobuf events (`MockedQuery`) asynchronously through an injectable producer and enriches each event with proxy metadata:
+- `datasource_id`
+- `elapsed_time_millis`
+- `status`
+- `row_count`
+- `update_count`
+- `event_id`
+- `observed_at`
 
-### Quick usage
+## Multi-datasource wrapping
+
+Use `JdbcProxyDataSourceFactory` to wrap each datasource with an explicit datasource id.
 
 ```java
-import io.github.rroyoo.mockjdbc.proxy.JdbcQueryCaptureListener;
-import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
+import io.github.rroyoo.mockjdbc.proxy.AsyncDispatchConfig;
+import io.github.rroyoo.mockjdbc.proxy.JdbcProxyDataSourceFactory;
 
-JdbcQueryCaptureListener listener = new JdbcQueryCaptureListener();
+DataSource usersDataSource = ...;
+DataSource ordersDataSource = ...;
 
-DataSource proxy = ProxyDataSourceBuilder
-        .create(realDataSource)
-        .name("app-ds")
-        .listener(listener)
-        .build();
+var usersBinding = JdbcProxyDataSourceFactory.wrap(
+        usersDataSource,
+        "users-primary",
+        event -> {},
+        mockedQuery -> {},
+        AsyncDispatchConfig.defaults()
+);
 
-// Execute JDBC statements using proxy DataSource
+var ordersBinding = JdbcProxyDataSourceFactory.wrap(
+        ordersDataSource,
+        "orders-replica",
+        event -> {},
+        mockedQuery -> {},
+        AsyncDispatchConfig.defaults()
+);
 
-listener.events().forEach(event -> {
-    System.out.println(event.sql());
-    System.out.println(event.parameters());
-    System.out.println(event.elapsedTimeMillis());
-});
+DataSource proxiedUsers = usersBinding.dataSource();
+DataSource proxiedOrders = ordersBinding.dataSource();
 ```
+
+## Kafka producer integration
+
+Use `KafkaMockedQueryEventProducer` to publish `MockedQuery` protobuf bytes keyed by datasource.
+
+```java
+import io.github.rroyoo.mockjdbc.proxy.KafkaMockedQueryEventProducer;
+
+Properties kafkaProperties = new Properties();
+kafkaProperties.setProperty("bootstrap.servers", "localhost:9092");
+kafkaProperties.setProperty("acks", "all");
+kafkaProperties.setProperty("retries", "3");
+
+var kafkaProducer = KafkaMockedQueryEventProducer.create(
+        kafkaProperties,
+        "mockjdbc.query.events",
+        KafkaMockedQueryEventProducer.datasourceKeyResolver()
+);
+
+kafkaProducer.send(mockedQuery);
+```
+
+## Spring-style integration idea
+
+1. Define original datasource beans.
+2. Wrap each datasource with `JdbcProxyDataSourceFactory.wrap(...)` and a stable datasource id.
+3. Expose `binding.dataSource()` as the datasource used by `JdbcTemplate` or JPA.
+4. Close bindings on shutdown to stop async dispatch threads.
 
 ## Verify
 
@@ -37,56 +80,24 @@ listener.events().forEach(event -> {
 mvn -pl mockjdbc-proxy test
 ```
 
-### Run load-oriented tests
+## Async dispatch tuning
 
-```bash
-mvn -pl mockjdbc-proxy -Dtest=AsyncMockedQueryEventDispatcherLoadTest test
-```
+`AsyncMockedQueryEventDispatcher#stats()` exposes:
+- `offered`
+- `sent`
+- `dropped`
+- `failed`
+- `queued`
 
-## Async Producer Integration
+Tune `AsyncDispatchConfig` according to throughput and memory constraints.
 
-```java
-import io.github.rroyoo.mockjdbc.proxy.AsyncDispatchConfig;
-import io.github.rroyoo.mockjdbc.proxy.JdbcQueryCaptureListener;
-import io.github.rroyoo.mockjdbc.proxy.MockedQueryEventProducer;
+## Memory strategy for ResultSet capture
 
-MockedQueryEventProducer kafkaProducer = mockedQuery -> {
-    // Your external producer implementation (Kafka, Pulsar, etc.)
-    // kafkaTemplate.send("mockjdbc.events", mockedQuery.toByteArray());
-};
+- The ByteBuddy wrapper captures consumed rows in batches (`rowBatchSize`) instead of storing full result sets.
+- Each batch is emitted as a `MockedQuery` protobuf event with shared metadata.
+- Update/delete/procedure counts are emitted as lightweight `SerializedResultSet` with `update_count`.
 
-AsyncDispatchConfig config = new AsyncDispatchConfig(
-        8192,                                 // ring buffer capacity
-        4,                                    // sender thread pool size
-        AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST,
-        512                                   // rows per ResultSet chunk
-);
-
-JdbcQueryCaptureListener listener = new JdbcQueryCaptureListener(
-        event -> {},
-        kafkaProducer,
-        config
-);
-```
-
-## Memory Strategy for ResultSet Capture
-
-- The ByteBuddy wrapper captures consumed rows in batches (`rowBatchSize`) instead of keeping the full `ResultSet` in memory.
-- Each batch is emitted as a `MockedQuery` protobuf event with shared metadata and the current row chunk.
-- This avoids unbounded heap growth on large queries.
-- Update/delete/procedure result counts are emitted immediately as lightweight `SerializedResultSet` with `update_count`.
-
-## Dispatcher Stats
-
-`AsyncMockedQueryEventDispatcher#stats()` exposes a snapshot:
-
-- `offered`: events accepted by publish attempts
-- `sent`: events successfully sent by sender threads
-- `dropped`: events dropped by overflow strategy
-- `failed`: send attempts that threw exceptions
-- `queued`: current in-memory queue size
-
-## Tiny Benchmark Harness
+## Tiny benchmark harness
 
 Manual benchmark runner is available at `AsyncDispatcherBenchmarkRunner`.
 
@@ -94,4 +105,3 @@ Manual benchmark runner is available at `AsyncDispatcherBenchmarkRunner`.
 mvn -pl mockjdbc-proxy -DskipTests test-compile
 java -cp "mockjdbc-proxy/target/test-classes:mockjdbc-proxy/target/classes:mockjdbc-proto/target/classes" io.github.rroyoo.mockjdbc.proxy.AsyncDispatcherBenchmarkRunner
 ```
-
