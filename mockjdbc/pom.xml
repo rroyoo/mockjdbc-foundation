@@ -31,6 +31,7 @@
         <maven.version.mockito>5.12.0</maven.version.mockito>
         <maven.version.protobuf>4.34.0</maven.version.protobuf>
         <maven.version.test.junit-jupiter>5.11.3</maven.version.test.junit-jupiter>
+        <maven.version.testcontainers>1.20.4</maven.version.testcontainers>
         <revision>1.0.0-SNAPSHOT</revision>
     </properties>
 
@@ -77,6 +78,14 @@
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>${maven.version.kafka}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${maven.version.testcontainers}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <dependency>
