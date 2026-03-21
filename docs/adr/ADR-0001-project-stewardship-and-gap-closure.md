@@ -3,6 +3,11 @@
 - Status: Accepted
 - Date: 2026-03-21
 
+## Related ADRs
+
+- `docs/adr/ADR-0002-jdbc-proxy-capture-and-kafka-event-pipeline.md`
+- `docs/adr/ADR-0003-mock-driver-scope-and-jdbc-compatibility.md`
+
 ## Context
 
 The repository already has meaningful implementation progress, especially in `mockjdbc-mock` and in the standalone sample project `mockjdbc-spring-users`, but the project does not yet have a repository-level custom agent that owns:
@@ -36,6 +41,10 @@ During the repository review, the following verified gaps were detected:
   - add production source under `mockjdbc/mockjdbc-proxy/src/main/java`
   - add tests for its public behavior
   - update architecture docs to reference concrete classes
+
+### Proxy product direction (new scope)
+- Proxy product scope is now governed in `docs/adr/ADR-0002-jdbc-proxy-capture-and-kafka-event-pipeline.md`.
+- This ADR (`ADR-0001`) keeps proxy items only as governance backlog entries.
 
 ### Build and integration hygiene
 - `mockjdbc-spring-users/pom.xml` currently uses `systemPath` dependencies pointing to sibling `target/` jars.
@@ -78,6 +87,12 @@ The repository adopts a two-level custom-agent model:
    - They still make sense for low-level implementation work.
    - They are not sufficient on their own for repo stewardship.
 
+5. **`mockjdbc-proxy` evolves from placeholder to productized capture pipeline**
+   - Product requirements, event contract, and rollout slices are governed in `ADR-0002`.
+
+6. **Mock driver compatibility scope is governed explicitly**
+   - Driver behavior boundaries and compatibility roadmap are governed in `ADR-0003`.
+
 ## Assessment of existing agents and skills
 
 ### Agents
@@ -106,6 +121,8 @@ Assessment notes:
 - [x] Add a repository steward agent.
 - [x] Add repository-governance skills for the steward agent.
 - [x] Add an ADR with verified gaps and a prioritized checklist.
+- [x] Create dedicated ADR for proxy product scope (`ADR-0002`).
+- [x] Create dedicated ADR for mock driver scope (`ADR-0003`).
 - [ ] Add GitHub Actions workflows for build and test automation.
 
 ### B. Documentation alignment
@@ -116,6 +133,7 @@ Assessment notes:
 ### C. Module decisions
 - [x] Confirm the target status of `mockjdbc-proxy`: complete, mark experimental, or remove from the active module path until implemented.
 - [x] Maintain a module status matrix in docs or ADR updates as the repo evolves.
+- [ ] Reclassify `mockjdbc-proxy` from placeholder to active after minimal capture + Kafka publication slice is verified.
 
 ### D. Build and integration hygiene
 - [ ] Replace or reduce `systemPath` usage in `mockjdbc-spring-users` with a more reproducible consumption model.
@@ -145,16 +163,21 @@ Assessment notes:
 - [ ] Keep `mockjdbc` and `mockjdbc-spring-users` tests green after each milestone.
 - [ ] Introduce automated verification for both the reactor build and the standalone sample.
 
+### H. Proxy implementation and adoption
+- [ ] Follow `ADR-0002` checklist for proxy event contract, capture, Kafka publication, and integration guides.
+
 ## Next recommended slice
 
 The steward agent should normally take the next unchecked item from this order:
-1. documentation alignment for the real architecture
-2. `mockjdbc-proxy` status decision
-3. sample-app dependency hygiene
-4. `Connection` coverage backlog
-5. remaining `Statement` contract gaps
-6. result-set fidelity expansion
-7. CI automation
+1. proxy Proto event contract draft (`mockjdbc-proxy` + `mockjdbc-proto`)
+2. datasource identity model and multi-datasource capture wiring
+3. Kafka publication path for Proto events
+4. integration guides for generic Java JDBC adoption
+5. sample-app dependency hygiene
+6. `Connection` coverage backlog
+7. remaining `Statement` contract gaps
+8. result-set fidelity expansion
+9. CI automation
 
 ## Consequences
 
