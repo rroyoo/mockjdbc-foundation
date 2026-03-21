@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package io.github.rroyoo.mockjdbc.mock;
 
+import "google/protobuf/timestamp.proto";
 import "io/github/rroyoo/mockjdbc/mock/jdbc_result_set.proto";
 import "io/github/rroyoo/mockjdbc/mock/jdbc_statement.proto";
 
@@ -12,6 +13,12 @@ option optimize_for = SPEED;
 message QueryError {
   string type = 1;
   string message = 2;
+}
+
+enum QueryExecutionStatus {
+  QUERY_EXECUTION_STATUS_UNSPECIFIED = 0;
+  QUERY_EXECUTION_STATUS_SUCCESS = 1;
+  QUERY_EXECUTION_STATUS_ERROR = 2;
 }
 
 /**
@@ -26,4 +33,13 @@ message MockedQuery {
   // This is the specific field you requested
   SerializedResultSet result_set = 2;
   QueryError error = 5;
+
+  // Proxy capture metadata (optional for backward compatibility)
+  string datasource_id = 6;
+  int64 elapsed_time_millis = 7;
+  QueryExecutionStatus status = 8;
+  int64 row_count = 9;
+  int64 update_count = 10;
+  string event_id = 11;
+  google.protobuf.Timestamp observed_at = 12;
 }

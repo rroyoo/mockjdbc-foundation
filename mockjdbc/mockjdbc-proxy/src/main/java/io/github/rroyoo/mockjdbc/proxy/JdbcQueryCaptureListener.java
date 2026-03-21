@@ -6,6 +6,7 @@ import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.PlainStatement;
 import io.github.rroyoo.mockjdbc.mock.PreparedStatement;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
+import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import net.ttddyy.dsproxy.ExecutionInfo;
 import net.ttddyy.dsproxy.QueryInfo;
 import net.ttddyy.dsproxy.listener.QueryExecutionListener;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
@@ -31,23 +33,46 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
     private final Consumer<JdbcQueryInterceptedEvent> eventConsumer;
     private final AsyncMockedQueryEventDispatcher protoDispatcher;
     private final ByteBuddyResultSetWrapperFactory resultSetWrapperFactory;
+    private final String datasourceId;
 
     public JdbcQueryCaptureListener() {
-        this(event -> {}, mockedQuery -> {}, AsyncDispatchConfig.defaults());
+        this("default-datasource", event -> {}, mockedQuery -> {}, AsyncDispatchConfig.defaults());
+    }
+
+    public JdbcQueryCaptureListener(String datasourceId) {
+        this(datasourceId, event -> {}, mockedQuery -> {}, AsyncDispatchConfig.defaults());
     }
 
     public JdbcQueryCaptureListener(Consumer<JdbcQueryInterceptedEvent> eventConsumer) {
-        this(eventConsumer, mockedQuery -> {}, AsyncDispatchConfig.defaults());
+        this("default-datasource", eventConsumer, mockedQuery -> {}, AsyncDispatchConfig.defaults());
+    }
+
+    public JdbcQueryCaptureListener(String datasourceId, Consumer<JdbcQueryInterceptedEvent> eventConsumer) {
+        this(datasourceId, eventConsumer, mockedQuery -> {}, AsyncDispatchConfig.defaults());
     }
 
     public JdbcQueryCaptureListener(Consumer<JdbcQueryInterceptedEvent> eventConsumer,
                                     Consumer<MockedQuery> protoEventConsumer) {
-        this(eventConsumer, MockedQueryEventProducer.fromConsumer(protoEventConsumer), AsyncDispatchConfig.defaults());
+        this("default-datasource", eventConsumer, MockedQueryEventProducer.fromConsumer(protoEventConsumer), AsyncDispatchConfig.defaults());
+    }
+
+    public JdbcQueryCaptureListener(String datasourceId,
+                                    Consumer<JdbcQueryInterceptedEvent> eventConsumer,
+                                    Consumer<MockedQuery> protoEventConsumer) {
+        this(datasourceId, eventConsumer, MockedQueryEventProducer.fromConsumer(protoEventConsumer), AsyncDispatchConfig.defaults());
     }
 
     public JdbcQueryCaptureListener(Consumer<JdbcQueryInterceptedEvent> eventConsumer,
                                     MockedQueryEventProducer externalProducer,
                                     AsyncDispatchConfig asyncDispatchConfig) {
+        this("default-datasource", eventConsumer, externalProducer, asyncDispatchConfig);
+    }
+
+    public JdbcQueryCaptureListener(String datasourceId,
+                                    Consumer<JdbcQueryInterceptedEvent> eventConsumer,
+                                    MockedQueryEventProducer externalProducer,
+                                    AsyncDispatchConfig asyncDispatchConfig) {
+        this.datasourceId = normalizeDatasourceId(datasourceId);
         this.eventConsumer = Objects.requireNonNull(eventConsumer, "eventConsumer is required");
         var producer = Objects.requireNonNull(externalProducer, "externalProducer is required");
         var dispatchConfig = Objects.requireNonNull(asyncDispatchConfig, "asyncDispatchConfig is required");
@@ -79,6 +104,7 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
             var parameters = extractParameters(queryInfo);
 
             var event = new JdbcQueryInterceptedEvent(
+                    datasourceId,
                     queryInfo.getQuery(),
                     parameters,
                     elapsedTimeMillis,
@@ -106,12 +132,16 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
                                 List<List<Object>> parameters) {
         var sql = queryInfo.getQuery();
         var parameterMetadata = toParameterMetadata(parameters);
+        var elapsedTimeMillis = executionInfo != null ? executionInfo.getElapsedTime() : 0L;
+        var success = executionInfo != null && executionInfo.isSuccess();
+        var error = executionInfo != null ? executionInfo.getThrowable() : null;
 
         if (executionInfo != null && executionInfo.getResult() instanceof ResultSet resultSet) {
             try {
                 var wrapped = resultSetWrapperFactory.wrap(resultSet, serialized ->
                         protoDispatcher.publish(buildMockedQuery(sql, parameterMetadata, serialized,
-                                executionInfo != null ? executionInfo.getThrowable() : null)));
+                                error, elapsedTimeMillis, success, datasourceId,
+                                0L, serialized.getRowsCount())));
                 executionInfo.setResult(wrapped);
                 return;
             } catch (SQLException e) {
@@ -119,17 +149,31 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
             }
         }
 
-        var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(
-                executionInfo != null ? executionInfo.getResult() : null);
+        var result = executionInfo != null ? executionInfo.getResult() : null;
+        var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(result);
         protoDispatcher.publish(buildMockedQuery(sql, parameterMetadata, serializedResultSet,
-                executionInfo != null ? executionInfo.getThrowable() : null));
+                error, elapsedTimeMillis, success, datasourceId,
+                asUpdateCount(result), serializedResultSet.getRowsCount()));
     }
 
     private static MockedQuery buildMockedQuery(String sql,
                                                 List<ParameterMetadata> parameters,
                                                 SerializedResultSet serializedResultSet,
-                                                Throwable error) {
-        var builder = MockedQuery.newBuilder().setResultSet(serializedResultSet);
+                                                Throwable error,
+                                                long elapsedTimeMillis,
+                                                boolean success,
+                                                String datasourceId,
+                                                long updateCount,
+                                                long rowCount) {
+        var builder = MockedQuery.newBuilder()
+                .setResultSet(serializedResultSet)
+                .setDatasourceId(datasourceId)
+                .setElapsedTimeMillis(elapsedTimeMillis)
+                .setStatus(success ? QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS : QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR)
+                .setRowCount(rowCount)
+                .setUpdateCount(updateCount)
+                .setEventId(UUID.randomUUID().toString())
+                .setObservedAt(nowTimestamp());
         var normalizedSql = sql == null ? "" : sql.trim();
 
         if (error != null) {
@@ -227,6 +271,28 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
         }
 
         return Collections.unmodifiableList(result);
+    }
+
+    private static long asUpdateCount(Object result) {
+        if (result instanceof Number number) {
+            return number.longValue();
+        }
+        return 0L;
+    }
+
+    private static com.google.protobuf.Timestamp nowTimestamp() {
+        var millis = System.currentTimeMillis();
+        var seconds = millis / 1000;
+        var nanos = (int) ((millis % 1000) * 1_000_000);
+        return com.google.protobuf.Timestamp.newBuilder().setSeconds(seconds).setNanos(nanos).build();
+    }
+
+    private static String normalizeDatasourceId(String datasourceId) {
+        if (datasourceId == null) {
+            return "default-datasource";
+        }
+        var trimmed = datasourceId.trim();
+        return trimmed.isEmpty() ? "default-datasource" : trimmed;
     }
 
     @Override

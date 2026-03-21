@@ -1,6 +1,7 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
+import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import net.ttddyy.dsproxy.ExecutionInfo;
 import net.ttddyy.dsproxy.QueryInfo;
 import net.ttddyy.dsproxy.proxy.ParameterSetOperation;
@@ -46,6 +47,7 @@ class JdbcQueryCaptureListenerTest {
 
         assertEquals(1, listener.events().size());
         var event = listener.events().get(0);
+        assertEquals("default-datasource", event.datasourceId());
         assertEquals("SELECT * FROM users WHERE id = ? AND active = ?", event.sql());
         assertEquals(List.of(List.of(7, true)), event.parameters());
         assertEquals(12L, event.elapsedTimeMillis());
@@ -71,6 +73,7 @@ class JdbcQueryCaptureListenerTest {
 
         assertEquals(1, listener.events().size());
         var event = listener.events().get(0);
+        assertEquals("default-datasource", event.datasourceId());
         assertEquals("UPDATE users SET active = false", event.sql());
         assertEquals(5L, event.elapsedTimeMillis());
         assertEquals(failure, event.error());
@@ -123,6 +126,9 @@ class JdbcQueryCaptureListenerTest {
         assertNotNull(protoEvent.get());
         assertEquals(2, protoEvent.get().getResultSet().getRowsCount());
         assertEquals(2, protoEvent.get().getResultSet().getMetadataCount());
+        assertEquals("default-datasource", protoEvent.get().getDatasourceId());
+        assertEquals(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS, protoEvent.get().getStatus());
+        assertEquals(2L, protoEvent.get().getRowCount());
         assertEquals("SELECT id, name FROM users WHERE active = ?", protoEvent.get().getSimpleStatement().getSql());
 
         listener.close();
@@ -149,8 +155,11 @@ class JdbcQueryCaptureListenerTest {
 
         assertTrue(latch.await(2, TimeUnit.SECONDS));
         assertNotNull(protoEvent.get());
+        assertEquals("default-datasource", protoEvent.get().getDatasourceId());
+        assertEquals(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS, protoEvent.get().getStatus());
         assertEquals(1, protoEvent.get().getResultSet().getRowsCount());
         assertEquals(3L, protoEvent.get().getResultSet().getRows(0).getValues(0).getLongVal());
+        assertEquals(3L, protoEvent.get().getUpdateCount());
 
         listener.close();
     }
@@ -177,6 +186,7 @@ class JdbcQueryCaptureListenerTest {
 
         assertTrue(latch.await(2, TimeUnit.SECONDS));
         assertNotNull(protoEvent.get());
+        assertEquals(QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR, protoEvent.get().getStatus());
         assertTrue(protoEvent.get().hasError());
         assertEquals(IllegalStateException.class.getName(), protoEvent.get().getError().getType());
         assertEquals("boom-query", protoEvent.get().getError().getMessage());
@@ -362,5 +372,32 @@ class JdbcQueryCaptureListenerTest {
         rowSet.beforeFirst();
         return rowSet;
     }
-}
 
+    @Test
+    @DisplayName("Given explicit datasource id, when event is captured, then datasource id is preserved in local and proto event")
+    void shouldUseExplicitDatasourceId() throws Exception {
+        var protoEvent = new AtomicReference<MockedQuery>();
+        var latch = new CountDownLatch(1);
+        var listener = new JdbcQueryCaptureListener(
+                "users-primary",
+                event -> {},
+                mockedQuery -> {
+                    protoEvent.set(mockedQuery);
+                    latch.countDown();
+                }
+        );
+
+        var executionInfo = new ExecutionInfo();
+        executionInfo.setSuccess(true);
+        executionInfo.setResult(1);
+
+        listener.afterQuery(executionInfo, List.of(new QueryInfo("UPDATE users SET active = true")));
+
+        assertEquals(1, listener.events().size());
+        assertEquals("users-primary", listener.events().get(0).datasourceId());
+        assertTrue(latch.await(2, TimeUnit.SECONDS));
+        assertEquals("users-primary", protoEvent.get().getDatasourceId());
+
+        listener.close();
+    }
+}
