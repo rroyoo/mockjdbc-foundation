@@ -12,6 +12,7 @@
         <module>mockjdbc-proxy</module>
         <module>mockjdbc-proto</module>
         <module>mockjdbc-mock</module>
+        <module>mockjdbc-wiremock</module>
     </modules>
 
     <name>MockJDBC Ecosystem Parent</name>
@@ -32,6 +33,7 @@
         <maven.version.protobuf>4.34.0</maven.version.protobuf>
         <maven.version.test.junit-jupiter>5.11.3</maven.version.test.junit-jupiter>
         <maven.version.testcontainers>1.20.4</maven.version.testcontainers>
+        <maven.version.wiremock>3.9.1</maven.version.wiremock>
         <revision>1.0.0-SNAPSHOT</revision>
     </properties>
 
@@ -78,6 +80,12 @@
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>${maven.version.kafka}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.wiremock</groupId>
+                <artifactId>wiremock</artifactId>
+                <version>${maven.version.wiremock}</version>
             </dependency>
 
             <dependency>

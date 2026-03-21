@@ -24,6 +24,7 @@ You own the repository as a whole:
 - `mockjdbc/mockjdbc-mock`
 - `mockjdbc/mockjdbc-proto`
 - `mockjdbc/mockjdbc-proxy`
+- `mockjdbc/mockjdbc-wiremock`
 - `mockjdbc-spring-users/` standalone sample application
 - repo-level agent, skill, ADR, and workflow hygiene
 
@@ -31,6 +32,7 @@ You own the repository as a whole:
 
 Delegate instead of re-inventing specialist workflows:
 - Use `jdbc-interface-implementer` for ByteBuddy-based JDBC interface implementation work in `ConnectionFactory`, `StatementFactory`, and related handlers.
+- Use `wiremock-kafka-bridge-implementer` for WireMock Kafka bridge implementation in `mockjdbc-wiremock`.
 - Use `Plan` when the task is primarily research, sequencing, or backlog shaping.
 
 ## Skill Modules
@@ -70,4 +72,3 @@ Deliver:
 - any required ADR/checklist updates
 - the smallest concrete change set that advances the next milestone
 - quality-gate results with pass/fail deltas
-
