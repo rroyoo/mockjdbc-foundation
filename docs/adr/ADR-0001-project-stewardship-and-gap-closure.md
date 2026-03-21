@@ -7,6 +7,7 @@
 
 - `docs/adr/ADR-0002-jdbc-proxy-capture-and-kafka-event-pipeline.md`
 - `docs/adr/ADR-0003-mock-driver-scope-and-jdbc-compatibility.md`
+- `docs/adr/ADR-0004-wiremock-kafka-bridge-extension.md`
 
 ## Context
 
@@ -31,6 +32,7 @@ During the repository review, the following verified gaps were detected:
 - `mockjdbc-mock` is active and has substantial implementation and test coverage.
 - `mockjdbc-proto` is active as the contract module.
 - `mockjdbc-proxy` is declared and documented, but no production source tree was found under `mockjdbc/mockjdbc-proxy/src/main/java`.
+- `mockjdbc-wiremock` is introduced as the Kafka-to-WireMock bridge module, governed by `ADR-0004`.
 - `mockjdbc-spring-users` works as an independent sample project, but still relies on local jars produced by the sibling build.
 
 ### Module decision record
@@ -123,6 +125,7 @@ Assessment notes:
 - [x] Add an ADR with verified gaps and a prioritized checklist.
 - [x] Create dedicated ADR for proxy product scope (`ADR-0002`).
 - [x] Create dedicated ADR for mock driver scope (`ADR-0003`).
+- [x] Create dedicated ADR for WireMock bridge scope (`ADR-0004`).
 - [ ] Add GitHub Actions workflows for build and test automation.
 
 ### B. Documentation alignment
@@ -166,10 +169,13 @@ Assessment notes:
 ### H. Proxy implementation and adoption
 - [ ] Follow `ADR-0002` checklist for proxy event contract, capture, Kafka publication, and integration guides.
 
+### I. WireMock bridge implementation and adoption
+- [ ] Follow `ADR-0004` checklist for Kafka consumer, stub mapper/registrar, integration tests, and module documentation.
+
 ## Next recommended slice
 
 The steward agent should normally take the next unchecked item from this order:
-1. proxy Proto event contract draft (`mockjdbc-proxy` + `mockjdbc-proto`)
+1. proxy Proto event contract (`mockjdbc-proxy` + `mockjdbc-proto`)
 2. datasource identity model and multi-datasource capture wiring
 3. Kafka publication path for Proto events
 4. integration guides for generic Java JDBC adoption
