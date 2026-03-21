@@ -2,7 +2,7 @@
 
 **Technical documentation for developers and integrators.**
 
-For **functional requirements and use cases**, see the main [README.md](../README.md).
+For project stewardship context and backlog status, see [`docs/adr/ADR-0001-project-stewardship-and-gap-closure.md`](../docs/adr/ADR-0001-project-stewardship-and-gap-closure.md).
 
 ---
 
@@ -15,54 +15,52 @@ MockJDBC is a multi-module Maven project that implements a JDBC-compliant mock d
 ## Modules
 
 ### `mockjdbc-proxy`
-**DataSource interception and event publishing**
+**Status: placeholder module (packaging + dependencies present, implementation pending)**
 
-Provides utilities to intercept JDBC query execution and emit structured events for logging/observability.
+The module is included in the reactor and declares `datasource-proxy`, but there is currently no production source tree under `mockjdbc-proxy/src/main/java`.
 
-- `DataSourceProxyFactory` — Wraps real DataSources with proxy layers
-- `QueryExecutionEvent` — Immutable event record (sql, parameters, execution time, success, exception)
-- `QueryExecutionEventListener` — Subscriber interface for events
-- `LoggingQueryExecutionEventListener` — Built-in listener that logs events
-- `DefaultQueryExecutionEventMapper` — Converts internal events to `QueryExecutionEvent`
+- Current state: dependency scaffold only
+- Intended scope: DataSource interception and event publishing utilities
+- Recommendation: treat as experimental/incomplete until concrete classes are added
 
 **Dependencies:**
-- `datasource-proxy` 1.11.0 — Third-party DataSource interception library
+- `datasource-proxy` 1.11.0 - Third-party DataSource interception library
 
 ### `mockjdbc-proto`
 **gRPC service contracts and Protobuf definitions**
 
 Defines the protocol between MockJDBC and the remote query mock service.
 
-- `proto/` — Protobuf `.proto` files defining `MockQueryService` RPC interface
-- Generated stubs — `MockQueryServiceGrpc`, request/response messages
-- Protocol: Query lookup via `findMock(QueryLookupRequest) -> MockedQuery`
+- `src/main/protobuf/` - Protobuf `.proto` files defining `MockQueryService`
+- Generated stubs - `MockQueryServiceGrpc`, `QueryLookupRequest`, `MockedQuery`, result-set/statement messages
+- Protocol: `FindMock(QueryLookupRequest) -> MockedQuery`
 
 **Key files:**
-- `MockQueryService.proto` — Service definition
-- Generated classes in `target/generated-sources/protobuf/`
+- `src/main/protobuf/io/github/rroyoo/mockjdbc/mock/mocked_query_service.proto`
+- Related JDBC message schemas in `src/main/protobuf/io/github/rroyoo/mockjdbc/mock/`
 
 ### `mockjdbc-mock`
-**JDBC driver implementation and gRPC adapter**
+**JDBC driver implementation with ByteBuddy-generated JDBC interfaces and gRPC query lookup**
 
-Implements the JDBC Driver interface and handles connection lifecycle.
+Implements the JDBC `Driver` and dynamically generates `Connection`/statement-family implementations.
 
 **Key classes:**
 
 | Class | Responsibility |
 |---|---|
 | `MockDriver` | JDBC `Driver` implementation; accepts `jdbc:mock://` URLs |
-| `MockConnection` | JDBC `Connection`; creates statements |
-| `MockStatement` | Unified `Statement` + `PreparedStatement` + `CallableStatement` |
-| `MockConnectionPool` | In-memory cache of connections by JDBC URL |
-| `MockConnectionProperties` | Enum of configuration properties (host, port, timeouts) |
-| `DefaultMockQueryServiceAdapter` | gRPC client; calls `MockQueryService.findMock()` |
+| `ConnectionFactory` | Builds runtime `Connection` implementations via ByteBuddy |
+| `LifecycleHandler`, `TransactionHandler`, `ConfigHandler`, `WarningsHandler`, `ClientInfoHandler` | Connection state/behavior delegates used by `ConnectionFactory` |
+| `StatementFactory` | Builds runtime `Statement` / `PreparedStatement` / `CallableStatement` implementations via ByteBuddy |
+| `StatementQueryHandler`, `PreparedStatementQueryHandler`, `CallableStatementOutParamHandler`, and companion handlers | Statement execution, parameter binding, lifecycle/config/warnings, and callable OUT parameter behavior |
+| `GrpcMockQueryClient` + `ResultSetFactory` | gRPC lookup (`MockQueryService.FindMock`) and materialization of JDBC `ResultSet` |
 
 **Flow:**
 1. Application calls `DriverManager.getConnection("jdbc:mock://...")`
-2. `MockDriver.connect()` parses URL and creates `MockConnection`
-3. `MockConnection.createStatement()` returns `MockStatement`
-4. Statement execution triggers `DefaultMockQueryServiceAdapter.findMockedQuery()`
-5. Adapter calls gRPC service and returns mocked results
+2. `MockDriver.connect()` parses URL into `MockConfig`
+3. `ConnectionFactory.create()` returns a ByteBuddy-generated `Connection`
+4. Connection statement methods delegate to `StatementFactory`
+5. Statement handlers call `GrpcMockQueryClient`, then `ResultSetFactory` maps gRPC payloads to JDBC `ResultSet`
 
 ---
 
@@ -191,7 +189,7 @@ When creating a JDBC connection, pass configuration as URL parameters:
 jdbc:mock://localhost:50051/?host=localhost&port=50051&keepAliveTime=60&keepAliveTimeUnit=SECONDS
 ```
 
-All properties are read into `java.util.Properties` and passed to `DefaultMockQueryServiceAdapter`.
+All properties are parsed into `MockConfig` and used by `ConnectionFactory` / `GrpcMockQueryClient`.
 
 | Property | Type | Required | Default | Notes |
 |---|---|---|---|---|
@@ -214,14 +212,14 @@ All properties are read into `java.util.Properties` and passed to `DefaultMockQu
 - **Contract-first** — Protobuf ensures version compatibility
 
 ### Why Maven multi-module?
-- **Separation of concerns** — Proxy, proto, mock logic are independent
-- **Reusability** — Each module can be used separately
-- **Centralized versions** — Single source of truth for dependencies
+- **Separation of concerns** - Proxy, proto, mock logic are independent
+- **Reusability** - Each module can be used separately
+- **Centralized versions** - Single source of truth for dependencies
 
-### Why connection pooling?
-- **Performance** — Reuse gRPC channels instead of creating new ones
-- **Resource efficiency** — Limits concurrent connections to mock service
-- **Simple caching strategy** — By-URL caching is sufficient for tests
+### Connection/channel lifecycle today
+- **Connection objects** - Generated per `ConnectionFactory.create(...)` invocation
+- **gRPC calls** - `GrpcMockQueryClient` creates a channel per lookup and shuts it down after the call
+- **Current limitation** - No long-lived connection/channel pooling layer is implemented yet
 
 ---
 
@@ -269,8 +267,7 @@ All properties are read into `java.util.Properties` and passed to `DefaultMockQu
 
 ## References
 
-- **Functional docs**: Main [README.md](../README.md)
-- **Use cases**: [`doc/use-cases.md`](../doc/use-cases.md)
-- **Flows**: [`doc/flows/query-mocking-flow.md`](../doc/flows/query-mocking-flow.md)
+- **Stewardship ADR**: [`docs/adr/ADR-0001-project-stewardship-and-gap-closure.md`](../docs/adr/ADR-0001-project-stewardship-and-gap-closure.md)
+- **Sample app**: [`mockjdbc-spring-users/README.md`](../mockjdbc-spring-users/README.md)
 - **Skills**: Architectural rules in `.github/skills/`
 
