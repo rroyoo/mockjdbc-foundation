@@ -69,9 +69,9 @@ Guides must include:
 - [x] Implement Kafka publisher for Proto events.
 - [x] Add unit tests for event mapping (query + result + error).
 - [x] Add tests for multi-datasource capture and identity consistency.
-- [ ] Add Kafka publication tests (unit done; integration-level pending).
+- [ ] Add Kafka publication tests (unit done; integration test implemented and executes when Docker is available).
 - [x] Publish integration guides for generic Java JDBC usage.
-- [ ] Add sample proving two datasources emitting events.
+- [x] Add sample proving two datasources emitting events.
 
 ## Consequences
 
