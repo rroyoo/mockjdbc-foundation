@@ -105,3 +105,12 @@ Manual benchmark runner is available at `AsyncDispatcherBenchmarkRunner`.
 mvn -pl mockjdbc-proxy -DskipTests test-compile
 java -cp "mockjdbc-proxy/target/test-classes:mockjdbc-proxy/target/classes:mockjdbc-proto/target/classes" io.github.rroyoo.mockjdbc.proxy.AsyncDispatcherBenchmarkRunner
 ```
+
+## Datasource identity strategy
+
+Datasource id resolution follows this precedence:
+1. explicit alias passed to `JdbcProxyDataSourceFactory.wrap(...)`
+2. bean name (when using alias/bean overload)
+3. deterministic metadata fingerprint fallback (`ds-<hash>`)
+
+Use explicit alias whenever possible to keep ids stable across environments.

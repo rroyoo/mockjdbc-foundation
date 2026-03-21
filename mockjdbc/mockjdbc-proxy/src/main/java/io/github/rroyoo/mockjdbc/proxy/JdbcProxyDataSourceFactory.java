@@ -32,6 +32,16 @@ public final class JdbcProxyDataSourceFactory {
         return new ProxyBinding(proxiedDataSource, listener);
     }
 
+    public static ProxyBinding wrap(DataSource targetDataSource,
+                                    String explicitAlias,
+                                    String beanName,
+                                    Consumer<JdbcQueryInterceptedEvent> localEventConsumer,
+                                    Consumer<MockedQuery> protoEventConsumer,
+                                    AsyncDispatchConfig config) {
+        var resolvedDatasourceId = DatasourceIdentityResolver.resolve(explicitAlias, beanName, targetDataSource);
+        return wrap(targetDataSource, resolvedDatasourceId, localEventConsumer, protoEventConsumer, config);
+    }
+
     public record ProxyBinding(DataSource dataSource, JdbcQueryCaptureListener listener) implements AutoCloseable {
         @Override
         public void close() {
