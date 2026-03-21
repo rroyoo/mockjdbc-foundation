@@ -41,6 +41,27 @@ Then run the service:
 mvn spring-boot:run -Dspring-boot.run.profiles=mockjdbc
 ```
 
+## Local bootstrap (required while using systemPath)
+
+This project currently depends on sibling jars via `systemPath`, so you must build those artifacts before running `mockjdbc-spring-users`.
+
+From the repository root (`mockjdbc-foundation`):
+
+```bash
+cd mockjdbc
+mvn clean package -DskipTests
+cd ../mockjdbc-spring-users
+mvn test
+```
+
+If the mock profile is needed from a clean workspace:
+
+```bash
+cd /home/rroyo/IdeaProjects/mockjdbc-foundation/mockjdbc-spring-users
+docker compose up -d wiremock-grpc
+mvn spring-boot:run -Dspring-boot.run.profiles=mockjdbc
+```
+
 ## WireMock assets
 
 - `docker-compose.yml`
@@ -58,12 +79,5 @@ If those jars do not exist yet, build them first from the repository root:
 
 ```bash
 cd mockjdbc
-mvn package -DskipTests
-```
-
-To point to another WireMock host/port, use:
-
-```bash
-MOCKJDBC_GRPC_HOST=localhost
-MOCKJDBC_GRPC_PORT=50051
+mvn clean package -DskipTests
 ```

@@ -119,7 +119,7 @@ Assessment notes:
 
 ### D. Build and integration hygiene
 - [ ] Replace or reduce `systemPath` usage in `mockjdbc-spring-users` with a more reproducible consumption model.
-- [ ] If `systemPath` remains temporarily, document the bootstrap path clearly and keep it accurate.
+- [x] If `systemPath` remains temporarily, document the bootstrap path clearly and keep it accurate.
 
 ### E. JDBC coverage backlog
 #### Connection
