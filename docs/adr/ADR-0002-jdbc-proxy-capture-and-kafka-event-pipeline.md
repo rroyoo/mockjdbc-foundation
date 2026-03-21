@@ -65,11 +65,11 @@ Guides must include:
 
 - [x] Define and version Proxy Event Proto schema in `mockjdbc-proto`.
 - [x] Implement datasource-aware statement capture in `mockjdbc-proxy`.
-- [ ] Implement datasource identity resolver with precedence policy.
+- [x] Implement datasource identity resolver with precedence policy.
 - [x] Implement Kafka publisher for Proto events.
 - [x] Add unit tests for event mapping (query + result + error).
 - [x] Add tests for multi-datasource capture and identity consistency.
-- [ ] Add Kafka publication tests (unit and integration-level).
+- [ ] Add Kafka publication tests (unit done; integration-level pending).
 - [x] Publish integration guides for generic Java JDBC usage.
 - [ ] Add sample proving two datasources emitting events.
 

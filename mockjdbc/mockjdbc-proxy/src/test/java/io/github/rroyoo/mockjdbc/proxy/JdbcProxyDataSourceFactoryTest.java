@@ -54,4 +54,37 @@ class JdbcProxyDataSourceFactoryTest {
             assertEquals("orders-replica", protoEvent.get().getDatasourceId());
         }
     }
+
+    @Test
+    @DisplayName("Given alias/bean overload, when wrapping datasource, then alias precedence is used as datasource id")
+    void shouldUseResolvedDatasourceIdFromAliasOverBean() throws Exception {
+        var target = mock(DataSource.class);
+        var localEvents = new CopyOnWriteArrayList<JdbcQueryInterceptedEvent>();
+        var protoEvent = new AtomicReference<MockedQuery>();
+        var latch = new CountDownLatch(1);
+
+        try (var binding = JdbcProxyDataSourceFactory.wrap(
+                target,
+                "billing-primary",
+                "billingBean",
+                localEvents::add,
+                event -> {
+                    protoEvent.set(event);
+                    latch.countDown();
+                },
+                AsyncDispatchConfig.defaults()
+        )) {
+            var executionInfo = new ExecutionInfo();
+            executionInfo.setSuccess(true);
+            executionInfo.setResult(1);
+
+            binding.listener().afterQuery(executionInfo, List.of(new QueryInfo("SELECT 1")));
+
+            assertEquals(1, localEvents.size());
+            assertEquals("billing-primary", localEvents.get(0).datasourceId());
+            assertTrue(latch.await(2, TimeUnit.SECONDS));
+            assertNotNull(protoEvent.get());
+            assertEquals("billing-primary", protoEvent.get().getDatasourceId());
+        }
+    }
 }
