@@ -1,4 +1,28 @@
 services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+
   wiremock-grpc-extension:
     image: curlimages/curl:8.12.1
     user: "0:0"
@@ -8,6 +32,17 @@ services:
       - /extensions/wiremock-grpc-extension-standalone-0.11.0.jar
       - https://repo1.maven.org/maven2/org/wiremock/wiremock-grpc-extension-standalone/0.11.0/wiremock-grpc-extension-standalone-0.11.0.jar
     volumes:
+      - wiremock_extensions:/extensions
+
+  wiremock-kafka-bridge-extension:
+    image: debian:12-slim
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        cp /bridge/mockjdbc-wiremock-1.0.0-SNAPSHOT.jar /extensions/
+    volumes:
+      - ../mockjdbc/mockjdbc-wiremock/target:/bridge:ro
       - wiremock_extensions:/extensions
 
   wiremock-grpc-descriptors:
@@ -33,8 +68,12 @@ services:
     depends_on:
       wiremock-grpc-extension:
         condition: service_completed_successfully
+      wiremock-kafka-bridge-extension:
+        condition: service_completed_successfully
       wiremock-grpc-descriptors:
         condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
     command:
       - --port
       - "8080"
