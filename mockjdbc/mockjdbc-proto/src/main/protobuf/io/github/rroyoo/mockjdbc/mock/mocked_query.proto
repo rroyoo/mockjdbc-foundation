@@ -22,15 +22,14 @@ enum QueryExecutionStatus {
 }
 
 /**
- * Your main message containing the result set field
+ * Top-level event capturing a JDBC query execution and its result.
  */
 message MockedQuery {
   oneof statement_definition {
     PlainStatement simple_statement = 1;
-    PreparedStatement prepared_statement = 3; // Tagged 3 to avoid collision if expanded
+    PreparedStatement prepared_statement = 3; // Field 3 to avoid renumbering if the oneof is extended
     CallableStatement callable_statement = 4;
   }
-  // This is the specific field you requested
   SerializedResultSet result_set = 2;
   QueryError error = 5;
 

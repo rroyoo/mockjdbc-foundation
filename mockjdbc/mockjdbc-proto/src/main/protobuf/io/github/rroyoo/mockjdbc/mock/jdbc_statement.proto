@@ -13,7 +13,7 @@ message ParameterMetadata {
   int32 sql_type = 2;
   string type_name = 3;
   int32 mode = 4; // Parameter mode: IN, OUT, INOUT
-  JdbcValue value = 5; // Valor del parámetro
+  JdbcValue value = 5; // Bound parameter value
 }
 
 // --- STATEMENT TYPES ---

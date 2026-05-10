@@ -10,6 +10,7 @@ import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import net.ttddyy.dsproxy.ExecutionInfo;
 import net.ttddyy.dsproxy.QueryInfo;
 import net.ttddyy.dsproxy.listener.QueryExecutionListener;
+import net.ttddyy.dsproxy.proxy.ResultSetProxyLogicFactory;
 import net.ttddyy.dsproxy.proxy.ParameterSetOperation;
 
 import java.sql.ParameterMetaData;
@@ -28,6 +29,12 @@ import java.util.function.Consumer;
  * datasource-proxy listener that captures JDBC query executions as immutable events.
  */
 public final class JdbcQueryCaptureListener implements QueryExecutionListener, AutoCloseable {
+
+    record PendingQueryContext(String sql, List<ParameterMetadata> parameterMetadata, long startTimeMs) {}
+
+    // ThreadLocal shares query context between beforeQuery (listener) and the ResultSetProxyLogicFactory.
+    // Cleared by the factory on create(), or by afterQuery as a safety fallback.
+    static final ThreadLocal<PendingQueryContext> PENDING_QUERY = new ThreadLocal<>();
 
     private final CopyOnWriteArrayList<JdbcQueryInterceptedEvent> events = new CopyOnWriteArrayList<>();
     private final Consumer<JdbcQueryInterceptedEvent> eventConsumer;
@@ -83,11 +90,23 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
 
     @Override
     public void beforeQuery(ExecutionInfo executionInfo, List<QueryInfo> queryInfoList) {
-        // Intentionally no-op. We emit deterministic events only after execution.
+        // Store query context for the ResultSetProxyLogicFactory (SELECT queries).
+        if (queryInfoList != null && !queryInfoList.isEmpty()) {
+            var queryInfo = queryInfoList.get(0);
+            if (queryInfo != null) {
+                var params = extractParameters(queryInfo);
+                PENDING_QUERY.set(new PendingQueryContext(
+                        queryInfo.getQuery(),
+                        toParameterMetadata(params),
+                        System.currentTimeMillis()
+                ));
+            }
+        }
     }
 
     @Override
     public void afterQuery(ExecutionInfo executionInfo, List<QueryInfo> queryInfoList) {
+        PENDING_QUERY.remove(); // Safety cleanup; factory should have consumed it for SELECTs.
         if (queryInfoList == null || queryInfoList.isEmpty()) {
             return;
         }
@@ -127,27 +146,29 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
         events.clear();
     }
 
+    /**
+     * Returns a {@link ResultSetProxyLogicFactory} that intercepts ResultSet iteration
+     * and publishes proto events for SELECT queries via datasource-proxy's ResultSet proxy mechanism.
+     */
+    public ResultSetProxyLogicFactory resultSetProxyLogicFactory() {
+        return new CapturingResultSetProxyLogicFactory(datasourceId, protoDispatcher, resultSetWrapperFactory);
+    }
+
     private void emitProtoEvent(ExecutionInfo executionInfo,
                                 QueryInfo queryInfo,
                                 List<List<Object>> parameters) {
+        // SELECT queries returning a ResultSet are handled by CapturingResultSetProxyLogicFactory
+        // during normal JdbcTemplate iteration — no action needed here.
+        if (executionInfo != null && executionInfo.getResult() instanceof ResultSet) {
+            return;
+        }
+
         var sql = queryInfo.getQuery();
         var parameterMetadata = toParameterMetadata(parameters);
         var elapsedTimeMillis = executionInfo != null ? executionInfo.getElapsedTime() : 0L;
         var success = executionInfo != null && executionInfo.isSuccess();
         var error = executionInfo != null ? executionInfo.getThrowable() : null;
 
-        if (executionInfo != null && executionInfo.getResult() instanceof ResultSet resultSet) {
-            try {
-                var wrapped = resultSetWrapperFactory.wrap(resultSet, serialized ->
-                        protoDispatcher.publish(buildMockedQuery(sql, parameterMetadata, serialized,
-                                error, elapsedTimeMillis, success, datasourceId,
-                                0L, serialized.getRowsCount())));
-                executionInfo.setResult(wrapped);
-                return;
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to wrap ResultSet for interception", e);
-            }
-        }
 
         var result = executionInfo != null ? executionInfo.getResult() : null;
         var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(result);
@@ -156,7 +177,7 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
                 asUpdateCount(result), serializedResultSet.getRowsCount()));
     }
 
-    private static MockedQuery buildMockedQuery(String sql,
+    static MockedQuery buildMockedQuery(String sql,
                                                 List<ParameterMetadata> parameters,
                                                 SerializedResultSet serializedResultSet,
                                                 Throwable error,

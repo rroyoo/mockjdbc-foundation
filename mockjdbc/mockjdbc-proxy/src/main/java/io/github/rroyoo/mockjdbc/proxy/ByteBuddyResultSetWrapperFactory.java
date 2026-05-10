@@ -4,13 +4,9 @@ import io.github.rroyoo.mockjdbc.mock.ColumnMetadata;
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.Row;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
-import net.bytebuddy.ByteBuddy;
-import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
-import net.bytebuddy.implementation.InvocationHandlerAdapter;
-import net.bytebuddy.matcher.ElementMatchers;
-
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
+import net.ttddyy.dsproxy.proxy.ResultSetProxyLogic;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -29,25 +25,28 @@ final class ByteBuddyResultSetWrapperFactory {
         this.rowBatchSize = rowBatchSize;
     }
 
+    int rowBatchSize() {
+        return rowBatchSize;
+    }
+
     ResultSet wrap(ResultSet delegate, Consumer<SerializedResultSet> onConsumed) throws SQLException {
         try {
-            var handler = new ConsumptionTrackingInvocationHandler(delegate, onConsumed, rowBatchSize);
-            var wrapperType = new ByteBuddy()
-                    .subclass(Object.class)
-                    .implement(ResultSet.class)
-                    .method(ElementMatchers.any())
-                    .intercept(InvocationHandlerAdapter.of(handler))
-                    .make()
-                    .load(ResultSet.class.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
-                    .getLoaded();
-
-            return (ResultSet) wrapperType.getDeclaredConstructor().newInstance();
+            return (ResultSet) java.lang.reflect.Proxy.newProxyInstance(
+                    delegate.getClass().getClassLoader(),
+                    new Class<?>[]{ ResultSet.class },
+                    new ConsumptionTrackingInvocationHandler(delegate, onConsumed, rowBatchSize)
+            );
         } catch (Exception e) {
-            throw new SQLException("Failed to create ByteBuddy ResultSet wrapper", e);
+            throw new SQLException("Failed to create ResultSet wrapper proxy", e);
         }
     }
 
-    private static final class ConsumptionTrackingInvocationHandler implements InvocationHandler {
+    /** Creates a ResultSetProxyLogic (for use with datasource-proxy) that captures rows during normal iteration. */
+    static ResultSetProxyLogic capturingLogic(ResultSet delegate, Consumer<SerializedResultSet> onConsumed, int rowBatchSize) {
+        return new ConsumptionTrackingInvocationHandler(delegate, onConsumed, rowBatchSize);
+    }
+
+    private static final class ConsumptionTrackingInvocationHandler implements InvocationHandler, ResultSetProxyLogic {
 
         private final ResultSet delegate;
         private final Consumer<SerializedResultSet> onConsumed;
