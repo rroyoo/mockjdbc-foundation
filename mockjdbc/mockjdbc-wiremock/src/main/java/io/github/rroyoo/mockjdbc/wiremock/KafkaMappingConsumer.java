@@ -28,7 +28,7 @@ public final class KafkaMappingConsumer implements AutoCloseable {
         Objects.requireNonNull(config, "config is required");
 
         var mapper = new MockedQueryStubMapper(config.datasourceAllowlist(), config.sqlDenyPrefixes());
-        this.registrar = new WireMockMappingRegistrar(config.wireMockServer(), mapper);
+        this.registrar = new WireMockMappingRegistrar(config.admin(), mapper);
         this.consumer = new KafkaConsumer<>(consumerProperties(config));
         this.topic = config.topic();
         this.pollTimeout = config.pollTimeout();

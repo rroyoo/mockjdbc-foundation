@@ -1,17 +1,17 @@
 package io.github.rroyoo.mockjdbc.wiremock;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.Admin;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 
 import java.util.Objects;
 
 final class WireMockMappingRegistrar {
 
-    private final WireMockServer wireMockServer;
+    private final Admin admin;
     private final MockedQueryStubMapper mapper;
 
-    WireMockMappingRegistrar(WireMockServer wireMockServer, MockedQueryStubMapper mapper) {
-        this.wireMockServer = Objects.requireNonNull(wireMockServer, "wireMockServer is required");
+    WireMockMappingRegistrar(Admin admin, MockedQueryStubMapper mapper) {
+        this.admin = Objects.requireNonNull(admin, "admin is required");
         this.mapper = Objects.requireNonNull(mapper, "mapper is required");
     }
 
@@ -22,8 +22,8 @@ final class WireMockMappingRegistrar {
         }
 
         var mapping = maybeMapping.get();
-        wireMockServer.removeStubMapping(mapping);
-        wireMockServer.addStubMapping(mapping);
+        admin.removeStubMapping(mapping);
+        admin.addStubMapping(mapping);
         return true;
     }
 }
