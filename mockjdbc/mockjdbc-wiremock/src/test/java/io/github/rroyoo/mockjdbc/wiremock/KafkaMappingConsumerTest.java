@@ -38,10 +38,15 @@ class KafkaMappingConsumerTest {
                 .setResultSet(SerializedResultSet.newBuilder().build())
                 .build();
 
+        // Simulate partition assignment: consumer must seek to beginning (offset 0),
+        // ensuring historic events are replayed on every WireMock startup.
         mockConsumer.schedulePollTask(() -> {
             mockConsumer.rebalance(java.util.List.of(partition));
             mockConsumer.updateBeginningOffsets(Map.of(partition, 0L));
-            mockConsumer.addRecord(new ConsumerRecord<>(topic, 0, 0L, "users-primary", event.toByteArray()));
+            // Advance position to simulate a prior committed offset of 5.
+            // The seek-to-beginning listener should reset it back to 0.
+            mockConsumer.seek(partition, 5L);
+            mockConsumer.addRecord(new ConsumerRecord<>(topic, 0, 5L, "users-primary", event.toByteArray()));
         });
 
         kafkaConsumer.start();
