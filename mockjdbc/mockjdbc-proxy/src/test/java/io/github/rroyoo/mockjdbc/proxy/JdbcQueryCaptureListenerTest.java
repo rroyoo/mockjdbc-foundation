@@ -8,7 +8,10 @@ import net.ttddyy.dsproxy.proxy.ParameterSetOperation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Types;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -26,6 +29,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JdbcQueryCaptureListenerTest {
+
+    private static ResultSet proxyViaFactory(JdbcQueryCaptureListener listener, ResultSet rawRs) {
+        var logic = listener.resultSetProxyLogicFactory().create(rawRs, null, null);
+        return (ResultSet) Proxy.newProxyInstance(
+                ResultSet.class.getClassLoader(),
+                new Class<?>[]{ResultSet.class},
+                (InvocationHandler) logic
+        );
+    }
 
     @Test
     @DisplayName("Given a successful execution, when afterQuery is called, then it captures SQL, parameters and timing")
@@ -98,7 +110,7 @@ class JdbcQueryCaptureListenerTest {
     }
 
     @Test
-    @DisplayName("Given a query returning ResultSet, when wrapped result is consumed, then listener emits protobuf event with consumed rows")
+    @DisplayName("Given a query returning ResultSet, when factory-proxied result is consumed, then listener emits protobuf event with consumed rows")
     void shouldPublishProtoEventAfterResultSetConsumption() throws Exception {
         var protoEvent = new AtomicReference<MockedQuery>();
         var latch = new CountDownLatch(1);
@@ -110,16 +122,19 @@ class JdbcQueryCaptureListenerTest {
                 }
         );
 
+        var rawRs = usersRowSet();
+        var queryInfo = new QueryInfo("SELECT id, name FROM users WHERE active = ?");
         var executionInfo = new ExecutionInfo();
         executionInfo.setSuccess(true);
-        executionInfo.setResult(usersRowSet());
+        executionInfo.setResult(rawRs);
 
-        listener.afterQuery(executionInfo, List.of(new QueryInfo("SELECT id, name FROM users WHERE active = ?")));
-
-        try (var wrappedResultSet = (java.sql.ResultSet) executionInfo.getResult()) {
-            assertTrue(wrappedResultSet.next());
-            assertTrue(wrappedResultSet.next());
-            assertFalse(wrappedResultSet.next());
+        // Simulate datasource-proxy: beforeQuery → factory.create → afterQuery → caller iterates RS
+        listener.beforeQuery(executionInfo, List.of(queryInfo));
+        try (var wrappedRs = proxyViaFactory(listener, rawRs)) {
+            listener.afterQuery(executionInfo, List.of(queryInfo));
+            assertTrue(wrappedRs.next());
+            assertTrue(wrappedRs.next());
+            assertFalse(wrappedRs.next());
         }
 
         assertTrue(latch.await(2, TimeUnit.SECONDS));
@@ -225,7 +240,7 @@ class JdbcQueryCaptureListenerTest {
     }
 
     @Test
-    @DisplayName("Given small rowBatchSize, when consuming ResultSet, then listener emits multiple protobuf chunks")
+    @DisplayName("Given small rowBatchSize, when consuming ResultSet via factory proxy, then listener emits multiple protobuf chunks")
     void shouldEmitMultipleChunksWhenRowBatchSizeIsSmall() throws Exception {
         var chunks = new CopyOnWriteArrayList<MockedQuery>();
         var latch = new CountDownLatch(2);
@@ -238,14 +253,16 @@ class JdbcQueryCaptureListenerTest {
                 new AsyncDispatchConfig(64, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 1)
         );
 
+        var rawRs = usersRowSet();
+        var queryInfo = new QueryInfo("SELECT id, name FROM users");
         var executionInfo = new ExecutionInfo();
         executionInfo.setSuccess(true);
-        executionInfo.setResult(usersRowSet());
+        executionInfo.setResult(rawRs);
 
-        listener.afterQuery(executionInfo, List.of(new QueryInfo("SELECT id, name FROM users")));
-
-        try (var wrappedResultSet = (java.sql.ResultSet) executionInfo.getResult()) {
-            while (wrappedResultSet.next()) {
+        listener.beforeQuery(executionInfo, List.of(queryInfo));
+        try (var wrappedRs = proxyViaFactory(listener, rawRs)) {
+            listener.afterQuery(executionInfo, List.of(queryInfo));
+            while (wrappedRs.next()) {
                 // consume all rows
             }
         }
@@ -325,7 +342,7 @@ class JdbcQueryCaptureListenerTest {
     }
 
     @Test
-    @DisplayName("Given empty result set consumption, when wrapped ResultSet is closed without rows, then proto event keeps metadata and zero rows")
+    @DisplayName("Given empty result set consumption, when factory-proxied ResultSet is closed without rows, then proto event keeps metadata and zero rows")
     void shouldEmitMetadataWithNoRowsWhenResultSetIsEmpty() throws Exception {
         var protoEvent = new AtomicReference<MockedQuery>();
         var latch = new CountDownLatch(1);
@@ -337,14 +354,16 @@ class JdbcQueryCaptureListenerTest {
                 }
         );
 
+        var rawRs = emptyUsersRowSet();
+        var queryInfo = new QueryInfo("SELECT id, name FROM users WHERE 1 = 0");
         var executionInfo = new ExecutionInfo();
         executionInfo.setSuccess(true);
-        executionInfo.setResult(emptyUsersRowSet());
+        executionInfo.setResult(rawRs);
 
-        listener.afterQuery(executionInfo, List.of(new QueryInfo("SELECT id, name FROM users WHERE 1 = 0")));
-
-        try (var wrappedResultSet = (java.sql.ResultSet) executionInfo.getResult()) {
-            assertFalse(wrappedResultSet.next());
+        listener.beforeQuery(executionInfo, List.of(queryInfo));
+        try (var wrappedRs = proxyViaFactory(listener, rawRs)) {
+            listener.afterQuery(executionInfo, List.of(queryInfo));
+            assertFalse(wrappedRs.next());
         }
 
         assertTrue(latch.await(2, TimeUnit.SECONDS));

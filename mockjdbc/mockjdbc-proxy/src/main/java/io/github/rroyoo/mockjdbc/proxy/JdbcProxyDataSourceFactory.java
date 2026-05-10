@@ -27,6 +27,7 @@ public final class JdbcProxyDataSourceFactory {
                 .create(Objects.requireNonNull(targetDataSource, "targetDataSource is required"))
                 .name(datasourceId)
                 .listener(listener)
+                .proxyResultSet(listener.resultSetProxyLogicFactory())
                 .buildProxy();
 
         return new ProxyBinding(proxiedDataSource, listener);

@@ -18,7 +18,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     ports:
-      - "9092:9092"   # interno entre servicios
+      - "9092:9092"   # internal inter-service communication
       - "9094:9094"   # host access
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
@@ -96,7 +96,7 @@ services:
     ports:
       - "8088:8080"
     volumes:
-      - ./docker/wiremock/mappings:/home/wiremock/mappings:ro
+#      - ./docker/wiremock/mappings:/home/wiremock/mappings:ro
       - wiremock_grpc_descriptors:/home/wiremock/grpc:ro
       - wiremock_extensions:/var/wiremock/extensions:ro
 

@@ -12,7 +12,7 @@ mockjdbc:
   proxy:
     datasource-id: users-proxy
     kafka:
-      bootstrap-servers: ${MOCKJDBC_PROXY_KAFKA_BOOTSTRAP:localhost:9092}
+      bootstrap-servers: ${MOCKJDBC_PROXY_KAFKA_BOOTSTRAP:localhost:9094}
       topic: ${MOCKJDBC_PROXY_KAFKA_TOPIC:mockjdbc.query.events}
       acks: ${MOCKJDBC_PROXY_KAFKA_ACKS:all}
       retries: ${MOCKJDBC_PROXY_KAFKA_RETRIES:3}
