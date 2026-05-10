@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import io.github.rroyoo.mockjdbc.users.testsupport.tcp.RequiresTcpService;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -17,6 +18,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("mockjdbc")
+@RequiresTcpService(
+        name = "gRPC mock server",
+        hostEnv = "MOCKJDBC_GRPC_HOST",
+        portEnv = "MOCKJDBC_GRPC_PORT",
+        host = "localhost",
+        port = 8088,
+        timeoutMs = 250
+)
 class UserControllerMockJdbcProfileTest {
 
     @Autowired
