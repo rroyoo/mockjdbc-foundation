@@ -1,6 +1,6 @@
 package io.github.rroyoo.mockjdbc.wiremock;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.Admin;
 
 import java.time.Duration;
 import java.util.List;
@@ -9,7 +9,7 @@ public record KafkaMappingConsumerConfig(
         String bootstrapServers,
         String topic,
         String groupId,
-        WireMockServer wireMockServer,
+        Admin admin,
         List<String> datasourceAllowlist,
         List<String> sqlDenyPrefixes,
         Duration pollTimeout
@@ -25,8 +25,8 @@ public record KafkaMappingConsumerConfig(
         if (isBlank(groupId)) {
             throw new IllegalArgumentException("groupId is required");
         }
-        if (wireMockServer == null) {
-            throw new IllegalArgumentException("wireMockServer is required");
+        if (admin == null) {
+            throw new IllegalArgumentException("admin is required");
         }
 
         datasourceAllowlist = datasourceAllowlist == null ? List.of() : List.copyOf(datasourceAllowlist);
@@ -41,12 +41,12 @@ public record KafkaMappingConsumerConfig(
     public static KafkaMappingConsumerConfig defaults(String bootstrapServers,
                                                       String topic,
                                                       String groupId,
-                                                      WireMockServer wireMockServer) {
+                                                      Admin admin) {
         return new KafkaMappingConsumerConfig(
                 bootstrapServers,
                 topic,
                 groupId,
-                wireMockServer,
+                admin,
                 List.of(),
                 List.of(),
                 Duration.ofMillis(250)

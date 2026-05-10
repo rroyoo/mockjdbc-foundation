@@ -1,30 +1,35 @@
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
 
+  # ─── Kafka (KRaft, no Zookeeper) ─────────────────────────────────────────────
   kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    depends_on:
-      - zookeeper
+    image: confluentinc/cp-kafka:7.9.6
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     ports:
-      - "9092:9092"
-      - "9093:9093"
+      - "9092:9092"   # interno entre servicios
+      - "9094:9094"   # host access
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
+  # ─── Downloads the WireMock gRPC extension ───────────────────────────────────
   wiremock-grpc-extension:
-    image: curlimages/curl:8.12.1
+    image: curlimages/curl:8.20.0
     user: "0:0"
     command:
       - -fsSL
@@ -34,25 +39,29 @@ services:
     volumes:
       - wiremock_extensions:/extensions
 
+  # ─── Copies the Kafka→WireMock bridge JAR into the extensions volume ──────────
+  # Prerequisite: cd mockjdbc && mvn -pl mockjdbc-wiremock -am package -DskipTests
   wiremock-kafka-bridge-extension:
-    image: debian:12-slim
+    image: mirror.gcr.io/library/debian:12.13-slim
+    pull_policy: if_not_present
     command:
       - /bin/sh
       - -ec
-      - |
-        cp /bridge/mockjdbc-wiremock-1.0.0-SNAPSHOT.jar /extensions/
+      - cp /bridge/mockjdbc-wiremock-1.0.0-SNAPSHOT.jar /extensions/
     volumes:
       - ../mockjdbc/mockjdbc-wiremock/target:/bridge:ro
       - wiremock_extensions:/extensions
 
+  # ─── Compiles the .proto to a binary descriptor for WireMock gRPC ────────────
   wiremock-grpc-descriptors:
-    image: debian:12-slim
+    image: mirror.gcr.io/library/debian:12.13-slim
+    pull_policy: if_not_present
     command:
       - /bin/sh
       - -ec
       - |
-        apt-get update
-        apt-get install -y --no-install-recommends protobuf-compiler libprotobuf-dev ca-certificates
+        apt-get update -qq
+        apt-get install -y -qq --no-install-recommends protobuf-compiler libprotobuf-dev ca-certificates
         protoc \
           -I=/proto \
           -I=/usr/include \
@@ -63,8 +72,9 @@ services:
       - ../mockjdbc/mockjdbc-proto/src/main/protobuf:/proto:ro
       - wiremock_grpc_descriptors:/grpc
 
+  # ─── WireMock gRPC ───────────────────────────────────────────────────────────
   wiremock-grpc:
-    image: wiremock/wiremock:3.13.1
+    image: wiremock/wiremock:3.13.2
     depends_on:
       wiremock-grpc-extension:
         condition: service_completed_successfully
@@ -74,6 +84,10 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
+    environment:
+      MOCKJDBC_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MOCKJDBC_KAFKA_TOPIC: mockjdbc.query.events
+      MOCKJDBC_KAFKA_GROUP_ID: mockjdbc-wiremock-bridge
     command:
       - --port
       - "8080"

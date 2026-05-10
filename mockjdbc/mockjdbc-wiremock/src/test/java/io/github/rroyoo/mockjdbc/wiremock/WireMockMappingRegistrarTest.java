@@ -1,6 +1,6 @@
 package io.github.rroyoo.mockjdbc.wiremock;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.Admin;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.PlainStatement;
@@ -22,7 +22,7 @@ class WireMockMappingRegistrarTest {
     @Test
     @DisplayName("Given mappable event, registrar upserts mapping into WireMock")
     void shouldRegisterMapping() {
-        var server = mock(WireMockServer.class);
+        var server = mock(Admin.class);
         var mapper = new MockedQueryStubMapper(List.of(), List.of());
         var registrar = new WireMockMappingRegistrar(server, mapper);
 
@@ -41,7 +41,7 @@ class WireMockMappingRegistrarTest {
     @Test
     @DisplayName("Given filtered event, registrar does nothing")
     void shouldSkipFilteredEvent() {
-        var server = mock(WireMockServer.class);
+        var server = mock(Admin.class);
         var mapper = new MockedQueryStubMapper(List.of("orders"), List.of());
         var registrar = new WireMockMappingRegistrar(server, mapper);
 
