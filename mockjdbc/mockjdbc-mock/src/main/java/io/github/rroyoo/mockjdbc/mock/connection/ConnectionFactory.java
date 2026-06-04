@@ -36,6 +36,7 @@ public final class ConnectionFactory {
             var config = new ConfigHandler();
             var warnings = new WarningsHandler();
             var clientInfo = new ClientInfoHandler();
+            var nativeSql = new NativeSqlHandler();
             var statements = new StatementFactory(mockConfig);
 
             var generatedTypeName = ConnectionFactory.class.getPackageName()
@@ -106,7 +107,10 @@ public final class ConnectionFactory {
                             .method(named("getClientInfo").and(takesNoArguments()))
                             .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo")).on(clientInfo))
                             .method(named("getClientInfo").and(takesArguments(String.class)))
-                            .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo", String.class)).on(clientInfo).withAllArguments()),
+                            .intercept(MethodCall.invoke(ClientInfoHandler.class.getMethod("getClientInfo", String.class)).on(clientInfo).withAllArguments())
+                            // --- sql translation ---
+                            .method(named("nativeSQL").and(takesArguments(String.class)))
+                            .intercept(MethodDelegation.to(nativeSql)),
                     statements
             );
 

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
-import java.sql.SQLWarning;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -14,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -294,6 +294,23 @@ class ConnectionFactoryTest {
 
         assertEquals("myApp", connection.getClientInfo("ApplicationName"));
         assertEquals("bob", connection.getClientInfo("ClientUser"));
+    }
+
+    @Test
+    @DisplayName("Given a connection, when nativeSQL is called, then it returns the same SQL unchanged")
+    void shouldReturnSameSqlWhenNativeSqlIsCalled() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        var sql = "SELECT * FROM users WHERE id = ?";
+
+        assertSame(sql, connection.nativeSQL(sql));
+    }
+
+    @Test
+    @DisplayName("Given a connection, when nativeSQL is called with null, then it returns null")
+    void shouldReturnNullWhenNativeSqlIsCalledWithNull() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+
+        assertNull(connection.nativeSQL(null));
     }
 
     @Test
