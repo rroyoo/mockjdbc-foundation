@@ -126,7 +126,7 @@ Assessment notes:
 - [x] Create dedicated ADR for proxy product scope (`ADR-0002`).
 - [x] Create dedicated ADR for mock driver scope (`ADR-0003`).
 - [x] Create dedicated ADR for WireMock bridge scope (`ADR-0004`).
-- [ ] Add GitHub Actions workflows for build and test automation.
+- [x] Add GitHub Actions workflows for build and test automation.
 
 ### B. Documentation alignment
 - [x] Update `mockjdbc/README.md` so its architecture section reflects the current factory/handler/ByteBuddy implementation.
@@ -164,7 +164,7 @@ Assessment notes:
 ### G. Test and release posture
 - [ ] Add an integration test that validates `DriverManager` + SPI discovery end-to-end.
 - [ ] Keep `mockjdbc` and `mockjdbc-spring-users` tests green after each milestone.
-- [ ] Introduce automated verification for both the reactor build and the standalone sample.
+- [x] Introduce automated verification for both the reactor build and the standalone sample.
 
 ### H. Proxy implementation and adoption
 - [ ] Follow `ADR-0002` checklist for proxy event contract, capture, Kafka publication, and integration guides.
