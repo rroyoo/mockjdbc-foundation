@@ -7,7 +7,6 @@ import net.ttddyy.dsproxy.proxy.ResultSetProxyLogicFactory;
 
 import java.sql.ResultSet;
 import java.util.List;
-import java.util.UUID;
 
 import static io.github.rroyoo.mockjdbc.proxy.JdbcQueryCaptureListener.PENDING_QUERY;
 
