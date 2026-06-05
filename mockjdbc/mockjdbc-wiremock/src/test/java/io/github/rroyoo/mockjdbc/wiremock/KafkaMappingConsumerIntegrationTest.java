@@ -73,7 +73,7 @@ class KafkaMappingConsumerIntegrationTest {
 
             for (var i = 0; i < 20; i++) {
                 var request = HttpRequest.newBuilder()
-                        .uri(URI.create("http://localhost:" + wireMockServer.port() + "/mockjdbc/query"))
+                        .uri(URI.create("http://localhost:" + wireMockServer.port() + MockedQueryStubMapper.GRPC_METHOD_URL))
                         .timeout(Duration.ofSeconds(1))
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofString("{\"sql\":\"select 42\",\"datasourceId\":\"users-primary\"}"))
