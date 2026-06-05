@@ -46,8 +46,12 @@ public final class WireMockKafkaBridgeExtensionFactory implements ExtensionFacto
 
         String topic = env.getOrDefault(ENV_TOPIC, "mockjdbc.query.events");
         String groupId = env.getOrDefault(ENV_GROUP_ID, "mockjdbc-wiremock-bridge");
-        long pollTimeoutMs = Long.parseLong(env.getOrDefault(ENV_POLL_TIMEOUT_MS, "250"));
-
+        long pollTimeoutMs;
+        try {
+            pollTimeoutMs = Long.parseLong(env.getOrDefault(ENV_POLL_TIMEOUT_MS, "250"));
+        } catch (NumberFormatException ignored) {
+            pollTimeoutMs = 250L;
+        }
         List<String> datasourceAllowlist = csvToList(env.get(ENV_DATASOURCE_ALLOWLIST));
         List<String> sqlDenyPrefixes = csvToList(env.get(ENV_SQL_DENY_PREFIXES));
 
