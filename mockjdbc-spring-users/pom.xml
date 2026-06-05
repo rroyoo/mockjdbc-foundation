@@ -23,8 +23,9 @@
         <datasource-proxy.version>1.11.0</datasource-proxy.version>
         <grpc.version>1.79.0</grpc.version>
         <javax.annotation.version>1.3.2</javax.annotation.version>
-        <kafka.version>4.1.2</kafka.version>
+        <kafka.version>3.8.1</kafka.version>
         <mockjdbc.version>1.0.0-SNAPSHOT</mockjdbc.version>
+        <protobuf.version>4.34.0</protobuf.version>
         <protobuf.version>4.34.0</protobuf.version>
     </properties>
 
