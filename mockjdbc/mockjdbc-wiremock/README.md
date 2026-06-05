@@ -30,9 +30,7 @@ WireMockServer wireMock = new WireMockServer(
 - Reads `MockedQuery` events from Kafka topic.
 - Normalizes SQL and builds deterministic stub keys:
   - `<datasource_id>::<normalized_sql>`
-- Registers/updates stubs in WireMock.
-- Supports allowlist filtering by datasource and SQL deny-prefix filtering.
-
+  - Parameters (when present) are appended to the key for deduplication: `::p<index>=<value>`
 ## Main classes
 
 - `WireMockKafkaBridgeExtension`
