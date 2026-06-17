@@ -25,9 +25,9 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.TreeMap;
 
 final class PreparedStatementQueryHandler {
 
@@ -37,8 +37,8 @@ final class PreparedStatementQueryHandler {
     private final String sql;
     private final GeneratedKeysHandler generatedKeys;
     private final boolean returnGeneratedKeys;
-    private final ConcurrentHashMap<Integer, ParameterMetadata> parameters = new ConcurrentHashMap<>();
-    private final java.util.List<java.util.List<ParameterMetadata>> parameterBatches = new ArrayList<>();
+    private final Map<Integer, ParameterMetadata> parameters = new TreeMap<>();
+    private final List<List<ParameterMetadata>> parameterBatches = new ArrayList<>();
 
     PreparedStatementQueryHandler(MockConfig mockConfig,
                                   StatementLifecycleHandler lifecycle,
@@ -598,10 +598,8 @@ final class PreparedStatementQueryHandler {
         return result;
     }
 
-    private java.util.List<ParameterMetadata> sortedParameters() {
-        var sortedParameters = new ArrayList<>(parameters.entrySet());
-        sortedParameters.sort(Comparator.comparingInt(Map.Entry::getKey));
-        return sortedParameters.stream().map(Map.Entry::getValue).toList();
+    private List<ParameterMetadata> sortedParameters() {
+        return List.copyOf(parameters.values());
     }
 
     private static ParameterMetadata parameter(int index, int sqlType, String typeName, JdbcValue value) {
