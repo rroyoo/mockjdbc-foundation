@@ -89,7 +89,7 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
             } catch (InterruptedException interruptedException) {
                 Thread.currentThread().interrupt();
                 return;
-            } catch (Exception ignored) {
+            } catch (RuntimeException ignored) {
                 failedSendCount.incrementAndGet();
                 // Keep sender loop alive; failed events are intentionally dropped.
             }

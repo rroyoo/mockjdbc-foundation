@@ -11,7 +11,6 @@ import net.ttddyy.dsproxy.ExecutionInfo;
 import net.ttddyy.dsproxy.QueryInfo;
 import net.ttddyy.dsproxy.listener.QueryExecutionListener;
 import net.ttddyy.dsproxy.proxy.ResultSetProxyLogicFactory;
-import net.ttddyy.dsproxy.proxy.ParameterSetOperation;
 
 import java.sql.ParameterMetaData;
 import java.sql.ResultSet;
@@ -21,7 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 
 /**
@@ -35,7 +34,7 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
     // Cleared by the factory on create(), or by afterQuery as a safety fallback.
     static final ThreadLocal<PendingQueryContext> PENDING_QUERY = new ThreadLocal<>();
 
-    private final CopyOnWriteArrayList<JdbcQueryInterceptedEvent> events = new CopyOnWriteArrayList<>();
+    private final ConcurrentLinkedQueue<JdbcQueryInterceptedEvent> events = new ConcurrentLinkedQueue<>();
     private final Consumer<JdbcQueryInterceptedEvent> eventConsumer;
     private final AsyncMockedQueryEventDispatcher protoDispatcher;
     private final ByteBuddyResultSetWrapperFactory resultSetWrapperFactory;
@@ -226,7 +225,7 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
         }
 
         var firstGroup = parameterGroups.get(0);
-        var result = new ArrayList<ParameterMetadata>(firstGroup.size());
+        List<ParameterMetadata> result = new ArrayList<>(firstGroup.size());
 
         for (var index = 0; index < firstGroup.size(); index++) {
             var value = firstGroup.get(index);
@@ -270,14 +269,14 @@ public final class JdbcQueryCaptureListener implements QueryExecutionListener, A
             return List.of();
         }
 
-        var result = new ArrayList<List<Object>>(parameterGroups.size());
+        List<List<Object>> result = new ArrayList<>(parameterGroups.size());
         for (var group : parameterGroups) {
             if (group == null || group.isEmpty()) {
                 result.add(List.of());
                 continue;
             }
 
-            var values = new ArrayList<Object>(group.size());
+            List<Object> values = new ArrayList<>(group.size());
             for (var operation : group) {
                 if (operation == null || operation.getArgs() == null || operation.getArgs().length == 0) {
                     continue;

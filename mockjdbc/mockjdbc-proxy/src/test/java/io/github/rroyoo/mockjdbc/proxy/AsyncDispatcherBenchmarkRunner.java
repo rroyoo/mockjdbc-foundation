@@ -17,7 +17,12 @@ public final class AsyncDispatcherBenchmarkRunner {
     public static void main(String[] args) throws Exception {
         var produced = new AtomicLong(0);
         var producer = (MockedQueryEventProducer) event -> {
-            Thread.sleep(1L);
+            try {
+                Thread.sleep(1L);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                return;
+            }
             produced.incrementAndGet();
         };
 

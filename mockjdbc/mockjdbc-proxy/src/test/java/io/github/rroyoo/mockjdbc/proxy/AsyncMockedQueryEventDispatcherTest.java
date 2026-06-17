@@ -39,7 +39,12 @@ class AsyncMockedQueryEventDispatcherTest {
         var received = new CopyOnWriteArrayList<MockedQuery>();
         var latch = new CountDownLatch(1);
         var producer = (MockedQueryEventProducer) event -> {
-            Thread.sleep(150);
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                return;
+            }
             received.add(event);
             latch.countDown();
         };
@@ -61,7 +66,12 @@ class AsyncMockedQueryEventDispatcherTest {
         var received = new CopyOnWriteArrayList<MockedQuery>();
         var latch = new CountDownLatch(1);
         var producer = (MockedQueryEventProducer) event -> {
-            Thread.sleep(150);
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                return;
+            }
             received.add(event);
             latch.countDown();
         };
