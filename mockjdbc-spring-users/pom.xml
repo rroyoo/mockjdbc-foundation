@@ -26,7 +26,6 @@
         <kafka.version>3.8.1</kafka.version>
         <mockjdbc.version>1.0.0-SNAPSHOT</mockjdbc.version>
         <protobuf.version>4.34.0</protobuf.version>
-        <protobuf.version>4.34.0</protobuf.version>
     </properties>
 
     <dependencies>

@@ -6,7 +6,7 @@ Independent Maven Spring Boot project at the repository root with a basic users 
 
 - `h2`: uses in-memory H2 datasource.
 - `mockjdbc`: uses `io.github.rroyoo.mockjdbc.mock.driver.MockDriver` and an external WireMock gRPC server.
-- `proxy`: wraps a local datasource with `mockjdbc-proxy` and publishes captured `MockedQuery` events to Kafka.
+- `proxy`: registers a local datasource with the `mockjdbc-proxy` Java agent and publishes captured `MockedQuery` events to Kafka.
 
 ## Endpoints
 
@@ -44,10 +44,13 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mockjdbc
 
 ## Run with proxy profile
 
-The `proxy` profile uses a wrapped datasource and emits captured SQL to Kafka.
+The `proxy` profile uses the Java agent and emits captured SQL and ResultSet data to Kafka.
+Start the JVM with the built agent JAR:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=proxy
+mvn spring-boot:run \
+  -Dspring-boot.run.profiles=proxy \
+  -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-1.0.0-SNAPSHOT.jar"
 ```
 
 Optional environment overrides:
@@ -55,7 +58,9 @@ Optional environment overrides:
 ```bash
 export MOCKJDBC_PROXY_KAFKA_BOOTSTRAP=localhost:9092
 export MOCKJDBC_PROXY_KAFKA_TOPIC=mockjdbc.query.events
-mvn spring-boot:run -Dspring-boot.run.profiles=proxy
+mvn spring-boot:run \
+  -Dspring-boot.run.profiles=proxy \
+  -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-1.0.0-SNAPSHOT.jar"
 ```
 
 ## Local bootstrap (required while using systemPath)
