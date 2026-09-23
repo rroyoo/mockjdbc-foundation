@@ -2,7 +2,7 @@ services:
 
   # ─── Kafka (KRaft, no Zookeeper) ─────────────────────────────────────────────
   kafka:
-    image: confluentinc/cp-kafka:7.9.6
+    image: confluentinc/cp-kafka:7.9.10
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -29,7 +29,7 @@ services:
 
   # ─── Downloads the WireMock gRPC extension ───────────────────────────────────
   wiremock-grpc-extension:
-    image: curlimages/curl:8.20.0
+    image: curlimages/curl:8.22.0
     user: "0:0"
     command:
       - -fsSL
@@ -42,7 +42,7 @@ services:
   # ─── Copies the Kafka→WireMock bridge JAR into the extensions volume ──────────
   # Prerequisite: cd mockjdbc && mvn -pl mockjdbc-wiremock -am package -DskipTests
   wiremock-kafka-bridge-extension:
-    image: mirror.gcr.io/library/debian:12.13-slim
+    image: mirror.gcr.io/library/debian:12.15-slim
     pull_policy: if_not_present
     command:
       - /bin/sh
@@ -54,7 +54,7 @@ services:
 
   # ─── Compiles the .proto to a binary descriptor for WireMock gRPC ────────────
   wiremock-grpc-descriptors:
-    image: mirror.gcr.io/library/debian:12.13-slim
+    image: mirror.gcr.io/library/debian:12.15-slim
     pull_policy: if_not_present
     command:
       - /bin/sh
