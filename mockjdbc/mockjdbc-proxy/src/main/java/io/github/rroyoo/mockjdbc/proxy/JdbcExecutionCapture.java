@@ -75,6 +75,49 @@ public final class JdbcExecutionCapture implements AutoCloseable {
     }
 
     /**
+     * A single JDBC parameter captured for a {@code CallableStatement} execution, carrying its
+     * 1-based index, JDBC {@link ParameterMetaData} mode (IN/OUT/INOUT), and resolved value.
+     *
+     * <p>For OUT/INOUT parameters, {@code value} reflects whatever was retrieved via
+     * {@code getXxx(int)} after execution completed; it is the bound IN value if the OUT value
+     * was never read back by the caller.
+     */
+    record CapturedParameter(int index, int mode, Object value) {
+    }
+
+    /**
+     * Captures a {@code CallableStatement} execution that declared OUT/INOUT parameters via
+     * {@code registerOutParameter}, using pre-merged {@link CapturedParameter} entries that
+     * already carry the correct JDBC parameter mode and resolved value.
+     *
+     * @param sql         executed callable SQL string
+     * @param params      merged IN/OUT/INOUT parameters, ordered by 1-based index
+     * @param updateCount rows affected (0 for error path)
+     * @param elapsedMs   elapsed execution time in milliseconds
+     * @param success     whether the execution completed without error
+     * @param error       non-null when the execution threw an exception
+     */
+    void captureCallableUpdate(String sql,
+                               List<CapturedParameter> params,
+                               long updateCount,
+                               long elapsedMs,
+                               boolean success,
+                               Throwable error) {
+        var flatValues = params.stream().map(CapturedParameter::value).toList();
+        var paramGroups = flatValues.isEmpty()
+                ? List.<List<Object>>of()
+                : List.of(Collections.unmodifiableList(new ArrayList<>(flatValues)));
+        var event = new JdbcQueryInterceptedEvent(datasourceId, sql, paramGroups, elapsedMs, success, error);
+        events.add(event);
+        localConsumer.accept(event);
+
+        var paramMetadata = toParameterMetadataFromCaptured(params);
+        var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(updateCount);
+        dispatcher.publish(buildMockedQuery(sql, paramMetadata, serializedResultSet,
+                error, elapsedMs, success, datasourceId, updateCount, 0L));
+    }
+
+    /**
      * Captures a SELECT result after the ResultSet has been fully consumed.
      * Called from inside the {@link ByteBuddyResultSetWrapperFactory} row-capturing wrapper.
      */
@@ -184,6 +227,24 @@ public final class JdbcExecutionCapture implements AutoCloseable {
             result.add(ParameterMetadata.newBuilder()
                     .setIndex(index + 1)
                     .setMode(ParameterMetaData.parameterModeIn)
+                    .setSqlType(inferSqlType(value))
+                    .setTypeName(value == null ? "NULL" : value.getClass().getSimpleName())
+                    .setValue(ByteBuddyResultSetWrapperFactory.toJdbcValue(value))
+                    .build());
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    static List<ParameterMetadata> toParameterMetadataFromCaptured(List<CapturedParameter> params) {
+        if (params == null || params.isEmpty()) {
+            return List.of();
+        }
+        List<ParameterMetadata> result = new ArrayList<>(params.size());
+        for (var param : params) {
+            var value = param.value();
+            result.add(ParameterMetadata.newBuilder()
+                    .setIndex(param.index())
+                    .setMode(param.mode())
                     .setSqlType(inferSqlType(value))
                     .setTypeName(value == null ? "NULL" : value.getClass().getSimpleName())
                     .setValue(ByteBuddyResultSetWrapperFactory.toJdbcValue(value))
