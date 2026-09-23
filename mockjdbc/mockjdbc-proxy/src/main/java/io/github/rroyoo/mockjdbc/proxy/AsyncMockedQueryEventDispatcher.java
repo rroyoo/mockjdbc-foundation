@@ -3,19 +3,21 @@ package io.github.rroyoo.mockjdbc.proxy;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 
 import java.util.Objects;
-import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.LockSupport;
 
 final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
 
+    /** Backoff applied by sender threads when the ring buffer is momentarily empty. */
+    private static final long IDLE_PARK_NANOS = 200_000L; // 0.2ms
+
     private final MockedQueryEventProducer producer;
-    private final BlockingDeque<MockedQuery> ringBuffer;
+    private final MockedQueryRingBuffer ringBuffer;
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final java.util.concurrent.ExecutorService senderPool;
     private final AsyncDispatchConfig.OverflowStrategy overflowStrategy;
@@ -26,7 +28,7 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
 
     AsyncMockedQueryEventDispatcher(MockedQueryEventProducer producer, AsyncDispatchConfig config) {
         this.producer = Objects.requireNonNull(producer, "producer is required");
-        this.ringBuffer = new LinkedBlockingDeque<>(config.ringBufferCapacity());
+        this.ringBuffer = new MockedQueryRingBuffer(config.ringBufferCapacity());
         this.overflowStrategy = config.overflowStrategy();
         this.senderPool = Executors.newFixedThreadPool(config.senderThreads(), senderThreadFactory());
 
@@ -42,14 +44,14 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
 
         offeredCount.incrementAndGet();
 
-        if (ringBuffer.offerLast(event)) {
+        if (ringBuffer.tryOffer(event)) {
             return true;
         }
 
         if (overflowStrategy == AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST) {
             droppedCount.incrementAndGet();
-            ringBuffer.pollFirst();
-            return ringBuffer.offerLast(event);
+            ringBuffer.tryPoll();
+            return ringBuffer.tryOffer(event);
         }
 
         droppedCount.incrementAndGet();
@@ -78,17 +80,23 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
     }
 
     private void sendLoop() {
-        while (running.get() || !ringBuffer.isEmpty()) {
-            try {
-                var event = ringBuffer.pollFirst(100, TimeUnit.MILLISECONDS);
-                if (event == null) {
-                    continue;
+        while (running.get() || ringBuffer.size() > 0) {
+            var event = ringBuffer.tryPoll();
+
+            if (event == null) {
+                if (!running.get() && ringBuffer.size() == 0) {
+                    return;
                 }
+                if (Thread.currentThread().isInterrupted()) {
+                    return;
+                }
+                LockSupport.parkNanos(IDLE_PARK_NANOS);
+                continue;
+            }
+
+            try {
                 producer.send(event);
                 sentCount.incrementAndGet();
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread().interrupt();
-                return;
             } catch (RuntimeException ignored) {
                 failedSendCount.incrementAndGet();
                 // Keep sender loop alive; failed events are intentionally dropped.

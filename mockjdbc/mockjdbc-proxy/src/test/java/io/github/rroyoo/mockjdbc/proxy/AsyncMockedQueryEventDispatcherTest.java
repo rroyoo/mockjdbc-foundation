@@ -5,6 +5,7 @@ import io.github.rroyoo.mockjdbc.mock.PlainStatement;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -34,57 +35,74 @@ class AsyncMockedQueryEventDispatcherTest {
     }
 
     @Test
-    @DisplayName("Given small ring buffer with drop oldest, when overflowing, then only newest event is eventually delivered")
+    @DisplayName("Given a full ring buffer with drop-oldest strategy, when overflowing, then the oldest queued event is evicted and newer ones are delivered")
     void shouldDropOldestOnOverflow() throws Exception {
         var received = new CopyOnWriteArrayList<MockedQuery>();
-        var latch = new CountDownLatch(1);
+        var gate = new java.util.concurrent.Semaphore(0);
         var producer = (MockedQueryEventProducer) event -> {
-            try {
-                Thread.sleep(150);
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread().interrupt();
-                return;
-            }
             received.add(event);
-            latch.countDown();
+            // Block after the first delivery so subsequent publishes accumulate in the ring
+            // buffer deterministically, without relying on thread-scheduling timing races.
+            if (received.size() == 1) {
+                gate.acquireUninterruptibly();
+            }
         };
 
-        var config = new AsyncDispatchConfig(1, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
+        var config = new AsyncDispatchConfig(2, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
-            dispatcher.publish(query("SELECT old"));
-            dispatcher.publish(query("SELECT new"));
+            dispatcher.publish(query("first"));
+            awaitReceivedSize(received, 1);
 
-            assertTrue(latch.await(3, TimeUnit.SECONDS));
-            var deliveredSql = received.get(received.size() - 1).getSimpleStatement().getSql();
-            assertEquals("SELECT new", deliveredSql);
+            dispatcher.publish(query("second")); // fills slot 1
+            dispatcher.publish(query("third"));  // fills slot 2
+            dispatcher.publish(query("fourth")); // overflow: evicts "second"
+
+            gate.release();
+
+            awaitReceivedSize(received, 3);
+            var deliveredSql = received.stream().map(q -> q.getSimpleStatement().getSql()).toList();
+            assertEquals(List.of("first", "third", "fourth"), deliveredSql);
+            assertEquals(1, dispatcher.stats().dropped());
         }
     }
 
     @Test
-    @DisplayName("Given small ring buffer with drop newest, when overflowing, then oldest enqueued event is preserved")
+    @DisplayName("Given a full ring buffer with drop-newest strategy, when overflowing, then the incoming event is rejected and previously queued events are delivered")
     void shouldDropNewestOnOverflow() throws Exception {
         var received = new CopyOnWriteArrayList<MockedQuery>();
-        var latch = new CountDownLatch(1);
+        var gate = new java.util.concurrent.Semaphore(0);
         var producer = (MockedQueryEventProducer) event -> {
-            try {
-                Thread.sleep(150);
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread().interrupt();
-                return;
-            }
             received.add(event);
-            latch.countDown();
+            if (received.size() == 1) {
+                gate.acquireUninterruptibly();
+            }
         };
 
-        var config = new AsyncDispatchConfig(1, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 256);
+        var config = new AsyncDispatchConfig(2, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 256);
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
-            dispatcher.publish(query("SELECT old"));
-            dispatcher.publish(query("SELECT new"));
+            dispatcher.publish(query("first"));
+            awaitReceivedSize(received, 1);
 
-            assertTrue(latch.await(3, TimeUnit.SECONDS));
-            var deliveredSql = received.get(received.size() - 1).getSimpleStatement().getSql();
-            assertEquals("SELECT old", deliveredSql);
+            dispatcher.publish(query("second")); // fills slot 1
+            dispatcher.publish(query("third"));  // fills slot 2
+            dispatcher.publish(query("fourth")); // overflow: rejected, buffer unchanged
+
+            gate.release();
+
+            awaitReceivedSize(received, 3);
+            var deliveredSql = received.stream().map(q -> q.getSimpleStatement().getSql()).toList();
+            assertEquals(List.of("first", "second", "third"), deliveredSql);
+            assertEquals(1, dispatcher.stats().dropped());
         }
+    }
+
+    private static void awaitReceivedSize(CopyOnWriteArrayList<MockedQuery> received, int expectedSize)
+            throws InterruptedException {
+        var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (received.size() < expectedSize && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertEquals(expectedSize, received.size());
     }
 
     @Test
