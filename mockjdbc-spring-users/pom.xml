@@ -31,26 +31,20 @@
     <dependencies>
         <dependency>
             <groupId>io.github.rroyoo.mockjdbc</groupId>
-            <artifactId>mockjdbc-mock-local</artifactId>
+            <artifactId>mockjdbc-mock</artifactId>
             <version>${mockjdbc.version}</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../mockjdbc/mockjdbc-mock/target/mockjdbc-mock-${mockjdbc.version}.jar</systemPath>
         </dependency>
 
         <dependency>
             <groupId>io.github.rroyoo.mockjdbc</groupId>
-            <artifactId>mockjdbc-proto-local</artifactId>
+            <artifactId>mockjdbc-proto</artifactId>
             <version>${mockjdbc.version}</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../mockjdbc/mockjdbc-proto/target/mockjdbc-proto-${mockjdbc.version}.jar</systemPath>
         </dependency>
 
         <dependency>
             <groupId>io.github.rroyoo.mockjdbc</groupId>
-            <artifactId>mockjdbc-proxy-local</artifactId>
+            <artifactId>mockjdbc-proxy</artifactId>
             <version>${mockjdbc.version}</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-${mockjdbc.version}.jar</systemPath>
         </dependency>
 
         <dependency>

@@ -70,7 +70,6 @@ public final class JdbcCaptureAgent {
                         .or(nameStartsWith("io.github.rroyoo.mockjdbc.proxy.Jdbc")))
                 .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
                 .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
-                .with(AgentBuilder.TypeStrategy.Default.REDEFINE)
                 .type(isSubTypeOf(DataSource.class)
                         .and(not(nameStartsWith("io.github.rroyoo.mockjdbc"))))
                 .transform((builder, typeDescription, classLoader, module, protectionDomain) ->
