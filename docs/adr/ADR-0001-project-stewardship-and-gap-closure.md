@@ -139,7 +139,7 @@ Assessment notes:
 - [ ] Reclassify `mockjdbc-proxy` from placeholder to active after minimal capture + Kafka publication slice is verified.
 
 ### D. Build and integration hygiene
-- [ ] Replace or reduce `systemPath` usage in `mockjdbc-spring-users` with a more reproducible consumption model.
+- [x] Replace or reduce `systemPath` usage in `mockjdbc-spring-users` with a more reproducible consumption model.
 - [x] If `systemPath` remains temporarily, document the bootstrap path clearly and keep it accurate.
 
 ### E. JDBC coverage backlog

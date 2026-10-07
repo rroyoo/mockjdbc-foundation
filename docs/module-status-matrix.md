@@ -19,7 +19,7 @@ Status labels:
 | `mockjdbc/mockjdbc-proto` | `active` | Protobuf schemas and generated stubs in `mockjdbc-proto` | Keep contract stable and versioned with mock/proxy/wiremock module needs |
 | `mockjdbc/mockjdbc-proxy` | `partial`, `active` | Production classes and tests under `mockjdbc-proxy/src/main/java` and `mockjdbc-proxy/src/test/java` | Complete Docker-backed Kafka integration validation in CI and finalize ADR-0002 checklist |
 | `mockjdbc/mockjdbc-wiremock` | `partial`, `active` | Bridge classes + tests in `mockjdbc-wiremock/src/main/java` and `mockjdbc-wiremock/src/test/java` | Validate Testcontainers integration in Docker-capable environment and finalize ADR-0004 checklist |
-| `mockjdbc-spring-users` | `partial` | Independent app with tests for `h2` and `mockjdbc` profiles | Replace or reduce `systemPath` dependency coupling |
+| `mockjdbc-spring-users` | `partial` | Independent app with tests for `h2` and `mockjdbc` profiles | Sample consumes reactor artifacts via regular Maven coordinates (`mvn install` required first) |
 
 ## Decision notes
 

@@ -33,11 +33,11 @@ cd ../mockjdbc-spring-users
 mvn test
 ```
 
-For a clean sample-app build, build the sibling reactor first because the sample currently consumes local `target/*.jar` files through `systemPath` dependencies:
+For a clean sample-app build, install the sibling reactor first because the sample consumes the reusable modules as regular Maven dependencies, which must exist in the local repository (`package` alone does not install them):
 
 ```bash
 cd mockjdbc
-mvn clean package -DskipTests
+mvn clean install -DskipTests
 cd ../mockjdbc-spring-users
 mvn test
 ```
@@ -51,8 +51,8 @@ MockJDBC is a record/replay pipeline split across reusable Maven modules:
 1. `mockjdbc-proto` owns the Protobuf and gRPC contracts. Generated classes are consumed by the capture, mock, and WireMock modules; change schemas only with all consumers in mind.
 2. `mockjdbc-proxy` is a ByteBuddy Java agent. It instruments `DataSource.getConnection()`, wraps returned JDBC connections/statements with JDK proxies, captures SQL, parameters, results, timing, and status, then dispatches `MockedQuery` events locally and to producers such as Kafka.
 3. `mockjdbc-wiremock` consumes those Kafka `MockedQuery` events, normalizes SQL, maps events to deterministic WireMock stubs, and registers/upserts them. The bridge is lifecycle-managed through `WireMockKafkaBridgeExtension`.
-4. `mockjdbc-mock` is the replay-side JDBC driver. `MockDriver` parses `jdbc:mock://` URLs into `MockConfig`; `ConnectionFactory` and `StatementFactory` create runtime JDBC implementations with ByteBuddy; statement handlers call `GrpcMockQueryClient`; `ResultSetFactory` converts the gRPC payload back into JDBC results.
-5. `mockjdbc-spring-users` demonstrates H2, mock-driver, and proxy-agent profiles. It is an integration sample, not part of the `mockjdbc` reactor, and its local system-scoped JAR dependencies mean the reusable reactor must be packaged first.
+4. `mockjdbc-mock` is the replay-side JDBC driver. `MockDriver` parses `jdbc:mock://` URLs into `MockConfig`; `ConnectionFactory` and `StatementFactory` create runtime JDBC implementations (`ConnectionFactory` with a JDK dynamic proxy, `StatementFactory` with ByteBuddy); statement handlers call `GrpcMockQueryClient`; `ResultSetFactory` converts the gRPC payload back into JDBC results.
+5. `mockjdbc-spring-users` demonstrates H2, mock-driver, and proxy-agent profiles. It is an integration sample, not part of the `mockjdbc` reactor, and it resolves the reusable modules from the local Maven repository, so the reactor must be installed first (`mvn install`).
 
 The WireMock module has two runtime integration points: `WireMockKafkaBridgeExtension` owns the server extension lifecycle, while the `META-INF/services/com.github.tomakehurst.wiremock.extension.ExtensionFactory` entry enables WireMock discovery. Its shaded artifact is intended for the WireMock extensions directory and deliberately excludes gRPC transport dependencies supplied by the WireMock gRPC runtime.
 

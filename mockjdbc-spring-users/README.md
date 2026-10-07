@@ -63,15 +63,15 @@ mvn spring-boot:run \
   -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-1.0.0-SNAPSHOT.jar"
 ```
 
-## Local bootstrap (required while using systemPath)
+## Local bootstrap (install the reactor first)
 
-This project currently depends on sibling jars via `systemPath`, so you must build those artifacts before running `mockjdbc-spring-users`.
+This project consumes the reusable modules through regular Maven coordinates, so install them into your local repository (`~/.m2`) before running `mockjdbc-spring-users`.
 
 From the repository root (`mockjdbc-foundation`):
 
 ```bash
 cd mockjdbc
-mvn clean package -DskipTests
+mvn clean install -DskipTests
 cd ../mockjdbc-spring-users
 mvn test
 ```
@@ -110,5 +110,5 @@ If those jars do not exist yet, build them first from the repository root:
 
 ```bash
 cd mockjdbc
-mvn clean package -DskipTests
+mvn clean install -DskipTests
 ```
