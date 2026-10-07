@@ -303,7 +303,7 @@ class StatementFactoryTest {
 
             try (var generatedKeys = statement.getGeneratedKeys()) {
                 assertTrue(generatedKeys.next());
-                assertEquals(1L, generatedKeys.getObject(1));
+                assertEquals(1, generatedKeys.getObject(1));
             }
         }
     }
@@ -319,7 +319,7 @@ class StatementFactoryTest {
 
             try (var generatedKeys = statement.getGeneratedKeys()) {
                 assertTrue(generatedKeys.next());
-                assertEquals(1L, generatedKeys.getObject(1));
+                assertEquals(1, generatedKeys.getObject(1));
             }
         }
     }
