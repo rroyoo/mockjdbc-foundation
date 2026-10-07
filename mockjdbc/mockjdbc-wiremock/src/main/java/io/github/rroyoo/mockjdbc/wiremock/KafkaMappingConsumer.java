@@ -1,35 +1,33 @@
 package io.github.rroyoo.mockjdbc.wiremock;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class KafkaMappingConsumer implements AutoCloseable {
+
+    private static final System.Logger LOGGER = System.getLogger(KafkaMappingConsumer.class.getName());
 
     private final Consumer<String, byte[]> consumer;
     private final WireMockMappingRegistrar registrar;
     private final String topic;
     private final Duration pollTimeout;
     private final AtomicBoolean running = new AtomicBoolean(false);
-    /**
-     * Decouples Kafka polling from WireMock admin operations.
-     * Slow stub registration does not reduce the Kafka consumption rate.
-     */
-    private final ExecutorService registrarPool;
     private Thread consumerThread;
 
     public KafkaMappingConsumer(KafkaMappingConsumerConfig config) {
@@ -40,10 +38,6 @@ public final class KafkaMappingConsumer implements AutoCloseable {
         this.consumer = new KafkaConsumer<>(consumerProperties(config));
         this.topic = config.topic();
         this.pollTimeout = config.pollTimeout();
-        this.registrarPool = Executors.newFixedThreadPool(
-                Math.max(2, Runtime.getRuntime().availableProcessors()),
-                r -> { var t = new Thread(r, "mockjdbc-wiremock-registrar"); t.setDaemon(true); return t; }
-        );
     }
 
     KafkaMappingConsumer(Consumer<String, byte[]> consumer,
@@ -54,9 +48,6 @@ public final class KafkaMappingConsumer implements AutoCloseable {
         this.registrar = Objects.requireNonNull(registrar, "registrar is required");
         this.topic = Objects.requireNonNull(topic, "topic is required");
         this.pollTimeout = Objects.requireNonNull(pollTimeout, "pollTimeout is required");
-        this.registrarPool = Executors.newFixedThreadPool(2,
-                r -> { var t = new Thread(r, "mockjdbc-wiremock-registrar"); t.setDaemon(true); return t; }
-        );
     }
 
     public synchronized void start() {
@@ -71,14 +62,38 @@ public final class KafkaMappingConsumer implements AutoCloseable {
         consumerThread.start();
     }
 
+    /**
+     * Registration runs on the poll thread, so per-partition order is preserved and the amount of
+     * in-flight work is bounded by max.poll.records. Offsets are committed only after every record
+     * of a partition prefix has been registered; a failed registration is not committed and the
+     * partition is rewound so the record is retried on the next poll.
+     */
     private void pollLoop() {
         try {
             while (running.get()) {
                 var records = consumer.poll(pollTimeout);
-                for (ConsumerRecord<String, byte[]> record : records) {
-                    // Submit to worker pool so slow WireMock admin calls don't block the poll thread.
-                    final var captured = record;
-                    registrarPool.submit(() -> processRecord(captured));
+                var toCommit = new HashMap<TopicPartition, OffsetAndMetadata>();
+                var failed = false;
+                for (TopicPartition partition : records.partitions()) {
+                    for (ConsumerRecord<String, byte[]> record : records.records(partition)) {
+                        try {
+                            process(record);
+                            toCommit.put(partition, new OffsetAndMetadata(record.offset() + 1));
+                        } catch (RuntimeException registrationFailure) {
+                            LOGGER.log(System.Logger.Level.ERROR,
+                                    "Registration failed at " + partition + "@" + record.offset() + "; will retry",
+                                    registrationFailure);
+                            consumer.seek(partition, record.offset());
+                            failed = true;
+                            break;
+                        }
+                    }
+                }
+                if (!toCommit.isEmpty()) {
+                    consumer.commitSync(toCommit);
+                }
+                if (failed) {
+                    backoff();
                 }
             }
         } catch (WakeupException wakeupException) {
@@ -90,12 +105,26 @@ public final class KafkaMappingConsumer implements AutoCloseable {
         }
     }
 
-    private void processRecord(ConsumerRecord<String, byte[]> record) {
+    private void process(ConsumerRecord<String, byte[]> record) {
+        MockedQuery event;
         try {
-            var event = MockedQuery.parseFrom(record.value());
-            registrar.upsert(event);
-        } catch (Exception ignored) {
-            // Keep loop alive and skip malformed records.
+            event = MockedQuery.parseFrom(record.value());
+        } catch (InvalidProtocolBufferException malformed) {
+            // Poison pill: retrying can never succeed, so log and skip it (it is then committed).
+            LOGGER.log(System.Logger.Level.WARNING,
+                    "Skipping malformed record " + record.topic() + "-" + record.partition() + "@" + record.offset(),
+                    malformed);
+            return;
+        }
+        registrar.upsert(event);
+    }
+
+    private void backoff() {
+        try {
+            Thread.sleep(pollTimeout.toMillis());
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            running.set(false);
         }
     }
 
@@ -114,12 +143,6 @@ public final class KafkaMappingConsumer implements AutoCloseable {
                 Thread.currentThread().interrupt();
             }
         }
-        registrarPool.shutdown();
-        try {
-            registrarPool.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     private static Properties consumerProperties(KafkaMappingConsumerConfig config) {
@@ -127,7 +150,7 @@ public final class KafkaMappingConsumer implements AutoCloseable {
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.bootstrapServers());
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, config.groupId());
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         // Batch tuning: fetch up to 500 records per poll, wait at most 500 ms or 64 KB.
         properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "500");
         properties.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, "65536");
