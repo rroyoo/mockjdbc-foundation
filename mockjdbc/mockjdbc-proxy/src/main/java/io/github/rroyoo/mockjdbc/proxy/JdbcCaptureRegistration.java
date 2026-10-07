@@ -18,6 +18,12 @@ public final class JdbcCaptureRegistration implements AutoCloseable {
 
     private final String datasourceId;
     private final JdbcExecutionCapture capture;
+    private volatile java.lang.ref.WeakReference<javax.sql.DataSource> owner;
+
+    /** Package-private: records the DataSource this registration belongs to, so close() can unregister it. */
+    void bindOwner(javax.sql.DataSource dataSource) {
+        this.owner = new java.lang.ref.WeakReference<>(dataSource);
+    }
 
     JdbcCaptureRegistration(String datasourceId, JdbcExecutionCapture capture) {
         this.datasourceId = Objects.requireNonNull(datasourceId, "datasourceId is required");
@@ -59,6 +65,14 @@ public final class JdbcCaptureRegistration implements AutoCloseable {
 
     @Override
     public void close() {
+        var ref = owner;
+        owner = null;
+        if (ref != null) {
+            var dataSource = ref.get();
+            if (dataSource != null && JdbcAgentRegistry.lookup(dataSource) == this) {
+                JdbcAgentRegistry.unregister(dataSource);
+            }
+        }
         capture.close();
     }
 }

@@ -168,4 +168,18 @@ class JdbcAgentRegistryTest {
             assertEquals("standalone-ds", protoEvent.get().getDatasourceId());
         }
     }
+
+    @Test
+    @DisplayName("Given a registration, when closed (twice), then its DataSource is unregistered and close is idempotent")
+    void shouldUnregisterDataSourceOnClose() {
+        var dataSource = mock(DataSource.class);
+        var registration = JdbcAgentRegistry.register(dataSource, "ds",
+                event -> {}, MockedQueryEventProducer.fromConsumer(q -> {}), AsyncDispatchConfig.defaults());
+        assertSame(registration, JdbcAgentRegistry.lookup(dataSource));
+
+        registration.close();
+        registration.close();
+
+        assertNull(JdbcAgentRegistry.lookup(dataSource));
+    }
 }

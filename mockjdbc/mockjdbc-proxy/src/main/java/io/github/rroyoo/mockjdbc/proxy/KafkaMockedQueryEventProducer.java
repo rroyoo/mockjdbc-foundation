@@ -8,6 +8,8 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -59,14 +61,24 @@ public final class KafkaMockedQueryEventProducer implements MockedQueryEventProd
 
     @Override
     public void send(MockedQuery event) {
+        sendAsync(event);
+    }
+
+    @Override
+    public CompletionStage<Void> sendAsync(MockedQuery event) {
         var key = keyResolver.apply(event);
         var payload = event == null ? new byte[0] : event.toByteArray();
+        var result = new CompletableFuture<Void>();
         producer.send(new ProducerRecord<>(topic, key, payload), (metadata, exception) -> {
             if (exception != null) {
                 LOGGER.log(Level.WARNING,
                         "Failed to send MockedQuery event to Kafka topic '" + topic + "': " + exception.getMessage());
+                result.completeExceptionally(exception);
+            } else {
+                result.complete(null);
             }
         });
+        return result;
     }
 
     @Override

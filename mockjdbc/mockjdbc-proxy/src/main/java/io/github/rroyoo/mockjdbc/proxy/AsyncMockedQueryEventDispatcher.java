@@ -95,8 +95,13 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
             }
 
             try {
-                producer.send(event);
-                sentCount.incrementAndGet();
+                producer.sendAsync(event).whenComplete((ignored, failure) -> {
+                    if (failure == null) {
+                        sentCount.incrementAndGet();
+                    } else {
+                        failedSendCount.incrementAndGet();
+                    }
+                });
             } catch (RuntimeException ignored) {
                 failedSendCount.incrementAndGet();
                 // Keep sender loop alive; failed events are intentionally dropped.

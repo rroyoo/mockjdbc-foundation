@@ -123,5 +123,26 @@ class AsyncMockedQueryEventDispatcherTest {
                 .setSimpleStatement(PlainStatement.newBuilder().setSql(sql).build())
                 .build();
     }
-}
 
+    @Test
+    @DisplayName("Given a producer whose delivery completes exceptionally, when publishing, then the event is counted as failed and not sent")
+    void shouldCountAsyncDeliveryFailureAsFailed() throws Exception {
+        var producer = new MockedQueryEventProducer() {
+            @Override public void send(MockedQuery event) { }
+            @Override public java.util.concurrent.CompletionStage<Void> sendAsync(MockedQuery event) {
+                return java.util.concurrent.CompletableFuture.failedFuture(new RuntimeException("broker down"));
+            }
+        };
+        var config = new AsyncDispatchConfig(16, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
+        try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
+            dispatcher.publish(query("SELECT 1"));
+
+            var deadline = System.currentTimeMillis() + 2000;
+            while (dispatcher.stats().failed() < 1 && System.currentTimeMillis() < deadline) {
+                Thread.sleep(5);
+            }
+            assertEquals(1, dispatcher.stats().failed());
+            assertEquals(0, dispatcher.stats().sent());
+        }
+    }
+}

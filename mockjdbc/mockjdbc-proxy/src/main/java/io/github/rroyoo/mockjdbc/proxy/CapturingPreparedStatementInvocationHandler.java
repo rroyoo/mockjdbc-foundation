@@ -20,9 +20,10 @@ import java.util.TreeSet;
  *
  * <p><strong>Parameter tracking:</strong>
  * All {@code setXxx(int parameterIndex, T value)} calls populate an ordered {@link TreeMap}.
- * On every no-arg execute method the map is converted to a sorted {@link List} and cleared.
- * For {@code addBatch()}, the current parameter snapshot is saved to a batch group list before
- * clearing, enabling multi-group capture for batched executions.
+ * Bound values persist across executions and {@code addBatch()} (standard PreparedStatement
+ * semantics) until {@code clearParameters()} or a setter replaces them.
+ * For {@code addBatch()}, the current parameter snapshot is saved to a batch group list,
+ * enabling multi-group capture for batched executions.
  *
  * <p><strong>Intercepted execute methods (no-arg variants for PreparedStatement):</strong>
  * <ul>
@@ -135,6 +136,8 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             } else if (args.length >= 2) {
                 currentParams.put(idx, args[1]);
             }
+            // registerOutParameter may have come first: binding a value upgrades OUT to INOUT
+            outParamModesByIndex.computeIfPresent(idx, (i, mode) -> ParameterMetaData.parameterModeInOut);
             return delegateInvoke(method, args);
         }
 
@@ -147,7 +150,6 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         // ── addBatch() (no-arg PreparedStatement variant) ────────────────────
         if ("addBatch".equals(name) && (args == null || args.length == 0)) {
             batchGroups.add(Collections.unmodifiableList(new ArrayList<>(sortedParamValues())));
-            currentParams.clear();
             return delegateInvoke(method, args);
         }
 
@@ -204,8 +206,6 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             capture.captureUpdate(sql, params, 0L,
                     System.currentTimeMillis() - startMs, false, e);
             throw e;
-        } finally {
-            currentParams.clear();
         }
         return capture.wrapResultSet(sql, params, rawRs, startMs);
     }
@@ -232,8 +232,6 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
                 capture.captureUpdate(sql, params, 0L, elapsedMs, false, e);
             }
             throw e;
-        } finally {
-            currentParams.clear();
         }
     }
 
@@ -249,8 +247,6 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             capture.captureUpdate(sql, params, 0L,
                     System.currentTimeMillis() - startMs, false, e);
             throw e;
-        } finally {
-            currentParams.clear();
         }
     }
 
@@ -269,12 +265,10 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             } else {
                 capture.captureUpdate(sql, params, 0L, elapsedMs, false, e);
             }
-            currentParams.clear();
             throw e;
         }
 
         var elapsedMs = System.currentTimeMillis() - startMs;
-        currentParams.clear();
 
         if (hasResultSet) {
             var rawRs = delegate.getResultSet();
@@ -292,51 +286,35 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
     }
 
     private int[] captureExecuteBatch() throws Throwable {
+        var groups = List.copyOf(batchGroups);
         var startMs = System.currentTimeMillis();
         try {
             int[] counts = delegate.executeBatch();
-            captureBatchResult(counts);
+            var longCounts = new long[counts.length];
+            for (var i = 0; i < counts.length; i++) longCounts[i] = counts[i];
+            capture.captureBatch(sql, groups, longCounts, System.currentTimeMillis() - startMs, true, null);
             return counts;
         } catch (Exception e) {
-            capture.captureUpdate(sql, List.of(), 0L,
-                    System.currentTimeMillis() - startMs, false, e);
+            capture.captureBatch(sql, groups, null, System.currentTimeMillis() - startMs, false, e);
             throw e;
         } finally {
             batchGroups.clear();
-            currentParams.clear();
         }
     }
 
     private long[] captureExecuteLargeBatch() throws Throwable {
+        var groups = List.copyOf(batchGroups);
         var startMs = System.currentTimeMillis();
         try {
             long[] counts = delegate.executeLargeBatch();
-            captureLargeBatchResult(counts);
+            capture.captureBatch(sql, groups, counts, System.currentTimeMillis() - startMs, true, null);
             return counts;
         } catch (Exception e) {
-            capture.captureUpdate(sql, List.of(), 0L,
-                    System.currentTimeMillis() - startMs, false, e);
+            capture.captureBatch(sql, groups, null, System.currentTimeMillis() - startMs, false, e);
             throw e;
         } finally {
             batchGroups.clear();
-            currentParams.clear();
         }
-    }
-
-    private void captureBatchResult(int[] counts) {
-        long total = 0;
-        for (int c : counts) {
-            if (c >= 0) total += c;
-        }
-        capture.captureUpdate(sql, List.of(), total, 0L, true, null);
-    }
-
-    private void captureLargeBatchResult(long[] counts) {
-        long total = 0;
-        for (long c : counts) {
-            if (c >= 0) total += c;
-        }
-        capture.captureUpdate(sql, List.of(), total, 0L, true, null);
     }
 
     /** Returns the current parameters as an ordered list (sorted by index). */

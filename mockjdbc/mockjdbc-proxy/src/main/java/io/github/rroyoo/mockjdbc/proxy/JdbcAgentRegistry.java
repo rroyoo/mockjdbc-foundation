@@ -47,6 +47,7 @@ public final class JdbcAgentRegistry {
         Objects.requireNonNull(dataSource, "dataSource is required");
         var capture = new JdbcExecutionCapture(datasourceId, localConsumer, producer, config);
         var registration = new JdbcCaptureRegistration(datasourceId, capture);
+        registration.bindOwner(dataSource);
         registry.put(dataSource, registration);
         return registration;
     }

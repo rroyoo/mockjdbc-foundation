@@ -321,4 +321,20 @@ class JdbcExecutionCaptureTest {
         rowSet.beforeFirst();
         return rowSet;
     }
+
+    @Test
+    @DisplayName("Given a successful SELECT capture, when captured, then local consumer and events() receive the query event")
+    void shouldRecordSuccessfulSelectInLocalEvents() {
+        var seen = new java.util.concurrent.CopyOnWriteArrayList<JdbcQueryInterceptedEvent>();
+        try (var capture = new JdbcExecutionCapture("ds", seen::add,
+                MockedQueryEventProducer.fromConsumer(q -> { }), AsyncDispatchConfig.defaults())) {
+            capture.captureSelect("SELECT ?", List.of(1),
+                    io.github.rroyoo.mockjdbc.mock.SerializedResultSet.getDefaultInstance(), 5L, true);
+
+            assertEquals(1, seen.size());
+            assertEquals(seen, capture.events());
+            assertEquals("SELECT ?", seen.get(0).sql());
+            assertEquals(List.of(List.<Object>of(1)), seen.get(0).parameters());
+        }
+    }
 }

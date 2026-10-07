@@ -6,6 +6,8 @@ import net.bytebuddy.asm.Advice;
 import javax.sql.DataSource;
 import java.lang.instrument.Instrumentation;
 
+import static net.bytebuddy.matcher.ElementMatchers.isAbstract;
+import static net.bytebuddy.matcher.ElementMatchers.isInterface;
 import static net.bytebuddy.matcher.ElementMatchers.isSubTypeOf;
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.nameStartsWith;
@@ -71,15 +73,17 @@ public final class JdbcCaptureAgent {
                 .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
                 .with(AgentBuilder.InitializationStrategy.NoOp.INSTANCE)
                 .type(isSubTypeOf(DataSource.class)
+                        .and(not(isInterface()))
                         .and(not(nameStartsWith("io.github.rroyoo.mockjdbc"))))
                 .transform((builder, typeDescription, classLoader, module, protectionDomain) ->
                         builder
                                 // DataSource.getConnection() — no credentials
-                                .method(named("getConnection").and(takesNoArguments()))
+                                .method(named("getConnection").and(takesNoArguments()).and(not(isAbstract())))
                                 .intercept(Advice.to(DataSourceGetConnectionAdvice.class))
                                 // DataSource.getConnection(String user, String password)
                                 .method(named("getConnection")
-                                        .and(takesArguments(String.class, String.class)))
+                                        .and(takesArguments(String.class, String.class))
+                                        .and(not(isAbstract())))
                                 .intercept(Advice.to(DataSourceGetConnectionAdvice.class))
                 )
                 .installOn(instrumentation);

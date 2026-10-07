@@ -126,9 +126,47 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                        SerializedResultSet serializedResultSet,
                        long elapsedMs,
                        boolean success) {
+        var paramGroups = params.isEmpty()
+                ? List.<List<Object>>of()
+                : List.of(Collections.unmodifiableList(new ArrayList<>(params)));
+        var event = new JdbcQueryInterceptedEvent(datasourceId, sql, paramGroups, elapsedMs, success, null);
+        events.add(event);
+        localConsumer.accept(event);
+
         var paramMetadata = toParameterMetadata(params);
         dispatcher.publish(buildMockedQuery(sql, paramMetadata, serializedResultSet,
                 null, elapsedMs, success, datasourceId, 0L, serializedResultSet.getRowsCount()));
+    }
+
+    /**
+     * Captures a prepared batch execution: one {@link JdbcQueryInterceptedEvent} carrying every
+     * batched parameter set, and one protobuf event per batch entry.
+     *
+     * @param groups  parameter sets added via {@code addBatch()}, in order
+     * @param counts  per-entry update counts, or {@code null} on failure
+     */
+    void captureBatch(String sql,
+                      List<List<Object>> groups,
+                      long[] counts,
+                      long elapsedMs,
+                      boolean success,
+                      Throwable error) {
+        var event = new JdbcQueryInterceptedEvent(datasourceId, sql, List.copyOf(groups), elapsedMs, success, error);
+        events.add(event);
+        localConsumer.accept(event);
+
+        if (groups.isEmpty()) {
+            dispatcher.publish(buildMockedQuery(sql, List.of(),
+                    ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(0L),
+                    error, elapsedMs, success, datasourceId, 0L, 0L));
+            return;
+        }
+        for (var i = 0; i < groups.size(); i++) {
+            var count = counts != null && i < counts.length && counts[i] > 0 ? counts[i] : 0L;
+            dispatcher.publish(buildMockedQuery(sql, toParameterMetadata(groups.get(i)),
+                    ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(count),
+                    error, elapsedMs, success, datasourceId, count, 0L));
+        }
     }
 
     /**

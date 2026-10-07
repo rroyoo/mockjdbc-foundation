@@ -44,4 +44,23 @@ class KafkaMockedQueryEventProducerTest {
         var payload = (byte[]) record.value();
         assertTrue(payload.length > 0);
     }
+
+    @Test
+    @DisplayName("Given a broker delivery failure, when sending asynchronously, then the returned stage completes exceptionally")
+    void shouldCompleteExceptionallyWhenBrokerDeliveryFails() {
+        @SuppressWarnings("unchecked")
+        var kafkaProducer = (Producer<String, byte[]>) mock(Producer.class);
+        org.mockito.Mockito.when(kafkaProducer.send(any(ProducerRecord.class), any(org.apache.kafka.clients.producer.Callback.class)))
+                .thenAnswer(invocation -> {
+                    ((org.apache.kafka.clients.producer.Callback) invocation.getArgument(1))
+                            .onCompletion(null, new RuntimeException("broker down"));
+                    return null;
+                });
+        var producer = new KafkaMockedQueryEventProducer(kafkaProducer, "topic",
+                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+
+        var stage = producer.sendAsync(MockedQuery.getDefaultInstance()).toCompletableFuture();
+
+        assertTrue(stage.isCompletedExceptionally());
+    }
 }
