@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
 import java.util.HashMap;
 import java.util.Map;
@@ -80,13 +81,8 @@ public final class ConnectionFactory {
                 return invoker.invoke(args);
             }
 
-            // Safe defaults for any unregistered method.
-            var returnType = method.getReturnType();
-            if (returnType == void.class || returnType == Void.class) return null;
-            if (returnType == boolean.class) return false;
-            if (returnType == int.class)     return 0;
-            if (returnType == long.class)    return 0L;
-            return null;
+            throw new SQLFeatureNotSupportedException(
+                    "Connection." + name + " is not supported by MockJDBC");
         }
 
         private static Map<Method, MethodInvoker> buildDispatch(
@@ -101,7 +97,7 @@ public final class ConnectionFactory {
             var c = Connection.class;
 
             // ── lifecycle ────────────────────────────────────────────────────
-            d.put(c.getMethod("close"),    args -> { lifecycle.close(); return null; });
+            d.put(c.getMethod("close"),    args -> { lifecycle.close(); statements.close(); return null; });
             d.put(c.getMethod("isClosed"), args -> lifecycle.isClosed());
 
             // ── transaction ──────────────────────────────────────────────────

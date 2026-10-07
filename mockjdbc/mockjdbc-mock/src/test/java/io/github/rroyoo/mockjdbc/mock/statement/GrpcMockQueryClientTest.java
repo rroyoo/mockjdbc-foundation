@@ -124,6 +124,25 @@ class GrpcMockQueryClientTest {
         assertTrue(exception.getMessage() == null || exception.getMessage().isBlank());
     }
 
+    @Test
+    @DisplayName("Given clients sharing an endpoint, when all are closed, then the channel is released and closed clients reject queries")
+    void shouldReleaseChannelWhenLastClientCloses() throws Exception {
+        var first = new GrpcMockQueryClient(mockConfig(server.getPort()));
+        var second = new GrpcMockQueryClient(mockConfig(server.getPort()));
+        var baseline = GrpcMockQueryClient.openChannelCount();
+
+        first.findResultSet("SELECT 1", List.of());
+        second.findResultSet("SELECT 1", List.of());
+        assertEquals(baseline + 1, GrpcMockQueryClient.openChannelCount());
+
+        first.close();
+        assertEquals(baseline + 1, GrpcMockQueryClient.openChannelCount());
+        second.close();
+        second.close();
+        assertEquals(baseline, GrpcMockQueryClient.openChannelCount());
+        assertThrows(SQLException.class, () -> first.findResultSet("SELECT 1", List.of()));
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }

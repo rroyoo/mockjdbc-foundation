@@ -332,4 +332,31 @@ class ConnectionFactoryTest {
         properties.setProperty("keepAliveTime", "60");
         return new MockConfig(new MockConfig.MockServer("localhost", 50051), properties);
     }
+
+    @Test
+    @DisplayName("Given an unregistered Connection method, when beginRequest is called, then it throws SQLFeatureNotSupportedException")
+    void shouldThrowFeatureNotSupportedForUnregisteredVoidMethod() {
+        var connection = ConnectionFactory.create(mockConfig());
+
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, connection::beginRequest);
+    }
+
+    @Test
+    @DisplayName("Given an unregistered object-creating method, when createBlob is called, then it throws SQLFeatureNotSupportedException")
+    void shouldThrowFeatureNotSupportedForUnregisteredFactoryMethod() {
+        var connection = ConnectionFactory.create(mockConfig());
+
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, connection::createBlob);
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> connection.isValid(1));
+    }
+
+    @Test
+    @DisplayName("Given a connection, when Object methods are called, then they keep working")
+    void shouldKeepObjectMethodsWorking() {
+        var connection = ConnectionFactory.create(mockConfig());
+
+        assertEquals("MockConnection", connection.toString());
+        assertEquals(connection.hashCode(), connection.hashCode());
+        assertTrue(connection.equals(connection));
+    }
 }

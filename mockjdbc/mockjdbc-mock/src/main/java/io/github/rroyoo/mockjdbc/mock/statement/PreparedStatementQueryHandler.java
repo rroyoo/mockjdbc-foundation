@@ -46,11 +46,20 @@ final class PreparedStatementQueryHandler {
                                   GeneratedKeysHandler generatedKeys,
                                   boolean returnGeneratedKeys,
                                   String sql) {
+        this(new GrpcMockQueryClient(mockConfig), lifecycle, executionState, generatedKeys, returnGeneratedKeys, sql);
+    }
+
+    PreparedStatementQueryHandler(GrpcMockQueryClient client,
+                                  StatementLifecycleHandler lifecycle,
+                                  StatementExecutionStateHandler executionState,
+                                  GeneratedKeysHandler generatedKeys,
+                                  boolean returnGeneratedKeys,
+                                  String sql) {
         this.lifecycle = lifecycle;
         this.executionState = executionState;
         this.generatedKeys = generatedKeys;
         this.returnGeneratedKeys = returnGeneratedKeys;
-        this.client = new GrpcMockQueryClient(mockConfig);
+        this.client = client;
         this.sql = sql;
     }
 

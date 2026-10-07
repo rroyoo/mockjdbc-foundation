@@ -34,15 +34,23 @@ import java.util.Map;
  * so no bytecode is generated after the first call per statement type — eliminating the
  * per-instance ByteBuddy class-generation cost.
  */
-public final class StatementFactory {
+public final class StatementFactory implements AutoCloseable {
 
     private final MockConfig mockConfig;
+    private final GrpcMockQueryClient client;
 
     public StatementFactory(MockConfig mockConfig) {
         if (mockConfig == null) {
             throw new IllegalArgumentException("MockConfig cannot be null");
         }
         this.mockConfig = mockConfig;
+        this.client = new GrpcMockQueryClient(mockConfig);
+    }
+
+    /** Releases the transport resources shared by every statement created by this factory. */
+    @Override
+    public void close() {
+        client.close();
     }
 
     // ── Public creation API ────────────────────────────────────────────────
@@ -72,7 +80,7 @@ public final class StatementFactory {
             var executionState = new StatementExecutionStateHandler();
             var generatedKeys  = new GeneratedKeysHandler();
             var misc           = new StatementMiscHandler(mockConfig, lifecycle);
-            var query          = new StatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys);
+            var query          = new StatementQueryHandler(client, lifecycle, executionState, generatedKeys);
 
             return (Statement) Proxy.newProxyInstance(
                     StatementFactory.class.getClassLoader(),
@@ -92,7 +100,7 @@ public final class StatementFactory {
             var executionState = new StatementExecutionStateHandler();
             var generatedKeys  = new GeneratedKeysHandler();
             var misc           = new StatementMiscHandler(mockConfig, lifecycle);
-            var prepared       = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys, returnGeneratedKeys, sql);
+            var prepared       = new PreparedStatementQueryHandler(client, lifecycle, executionState, generatedKeys, returnGeneratedKeys, sql);
 
             return (PreparedStatement) Proxy.newProxyInstance(
                     StatementFactory.class.getClassLoader(),
@@ -112,7 +120,7 @@ public final class StatementFactory {
             var executionState = new StatementExecutionStateHandler();
             var generatedKeys  = new GeneratedKeysHandler();
             var misc           = new StatementMiscHandler(mockConfig, lifecycle);
-            var callable       = new PreparedStatementQueryHandler(mockConfig, lifecycle, executionState, generatedKeys, false, sql);
+            var callable       = new PreparedStatementQueryHandler(client, lifecycle, executionState, generatedKeys, false, sql);
             var outParams      = new CallableStatementOutParamHandler(lifecycle);
 
             return (CallableStatement) Proxy.newProxyInstance(
