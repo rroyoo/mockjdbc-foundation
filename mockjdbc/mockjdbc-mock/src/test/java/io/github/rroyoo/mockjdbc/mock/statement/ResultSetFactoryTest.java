@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -111,8 +112,8 @@ class ResultSetFactoryTest {
 		var zoned = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
 		var protoTimestamp = Timestamp.newBuilder().setSeconds(instant.getEpochSecond()).setNanos(instant.getNano()).build();
 		return Stream.of(
-				Arguments.of(Types.TINYINT, longValue(7), Byte.class, (byte) 7),
-				Arguments.of(Types.SMALLINT, longValue(300), Short.class, (short) 300),
+				Arguments.of(Types.TINYINT, longValue(7), Integer.class, 7),
+				Arguments.of(Types.SMALLINT, longValue(300), Integer.class, 300),
 				Arguments.of(Types.INTEGER, longValue(42), Integer.class, 42),
 				Arguments.of(Types.BIGINT, longValue(42), Long.class, 42L),
 				Arguments.of(Types.REAL, JdbcValue.newBuilder().setDoubleVal(1.5d).build(), Float.class, 1.5f),
@@ -168,6 +169,15 @@ class ResultSetFactoryTest {
 		var serialized = singleValue(Types.TINYINT, longValue(300));
 
 		assertThrows(SQLDataException.class, () -> ResultSetFactory.create(serialized));
+	}
+
+	@ParameterizedTest
+	@ValueSource(ints = {Types.TIME_WITH_TIMEZONE, Types.TIMESTAMP_WITH_TIMEZONE})
+	@DisplayName("Given a time zone aware column, when creating ResultSet, then SQLFeatureNotSupportedException is thrown")
+	void shouldRejectTimeZoneAwareColumns(int sqlType) {
+		var serialized = singleValue(sqlType, JdbcValue.newBuilder().setStringVal("2024-01-01T00:00:00+01:00").build());
+
+		assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> ResultSetFactory.create(serialized));
 	}
 
 	@Test

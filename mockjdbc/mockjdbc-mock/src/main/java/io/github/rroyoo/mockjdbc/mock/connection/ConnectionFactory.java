@@ -12,6 +12,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 
@@ -68,6 +69,7 @@ public final class ConnectionFactory {
 
         private static final Method UNWRAP = method(Connection.class, "unwrap", Class.class);
         private static final Method IS_WRAPPER_FOR = method(Connection.class, "isWrapperFor", Class.class);
+        private static final Set<String> LIFECYCLE_EXEMPT = Set.of("close", "isClosed", "isValid", "abort");
         private static final Method GET_META_DATA = method(Connection.class, "getMetaData");
 
         private final Map<Method, MethodInvoker> dispatch;
@@ -122,6 +124,9 @@ public final class ConnectionFactory {
 
             var invoker = dispatch.get(method);
             if (invoker != null) {
+                if (!LIFECYCLE_EXEMPT.contains(name)) {
+                    lifecycle.ensureOpen();
+                }
                 return invoker.invoke(args);
             }
 

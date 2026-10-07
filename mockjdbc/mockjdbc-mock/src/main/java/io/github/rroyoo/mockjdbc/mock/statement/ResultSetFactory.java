@@ -11,6 +11,7 @@ import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -104,10 +105,14 @@ final class ResultSetFactory {
         if (value == null || isNull(value)) {
             return null;
         }
+        if (sqlType == Types.TIME_WITH_TIMEZONE || sqlType == Types.TIMESTAMP_WITH_TIMEZONE) {
+            throw new SQLFeatureNotSupportedException("Column " + columnIndex + " uses SQL type " + sqlType
+                    + ", whose time zone offset is not transported by MockJDBC");
+        }
         try {
             return switch (sqlType) {
-                case Types.TINYINT -> (byte) inRange(exactLong(value), Byte.MIN_VALUE, Byte.MAX_VALUE);
-                case Types.SMALLINT -> (short) inRange(exactLong(value), Short.MIN_VALUE, Short.MAX_VALUE);
+                case Types.TINYINT -> (int) inRange(exactLong(value), Byte.MIN_VALUE, Byte.MAX_VALUE);
+                case Types.SMALLINT -> (int) inRange(exactLong(value), Short.MIN_VALUE, Short.MAX_VALUE);
                 case Types.INTEGER -> (int) inRange(exactLong(value), Integer.MIN_VALUE, Integer.MAX_VALUE);
                 case Types.BIGINT -> exactLong(value);
                 case Types.REAL -> (float) toDouble(value);
@@ -115,8 +120,8 @@ final class ResultSetFactory {
                 case Types.NUMERIC, Types.DECIMAL -> toBigDecimal(value);
                 case Types.BOOLEAN, Types.BIT -> toBoolean(value);
                 case Types.DATE -> toDate(value);
-                case Types.TIME, Types.TIME_WITH_TIMEZONE -> toTime(value);
-                case Types.TIMESTAMP, Types.TIMESTAMP_WITH_TIMEZONE -> toTimestamp(value);
+                case Types.TIME -> toTime(value);
+                case Types.TIMESTAMP -> toTimestamp(value);
                 default -> convertByKind(value);
             };
         } catch (RuntimeException e) {

@@ -66,6 +66,18 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
+    @DisplayName("Given an aborted connection, when state-dependent methods are called, then SQLException is thrown")
+    void shouldRejectStateDependentMethodsAfterAbort() throws Exception {
+        var connection = ConnectionFactory.create(mockConfig());
+        connection.abort(Runnable::run);
+
+        assertThrows(SQLException.class, connection::createStatement);
+        assertThrows(SQLException.class, () -> connection.prepareStatement("select 1"));
+        assertThrows(SQLException.class, connection::getAutoCommit);
+        assertThrows(SQLException.class, connection::commit);
+    }
+
+    @Test
     @DisplayName("Given a null executor, when abort is called, then it throws SQLException and stays open")
     void shouldRejectAbortWithoutExecutor() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
@@ -215,9 +227,11 @@ class ConnectionJdbcSurfaceTest {
         assertArrayEquals(new Object[]{1, 2, 3}, (Object[]) array.getArray());
         assertArrayEquals(new Object[]{2, 3}, (Object[]) array.getArray(2, 2));
         assertThrows(SQLException.class, () -> array.getArray(3, 5));
+        assertThrows(SQLException.class, () -> array.getArray(Long.MAX_VALUE, 2));
         assertThrows(SQLFeatureNotSupportedException.class, array::getResultSet);
         array.free();
         assertThrows(SQLException.class, array::getArray);
+        assertThrows(SQLException.class, array::getResultSet);
     }
 
     @Test

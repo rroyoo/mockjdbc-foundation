@@ -113,7 +113,7 @@ Source of truth:
 ## 7. Result-set materialization (replay side)
 
 `ResultSetFactory` converts the gRPC payload to a `CachedRowSet`:
-- Values are coerced to the declared `sqlType` (`TINYINT`/`SMALLINT`/`INTEGER`/`BIGINT`, `REAL`/`FLOAT`/`DOUBLE`, `NUMERIC`/`DECIMAL`, `BOOLEAN`/`BIT`, `DATE`, `TIME`, `TIMESTAMP`); other types keep the wire kind (string, bytes, ...).
+- Values are coerced to the declared `sqlType` (`TINYINT`/`SMALLINT`/`INTEGER`/`BIGINT`, `REAL`/`FLOAT`/`DOUBLE`, `NUMERIC`/`DECIMAL`, `BOOLEAN`/`BIT`, `DATE`, `TIME`, `TIMESTAMP`); `TINYINT`/`SMALLINT` are returned as `Integer` per the JDBC `getObject` mapping; `TIME_WITH_TIMEZONE`/`TIMESTAMP_WITH_TIMEZONE` are rejected with `SQLFeatureNotSupportedException` because the offset is not transported; other types keep the wire kind (string, bytes, ...).
 - Dates and times accept ISO text (`2026-03-17`, `10:15:30`), JDBC timestamp text (`2026-03-17 10:15:30.0`) or protobuf timestamps.
 - Out-of-range or unparsable values raise `SQLDataException`; nulls are preserved and reported through `wasNull`.
 - Rows shorter than the metadata are padded with nulls; rows longer than the metadata raise `SQLException`.

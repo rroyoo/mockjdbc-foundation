@@ -60,7 +60,7 @@ final class MockArray implements Array {
     @Override
     public Object getArray(long index, int count) throws SQLException {
         ensureValid();
-        if (index < 1 || count < 0 || index - 1 + count > elements.length) {
+        if (index < 1 || count < 0 || index > elements.length || count > elements.length - (index - 1)) {
             throw new SQLException("Invalid array slice: index=" + index + ", count=" + count);
         }
         return Arrays.copyOfRange(elements, (int) index - 1, (int) index - 1 + count);
@@ -73,6 +73,7 @@ final class MockArray implements Array {
 
     @Override
     public ResultSet getResultSet() throws SQLException {
+        ensureValid();
         throw new SQLFeatureNotSupportedException("Array.getResultSet is not supported by MockJDBC");
     }
 

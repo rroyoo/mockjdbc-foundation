@@ -53,7 +53,7 @@ During the repository review, the following verified gaps were detected:
 - That wiring works locally after building the sibling project, but it is fragile for repeatable CI and onboarding.
 
 ### JDBC implementation coverage
-- `ConnectionFactory` covers important stateful areas, but `Connection` is still partial. Missing or not yet wired areas include `nativeSQL`, metadata/type-map methods, LOB factory methods, `isValid`, `abort`, wrapper methods, and modern request/sharding methods.
+- `ConnectionFactory` now wires lifecycle (`isValid`, `abort`), `nativeSQL`, metadata/type-map, LOB/array/struct factories and wrapper methods. `createSQLXML` and the request/sharding methods intentionally throw `SQLFeatureNotSupportedException`.
 - `StatementFactory` is much more complete, but it still does not fully cover the entire JDBC contract. Notable gaps include wrapper methods and some newer convenience methods.
 - Some statement overloads accept `resultSetType`, `resultSetConcurrency`, and `resultSetHoldability`, but current implementation does not clearly enforce those values end-to-end.
 
