@@ -23,7 +23,7 @@ Source of truth:
 
 | Interface | Status | Primary Evidence | Notes |
 |---|---|---|---|
-| `Connection` | `partial` | `ConnectionFactory`, `ConnectionFactoryTest` | Lifecycle/config/client-info/warnings/statement creation are covered; major JDBC gaps remain |
+| `Connection` | `partial` | `ConnectionFactory`, `ConnectionFactoryTest`, `ConnectionJdbcSurfaceTest` | Lifecycle/config/client-info/warnings/statement creation, validity, wrappers, metadata, type map and LOB/array/struct factories are covered; request/sharding and `createSQLXML` are explicitly unsupported |
 | `Statement` | `partial` | `StatementFactory`, `StatementFactoryTest` | Broad execution/batch/config coverage; wrappers and newer methods still pending |
 | `PreparedStatement` | `partial` | `StatementFactory` prepared interceptors, `StatementFactoryTest` | Many bind/execute methods covered; full contract matrix still pending |
 | `CallableStatement` | `partial` | `StatementFactory` callable interceptors, `StatementFactoryTest` | Core OUT param behavior present; full callable surface still pending |
@@ -33,24 +33,27 @@ Source of truth:
 ### 4.1 Connection
 
 **Implemented groups**
-- Lifecycle: `close`, `isClosed`
+- Lifecycle: `close`, `isClosed`, `isValid`, `abort`
 - Transaction basics: `setAutoCommit`, `getAutoCommit`, `commit`, `rollback`
 - Savepoint basic hooks: `setSavepoint`, `releaseSavepoint`, `rollback(savepoint)`
 - Config/state: read-only, isolation, holdability, catalog, schema, network timeout
 - Warnings and client info
+- `nativeSQL` (identity; `null` is rejected with `SQLException`)
+- Type map: `getTypeMap`, `setTypeMap` (per-connection state, defensive copies)
+- Wrapper methods: `unwrap`, `isWrapperFor` (the connection proxy itself)
+- `getMetaData`: product, driver, JDBC version, URL and `getConnection`; every catalog query throws `SQLFeatureNotSupportedException`
+- LOB factories: `createBlob`, `createClob`, `createNClob` (in-memory, writable)
+- `createArrayOf`, `createStruct` (in-memory values; `Array.getResultSet` is unsupported)
 - Statement creation delegation: `createStatement`, `prepareStatement`, `prepareCall` overloads
+- Operations that need an open connection (`getMetaData`, type map, `nativeSQL`, LOB/array/struct factories) throw `SQLException` after `close`
 
 **Partial groups**
 - Savepoint semantics are intentionally simplified
 
-**Open groups**
-- `nativeSQL`
-- Metadata/type map: `getMetaData`, `getTypeMap`, `setTypeMap`
-- LOB factories: `createBlob`, `createClob`, `createNClob`, `createSQLXML`
-- `createArrayOf`, `createStruct`
-- `isValid`, `abort`
-- Wrapper methods: `unwrap`, `isWrapperFor`
-- Request/sharding methods
+**Explicitly unsupported (throw `SQLFeatureNotSupportedException`)**
+- `createSQLXML`
+- Request and sharding methods: `beginRequest`, `endRequest`, `setShardingKey`, `setShardingKeyIfValid`
+- Any other `Connection` method that is not wired
 
 ### 4.2 Statement
 
@@ -104,4 +107,14 @@ Source of truth:
 ## 6. Change Log
 
 - 2026-03-21: Baseline created from current factory wiring and test surface.
+- 2026-10-07: Closed the `Connection` gaps (validity/abort, wrappers, metadata, type map, LOB/array/struct factories); documented request/sharding and `createSQLXML` as unsupported. `ResultSetFactory` now coerces values to the declared SQL type. The `java.sql.Driver` service descriptor moved to `META-INF/services` and `MockDriver` self-registers, so `DriverManager` discovers it.
 
+
+## 7. Result-set materialization (replay side)
+
+`ResultSetFactory` converts the gRPC payload to a `CachedRowSet`:
+- Values are coerced to the declared `sqlType` (`TINYINT`/`SMALLINT`/`INTEGER`/`BIGINT`, `REAL`/`FLOAT`/`DOUBLE`, `NUMERIC`/`DECIMAL`, `BOOLEAN`/`BIT`, `DATE`, `TIME`, `TIMESTAMP`); other types keep the wire kind (string, bytes, ...).
+- Dates and times accept ISO text (`2026-03-17`, `10:15:30`), JDBC timestamp text (`2026-03-17 10:15:30.0`) or protobuf timestamps.
+- Out-of-range or unparsable values raise `SQLDataException`; nulls are preserved and reported through `wasNull`.
+- Rows shorter than the metadata are padded with nulls; rows longer than the metadata raise `SQLException`.
+- Column metadata keeps name, label, type, type name and signedness. Precision, scale, nullability and table/schema/catalog names are not part of the `ColumnMetadata` contract, so nullability is reported as unknown.

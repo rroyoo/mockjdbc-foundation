@@ -60,10 +60,10 @@ A feature is only considered `implemented` when:
 ## Acceptance checklist
 
 - [ ] Keep `docs/jdbc-supported-surface.md` aligned with implementation.
-- [ ] Complete `Connection` high-priority gaps (`nativeSQL`, metadata/type-map, wrappers, validity/abort).
+- [x] Complete `Connection` high-priority gaps (`nativeSQL`, metadata/type-map, wrappers, validity/abort).
 - [ ] Close statement-family wrapper and modern convenience method gaps.
-- [ ] Expand result-set type fidelity with dedicated tests.
-- [ ] Add integration test for `DriverManager` + SPI discovery path.
+- [x] Expand result-set type fidelity with dedicated tests.
+- [x] Add integration test for `DriverManager` + SPI discovery path.
 - [ ] Ensure exception behavior is consistent with `sql-exception-policy` skill.
 
 ## Consequences

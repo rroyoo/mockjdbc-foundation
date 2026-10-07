@@ -144,13 +144,13 @@ Assessment notes:
 
 ### E. JDBC coverage backlog
 #### Connection
-- [ ] Implement and test `nativeSQL`.
-- [ ] Implement and test metadata/type-map behavior (`getMetaData`, `getTypeMap`, `setTypeMap`).
-- [ ] Implement and test LOB factory methods (`createBlob`, `createClob`, `createNClob`, `createSQLXML`).
-- [ ] Implement and test `createArrayOf` and `createStruct`.
-- [ ] Implement and test `isValid` and `abort`.
-- [ ] Implement and test `unwrap` and `isWrapperFor`.
-- [ ] Implement and test request/sharding methods or explicitly document them as unsupported.
+- [x] Implement and test `nativeSQL`.
+- [x] Implement and test metadata/type-map behavior (`getMetaData`, `getTypeMap`, `setTypeMap`).
+- [x] Implement and test LOB factory methods (`createBlob`, `createClob`, `createNClob`; `createSQLXML` is explicitly unsupported).
+- [x] Implement and test `createArrayOf` and `createStruct`.
+- [x] Implement and test `isValid` and `abort`.
+- [x] Implement and test `unwrap` and `isWrapperFor`.
+- [x] Implement and test request/sharding methods or explicitly document them as unsupported.
 
 #### Statement family
 - [ ] Audit and complete remaining wrapper and modern convenience methods.
@@ -158,11 +158,11 @@ Assessment notes:
 - [ ] Add targeted tests for any remaining partial or unimplemented methods.
 
 ### F. Result-set fidelity
-- [ ] Expand `ResultSetFactory` type support beyond the current subset where needed.
-- [ ] Add dedicated tests for result-set materialization and metadata fidelity.
+- [x] Expand `ResultSetFactory` type support beyond the current subset where needed.
+- [x] Add dedicated tests for result-set materialization and metadata fidelity.
 
 ### G. Test and release posture
-- [ ] Add an integration test that validates `DriverManager` + SPI discovery end-to-end.
+- [x] Add an integration test that validates `DriverManager` + SPI discovery end-to-end.
 - [ ] Keep `mockjdbc` and `mockjdbc-spring-users` tests green after each milestone.
 - [x] Introduce automated verification for both the reactor build and the standalone sample.
 
