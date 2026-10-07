@@ -306,11 +306,11 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when nativeSQL is called with null, then it returns null")
-    void shouldReturnNullWhenNativeSqlIsCalledWithNull() throws Exception {
+    @DisplayName("Given a connection, when nativeSQL is called with null, then it throws SQLException")
+    void shouldRejectNullWhenNativeSqlIsCalled() {
         var connection = ConnectionFactory.create(mockConfig());
 
-        assertNull(connection.nativeSQL(null));
+        assertThrows(java.sql.SQLException.class, () -> connection.nativeSQL(null));
     }
 
     @Test
@@ -342,12 +342,13 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given an unregistered object-creating method, when createBlob is called, then it throws SQLFeatureNotSupportedException")
-    void shouldThrowFeatureNotSupportedForUnregisteredFactoryMethod() {
+    @DisplayName("Given request and sharding methods, when they are called, then they throw SQLFeatureNotSupportedException")
+    void shouldRejectRequestAndShardingMethodsExplicitly() {
         var connection = ConnectionFactory.create(mockConfig());
 
-        assertThrows(java.sql.SQLFeatureNotSupportedException.class, connection::createBlob);
-        assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> connection.isValid(1));
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, connection::endRequest);
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> connection.setShardingKey(null));
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> connection.setShardingKeyIfValid(null, 1));
     }
 
     @Test
