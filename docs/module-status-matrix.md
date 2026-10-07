@@ -15,7 +15,7 @@ Status labels:
 
 | Module/Project | Status | Evidence | Next milestone |
 |---|---|---|---|
-| `mockjdbc/mockjdbc-mock` | `partial` | Factories and handlers implemented with tests in `mockjdbc-mock/src/test/java` | Close remaining JDBC interface gaps (`Connection` + wrapper methods) |
+| `mockjdbc/mockjdbc-mock` | `partial` | Factories and handlers implemented with tests in `mockjdbc-mock/src/test/java` | Close statement-family wrapper and modern convenience method gaps (`Connection` gaps are closed) |
 | `mockjdbc/mockjdbc-proto` | `active` | Protobuf schemas and generated stubs in `mockjdbc-proto` | Keep contract stable and versioned with mock/proxy/wiremock module needs |
 | `mockjdbc/mockjdbc-proxy` | `partial`, `active` | Production classes and tests under `mockjdbc-proxy/src/main/java` and `mockjdbc-proxy/src/test/java` | Complete Docker-backed Kafka integration validation in CI and finalize ADR-0002 checklist |
 | `mockjdbc/mockjdbc-wiremock` | `partial`, `active` | Bridge classes + tests in `mockjdbc-wiremock/src/main/java` and `mockjdbc-wiremock/src/test/java` | Validate Testcontainers integration in Docker-capable environment and finalize ADR-0004 checklist |

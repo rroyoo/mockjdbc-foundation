@@ -12,6 +12,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Savepoint;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 
@@ -37,11 +38,19 @@ public final class ConnectionFactory {
             var warnings    = new WarningsHandler();
             var clientInfo  = new ClientInfoHandler();
             var statements  = new StatementFactory(mockConfig);
+            var typeMap     = new TypeMapHandler();
+            var nativeSql   = new NativeSqlHandler();
+            var lobs        = new LargeObjectHandler();
+            var structured  = new StructuredTypeHandler();
+            var metaData    = new ConnectionMetaDataHandler(mockConfig);
 
+            var handler = new ConnectionInvocationHandler(
+                    lifecycle, transaction, config, warnings, clientInfo, statements,
+                    typeMap, nativeSql, lobs, structured, metaData);
             return (Connection) Proxy.newProxyInstance(
                     ConnectionFactory.class.getClassLoader(),
                     new Class<?>[]{ Connection.class },
-                    new ConnectionInvocationHandler(lifecycle, transaction, config, warnings, clientInfo, statements)
+                    handler
             );
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -55,9 +64,18 @@ public final class ConnectionFactory {
         Object invoke(Object[] args) throws Exception;
     }
 
+    @SuppressWarnings("unchecked")
     private static final class ConnectionInvocationHandler implements InvocationHandler {
 
+        private static final Method UNWRAP = method(Connection.class, "unwrap", Class.class);
+        private static final Method IS_WRAPPER_FOR = method(Connection.class, "isWrapperFor", Class.class);
+        private static final Set<String> LIFECYCLE_EXEMPT = Set.of("close", "isClosed", "isValid", "abort");
+        private static final Method GET_META_DATA = method(Connection.class, "getMetaData");
+
         private final Map<Method, MethodInvoker> dispatch;
+        private final LifecycleHandler lifecycle;
+        private final ConnectionMetaDataHandler metaDataHandler;
+        private volatile DatabaseMetaData metaData;
 
         ConnectionInvocationHandler(
                 LifecycleHandler lifecycle,
@@ -65,8 +83,24 @@ public final class ConnectionFactory {
                 ConfigHandler config,
                 WarningsHandler warnings,
                 ClientInfoHandler clientInfo,
-                StatementFactory statements) throws NoSuchMethodException {
-            this.dispatch = buildDispatch(lifecycle, transaction, config, warnings, clientInfo, statements);
+                StatementFactory statements,
+                TypeMapHandler typeMap,
+                NativeSqlHandler nativeSql,
+                LargeObjectHandler lobs,
+                StructuredTypeHandler structured,
+                ConnectionMetaDataHandler metaDataHandler) throws NoSuchMethodException {
+            this.lifecycle = lifecycle;
+            this.metaDataHandler = metaDataHandler;
+            this.dispatch = buildDispatch(lifecycle, transaction, config, warnings, clientInfo, statements,
+                    typeMap, nativeSql, lobs, structured);
+        }
+
+        private static Method method(Class<?> type, String name, Class<?>... parameterTypes) {
+            try {
+                return type.getMethod(name, parameterTypes);
+            } catch (NoSuchMethodException e) {
+                throw new ExceptionInInitializerError(e);
+            }
         }
 
         @Override
@@ -76,8 +110,23 @@ public final class ConnectionFactory {
             if ("hashCode".equals(name)) return System.identityHashCode(proxy);
             if ("toString".equals(name)) return "MockConnection";
 
+            if (method.equals(UNWRAP) || method.equals(IS_WRAPPER_FOR)) {
+                var wrapper = new WrapperHandler(proxy);
+                return method.equals(UNWRAP) ? wrapper.unwrap((Class<?>) args[0]) : wrapper.isWrapperFor((Class<?>) args[0]);
+            }
+            if (method.equals(GET_META_DATA)) {
+                lifecycle.ensureOpen();
+                if (metaData == null) {
+                    metaData = metaDataHandler.create((Connection) proxy);
+                }
+                return metaData;
+            }
+
             var invoker = dispatch.get(method);
             if (invoker != null) {
+                if (!LIFECYCLE_EXEMPT.contains(name)) {
+                    lifecycle.ensureOpen();
+                }
                 return invoker.invoke(args);
             }
 
@@ -91,7 +140,11 @@ public final class ConnectionFactory {
                 ConfigHandler config,
                 WarningsHandler warnings,
                 ClientInfoHandler clientInfo,
-                StatementFactory statements) throws NoSuchMethodException {
+                StatementFactory statements,
+                TypeMapHandler typeMap,
+                NativeSqlHandler nativeSql,
+                LargeObjectHandler lobs,
+                StructuredTypeHandler structured) throws NoSuchMethodException {
 
             var d = new HashMap<Method, MethodInvoker>();
             var c = Connection.class;
@@ -99,6 +152,17 @@ public final class ConnectionFactory {
             // ── lifecycle ────────────────────────────────────────────────────
             d.put(c.getMethod("close"),    args -> { lifecycle.close(); statements.close(); return null; });
             d.put(c.getMethod("isClosed"), args -> lifecycle.isClosed());
+            d.put(c.getMethod("isValid", int.class), args -> lifecycle.isValid((int) args[0]));
+            d.put(c.getMethod("abort", Executor.class), args -> {
+                lifecycle.abort((Executor) args[0], () -> {
+                    try {
+                        statements.close();
+                    } catch (RuntimeException ignored) {
+                        // the connection is already marked closed; releasing resources is best effort
+                    }
+                });
+                return null;
+            });
 
             // ── transaction ──────────────────────────────────────────────────
             d.put(c.getMethod("commit"),                        args -> null);  // no-op
@@ -137,7 +201,7 @@ public final class ConnectionFactory {
             d.put(c.getMethod("getClientInfo", String.class),               args -> clientInfo.getClientInfo((String) args[0]));
 
             // ── native SQL ───────────────────────────────────────────────────
-            d.put(c.getMethod("nativeSQL", String.class), args -> (String) args[0]);
+            d.put(c.getMethod("nativeSQL", String.class), args -> { lifecycle.ensureOpen(); return nativeSql.nativeSQL((String) args[0]); });
 
             // ── statement factory ────────────────────────────────────────────
             d.put(c.getMethod("createStatement"),                                            args -> statements.createStatement());
@@ -153,12 +217,17 @@ public final class ConnectionFactory {
             d.put(c.getMethod("prepareCall", String.class, int.class, int.class),           args -> statements.prepareCall((String) args[0], (int) args[1], (int) args[2]));
             d.put(c.getMethod("prepareCall", String.class, int.class, int.class, int.class), args -> statements.prepareCall((String) args[0], (int) args[1], (int) args[2], (int) args[3]));
 
-            // ── misc ─────────────────────────────────────────────────────────
-            d.put(c.getMethod("getMetaData"),                       args -> (DatabaseMetaData) null);
-            d.put(c.getMethod("getTypeMap"),                        args -> Map.of());
-            d.put(c.getMethod("setTypeMap", Map.class),             args -> null);
-            d.put(c.getMethod("isWrapperFor", Class.class),         args -> false);
-            d.put(c.getMethod("unwrap", Class.class),               args -> { throw new java.sql.SQLException("Not a wrapper for " + args[0]); });
+            // ── type map ─────────────────────────────────────────────────────
+            d.put(c.getMethod("getTypeMap"),            args -> { lifecycle.ensureOpen(); return typeMap.getTypeMap(); });
+            d.put(c.getMethod("setTypeMap", Map.class), args -> { lifecycle.ensureOpen(); typeMap.setTypeMap((Map<String, Class<?>>) args[0]); return null; });
+
+            // ── LOB, array and struct factories ──────────────────────────────
+            d.put(c.getMethod("createBlob"),    args -> { lifecycle.ensureOpen(); return lobs.createBlob(); });
+            d.put(c.getMethod("createClob"),    args -> { lifecycle.ensureOpen(); return lobs.createClob(); });
+            d.put(c.getMethod("createNClob"),   args -> { lifecycle.ensureOpen(); return lobs.createNClob(); });
+            d.put(c.getMethod("createSQLXML"),  args -> { lifecycle.ensureOpen(); return lobs.createSQLXML(); });
+            d.put(c.getMethod("createArrayOf", String.class, Object[].class), args -> { lifecycle.ensureOpen(); return structured.createArrayOf((String) args[0], (Object[]) args[1]); });
+            d.put(c.getMethod("createStruct", String.class, Object[].class),  args -> { lifecycle.ensureOpen(); return structured.createStruct((String) args[0], (Object[]) args[1]); });
 
             return d;
         }
