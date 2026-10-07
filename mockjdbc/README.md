@@ -15,16 +15,17 @@ MockJDBC is a multi-module Maven project that implements a JDBC-compliant mock d
 ## Modules
 
 ### `mockjdbc-proxy`
-**Status: placeholder module (packaging + dependencies present, implementation pending)**
+**Status: partial/active Java-agent capture module**
 
-The module is included in the reactor and declares `datasource-proxy`, but there is currently no production source tree under `mockjdbc-proxy/src/main/java`.
+The module is included in the reactor and instruments JDBC `DataSource` implementations with a Java agent. Registered data sources return capturing connection proxies that publish SQL and ResultSet events.
 
-- Current state: dependency scaffold only
-- Intended scope: DataSource interception and event publishing utilities
-- Recommendation: treat as experimental/incomplete until concrete classes are added
+- Current state: agent, JDBC wrappers, ResultSet capture, and Kafka event publishing are implemented
+- Intended scope: transparent SQL and ResultSet capture without DataSource wrapping
+- Limitation: applications must start with `-javaagent` or install the agent programmatically
 
 **Dependencies:**
-- `datasource-proxy` 1.11.0 - Third-party DataSource interception library
+- ByteBuddy - agent instrumentation and advice
+- Kafka clients - event publishing
 
 ### `mockjdbc-proto`
 **gRPC service contracts and Protobuf definitions**
@@ -99,7 +100,6 @@ Implements the JDBC `Driver` and dynamically generates `Connection`/statement-fa
 | `java.version` | `17` | Java compilation target |
 | `maven.version.grpc` | `1.79.0` | gRPC BOM version |
 | `maven.version.protobuf` | `4.34.0` | Protobuf compiler/library |
-| `maven.version.datasource-proxy` | `1.11.0` | Query interception library |
 | `maven.version.mockito` | `5.12.0` | Mocking framework (tests) |
 | `maven.version.test.junit-jupiter` | `5.11.3` | JUnit 5 (tests) |
 
@@ -270,4 +270,3 @@ All properties are parsed into `MockConfig` and used by `ConnectionFactory` / `G
 - **Stewardship ADR**: [`docs/adr/ADR-0001-project-stewardship-and-gap-closure.md`](../docs/adr/ADR-0001-project-stewardship-and-gap-closure.md)
 - **Sample app**: [`mockjdbc-spring-users/README.md`](../mockjdbc-spring-users/README.md)
 - **Skills**: Architectural rules in `.github/skills/`
-

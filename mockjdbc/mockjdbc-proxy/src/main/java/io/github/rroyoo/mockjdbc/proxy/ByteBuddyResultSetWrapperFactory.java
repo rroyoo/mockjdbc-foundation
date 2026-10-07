@@ -6,7 +6,6 @@ import io.github.rroyoo.mockjdbc.mock.Row;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
-import net.ttddyy.dsproxy.proxy.ResultSetProxyLogic;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -29,6 +28,10 @@ final class ByteBuddyResultSetWrapperFactory {
         return rowBatchSize;
     }
 
+    /**
+     * Wraps the given ResultSet in a JDK proxy that captures rows during iteration and emits a
+     * {@link SerializedResultSet} to {@code onConsumed} when the ResultSet is exhausted or closed.
+     */
     ResultSet wrap(ResultSet delegate, Consumer<SerializedResultSet> onConsumed) throws SQLException {
         try {
             return (ResultSet) java.lang.reflect.Proxy.newProxyInstance(
@@ -41,12 +44,7 @@ final class ByteBuddyResultSetWrapperFactory {
         }
     }
 
-    /** Creates a ResultSetProxyLogic (for use with datasource-proxy) that captures rows during normal iteration. */
-    static ResultSetProxyLogic capturingLogic(ResultSet delegate, Consumer<SerializedResultSet> onConsumed, int rowBatchSize) {
-        return new ConsumptionTrackingInvocationHandler(delegate, onConsumed, rowBatchSize);
-    }
-
-    private static final class ConsumptionTrackingInvocationHandler implements InvocationHandler, ResultSetProxyLogic {
+    private static final class ConsumptionTrackingInvocationHandler implements InvocationHandler {
 
         private final ResultSet delegate;
         private final Consumer<SerializedResultSet> onConsumed;
@@ -76,7 +74,7 @@ final class ByteBuddyResultSetWrapperFactory {
                 return System.identityHashCode(proxy);
             }
             if ("toString".equals(methodName)) {
-                return "ByteBuddyResultSetWrapper{" + delegate + "}";
+                return "CapturingResultSet{" + delegate + "}";
             }
 
             try {
@@ -224,4 +222,3 @@ final class ByteBuddyResultSetWrapperFactory {
         return builder.build();
     }
 }
-

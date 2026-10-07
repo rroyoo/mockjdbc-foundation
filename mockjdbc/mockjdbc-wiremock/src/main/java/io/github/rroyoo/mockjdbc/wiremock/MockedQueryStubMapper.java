@@ -13,9 +13,11 @@ import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -30,11 +32,12 @@ final class MockedQueryStubMapper {
 
     private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
 
-    private final List<String> datasourceAllowlist;
+    private final Set<String> datasourceAllowlist;
     private final List<String> sqlDenyPrefixes;
 
     MockedQueryStubMapper(List<String> datasourceAllowlist, List<String> sqlDenyPrefixes) {
-        this.datasourceAllowlist = datasourceAllowlist == null ? List.of() : List.copyOf(datasourceAllowlist);
+        // HashSet for O(1) allowlist lookup instead of O(n) stream scan.
+        this.datasourceAllowlist = datasourceAllowlist == null ? Set.of() : new HashSet<>(datasourceAllowlist);
         this.sqlDenyPrefixes = sqlDenyPrefixes == null ? List.of() : List.copyOf(sqlDenyPrefixes);
     }
 
@@ -256,7 +259,7 @@ final class MockedQueryStubMapper {
         if (datasourceAllowlist.isEmpty()) {
             return true;
         }
-        return datasourceAllowlist.stream().anyMatch(id -> id.equals(datasourceId));
+        return datasourceAllowlist.contains(datasourceId);
     }
 
     private boolean denied(String normalizedSql) {

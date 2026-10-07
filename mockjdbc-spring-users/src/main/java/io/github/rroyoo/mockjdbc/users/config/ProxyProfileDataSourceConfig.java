@@ -1,7 +1,8 @@
 package io.github.rroyoo.mockjdbc.users.config;
 
 import io.github.rroyoo.mockjdbc.proxy.AsyncDispatchConfig;
-import io.github.rroyoo.mockjdbc.proxy.JdbcProxyDataSourceFactory;
+import io.github.rroyoo.mockjdbc.proxy.JdbcAgentRegistry;
+import io.github.rroyoo.mockjdbc.proxy.JdbcCaptureRegistration;
 import io.github.rroyoo.mockjdbc.proxy.KafkaMockedQueryEventProducer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -46,7 +47,7 @@ public class ProxyProfileDataSourceConfig {
                 KafkaMockedQueryEventProducer.datasourceKeyResolver()
         );
 
-        var binding = JdbcProxyDataSourceFactory.wrap(
+        var registration = JdbcAgentRegistry.register(
                 targetDataSource,
                 datasourceId,
                 event -> {
@@ -61,7 +62,7 @@ public class ProxyProfileDataSourceConfig {
                 AsyncDispatchConfig.defaults()
         );
 
-        return new ProxyDataSourceLifecycle(binding, producer);
+        return new ProxyDataSourceLifecycle(targetDataSource, registration, producer);
     }
 
     @Bean
@@ -71,27 +72,30 @@ public class ProxyProfileDataSourceConfig {
     }
 
     static final class ProxyDataSourceLifecycle implements AutoCloseable {
-        private final JdbcProxyDataSourceFactory.ProxyBinding binding;
+        private final DataSource dataSource;
+        private final JdbcCaptureRegistration registration;
         private final KafkaMockedQueryEventProducer producer;
 
-        ProxyDataSourceLifecycle(JdbcProxyDataSourceFactory.ProxyBinding binding,
+        ProxyDataSourceLifecycle(DataSource dataSource,
+                                 JdbcCaptureRegistration registration,
                                  KafkaMockedQueryEventProducer producer) {
-            this.binding = binding;
+            this.dataSource = dataSource;
+            this.registration = registration;
             this.producer = producer;
         }
 
         DataSource dataSource() {
-            return binding.dataSource();
+            return dataSource;
         }
 
         @Override
         public void close() {
             try {
-                binding.close();
+                JdbcAgentRegistry.unregister(dataSource);
+                registration.close();
             } finally {
                 producer.close();
             }
         }
     }
 }
-

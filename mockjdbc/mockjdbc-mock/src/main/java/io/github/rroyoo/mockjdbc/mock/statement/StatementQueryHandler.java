@@ -20,10 +20,17 @@ final class StatementQueryHandler {
                           StatementLifecycleHandler lifecycle,
                           StatementExecutionStateHandler executionState,
                           GeneratedKeysHandler generatedKeys) {
+        this(new GrpcMockQueryClient(mockConfig), lifecycle, executionState, generatedKeys);
+    }
+
+    StatementQueryHandler(GrpcMockQueryClient client,
+                          StatementLifecycleHandler lifecycle,
+                          StatementExecutionStateHandler executionState,
+                          GeneratedKeysHandler generatedKeys) {
         this.lifecycle = lifecycle;
         this.executionState = executionState;
         this.generatedKeys = generatedKeys;
-        this.client = new GrpcMockQueryClient(mockConfig);
+        this.client = client;
     }
 
     public ResultSet executeQuery(String sql) throws SQLException {
