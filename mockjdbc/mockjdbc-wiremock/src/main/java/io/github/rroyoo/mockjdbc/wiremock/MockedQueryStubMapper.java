@@ -11,6 +11,7 @@ import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.ParameterMetaData;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HashSet;
@@ -57,7 +58,7 @@ final class MockedQueryStubMapper {
             return Optional.empty();
         }
 
-        var params = extractParameters(event);
+        var params = requestParameters(event);
 
         // WireMock-gRPC intercepts calls at the gRPC method path and converts the binary
         // protobuf request body to JSON before applying stub matchers.
@@ -82,7 +83,7 @@ final class MockedQueryStubMapper {
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
                     .withHeader("grpc-status-name", "OK")
-                    .withBody(buildSuccessJsonBody(event.getResultSet())));
+                    .withBody(buildSuccessJsonBody(event.getResultSet(), outParameters(event))));
         }
 
         // Key includes parameter values so each unique (sql + params) combination gets its own stub.
@@ -156,6 +157,31 @@ final class MockedQueryStubMapper {
         return sb.toString();
     }
 
+    /**
+     * Parameters the mock driver sends in the lookup request. For callable statements the driver only
+     * sends IN values, so OUT/INOUT entries (whose captured value is the OUT result) are not matched.
+     */
+    private static List<ParameterMetadata> requestParameters(MockedQuery event) {
+        return extractParameters(event).stream()
+                .filter(p -> !isOut(p))
+                .toList();
+    }
+
+    /** OUT/INOUT parameters captured for a callable statement, returned to the driver in the response. */
+    private static List<ParameterMetadata> outParameters(MockedQuery event) {
+        if (event.getStatementDefinitionCase() != MockedQuery.StatementDefinitionCase.CALLABLE_STATEMENT) {
+            return List.of();
+        }
+        return event.getCallableStatement().getParametersList().stream()
+                .filter(MockedQueryStubMapper::isOut)
+                .toList();
+    }
+
+    private static boolean isOut(ParameterMetadata parameter) {
+        return parameter.getMode() == ParameterMetaData.parameterModeOut
+                || parameter.getMode() == ParameterMetaData.parameterModeInOut;
+    }
+
     private static List<ParameterMetadata> extractParameters(MockedQuery event) {
         return switch (event.getStatementDefinitionCase()) {
             case PREPARED_STATEMENT -> event.getPreparedStatement().getParametersList();
@@ -171,6 +197,14 @@ final class MockedQueryStubMapper {
      * Follows the protobuf JSON encoding conventions (int64 as string, camelCase field names).
      */
     static String buildSuccessJsonBody(SerializedResultSet rs) {
+        return buildSuccessJsonBody(rs, List.of());
+    }
+
+    /**
+     * Same as {@link #buildSuccessJsonBody(SerializedResultSet)} and, when {@code outParameters} is not
+     * empty, adds {@code callableStatement.parameters} so the driver can expose OUT/INOUT values.
+     */
+    static String buildSuccessJsonBody(SerializedResultSet rs, List<ParameterMetadata> outParameters) {
         var sb = new StringBuilder("{\"resultSet\":{\"metadata\":[");
         for (int i = 0; i < rs.getMetadataCount(); i++) {
             if (i > 0) sb.append(',');
@@ -192,7 +226,22 @@ final class MockedQueryStubMapper {
             }
             sb.append("]}");
         }
-        sb.append("]}}");
+        sb.append("]}");
+        if (!outParameters.isEmpty()) {
+            sb.append(",\"callableStatement\":{\"parameters\":[");
+            for (int i = 0; i < outParameters.size(); i++) {
+                if (i > 0) sb.append(',');
+                var p = outParameters.get(i);
+                sb.append("{\"index\":").append(p.getIndex())
+                  .append(",\"sqlType\":").append(p.getSqlType())
+                  .append(",\"typeName\":").append(jsonString(p.getTypeName()))
+                  .append(",\"mode\":").append(p.getMode())
+                  .append(",\"value\":").append(jdbcValueJson(p.getValue()))
+                  .append('}');
+            }
+            sb.append("]}");
+        }
+        sb.append('}');
         return sb.toString();
     }
 

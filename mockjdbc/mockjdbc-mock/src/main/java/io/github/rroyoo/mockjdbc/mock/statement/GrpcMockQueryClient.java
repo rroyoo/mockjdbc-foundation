@@ -60,6 +60,10 @@ final class GrpcMockQueryClient implements AutoCloseable {
     }
 
     SerializedResultSet findResultSet(String sql, List<ParameterMetadata> parameters) throws SQLException {
+        return findMock(sql, parameters).getResultSet();
+    }
+
+    MockedQuery findMock(String sql, List<ParameterMetadata> parameters) throws SQLException {
         var activeChannel = acquireChannel();
         try {
             var request = QueryLookupRequest.newBuilder()
@@ -71,7 +75,7 @@ final class GrpcMockQueryClient implements AutoCloseable {
             if (response.hasError()) {
                 throw toSqlException(response.getError());
             }
-            return response.getResultSet();
+            return response;
         } catch (StatusRuntimeException e) {
             throw new SQLException("Failed to query mock server for SQL: " + sql, e);
         }
