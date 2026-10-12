@@ -38,6 +38,7 @@ class UserControllerMockJdbcProfileTest {
     @Container
     private static final ComposeContainer MOCK_BACKEND =
             new ComposeContainer(new File("docker-compose.yml"))
+                    .withLocalCompose(true)
                     .withExposedService("wiremock-grpc-1", WIREMOCK_PORT,
                             Wait.forHttp("/__admin").forStatusCode(200));
 
