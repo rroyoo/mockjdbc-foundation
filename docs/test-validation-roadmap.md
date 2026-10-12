@@ -29,11 +29,12 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 - [ ] `open` E2E test: proxy capture -> Kafka -> WireMock bridge -> WireMock gRPC -> mock driver, with the stub generated from the captured event instead of hand-written.
   - Exit criteria: a query executed against H2 through the proxy is replayed by the mock driver with identical rows and parameters, with no hand-written stub.
 
-### M2. Procedures beyond IN parameters
+### M2. Procedures beyond IN parameters (`done`)
 - [x] `done` OUT / INOUT parameters in record and mock. The wiremock mapper emits `callableStatement.parameters` (OUT/INOUT) in the stub response; the mock exposes them via index-based `getXxx(int)`.
   - Limits: name-based OUT getters still return defaults; INOUT is lossy (the captured value is the OUT value); OUT values are not part of the stub key. H2 functions called with `{? = call f()}` return a result set from `execute()`, which the proxy does not defer, so the sample uses `executeUpdate()`.
-- [ ] `open` Procedure returning several rows and returning none.
-- [ ] `open` Procedure error surfaces as `SQLException` (type and message) in proxy and mock.
+- [x] `done` Procedure returning several rows and returning none in record/H2 and mock flows; captured result row counts are asserted.
+- [x] `done` Procedure error surfaces as `SQLException` in record/H2 and mock; the captured event's exception type/message and the replayed exception type/message are asserted.
+  - Exit criteria: OUT/INOUT values, multiple/empty results, and SQL exception type/message are covered in both record and replay flows.
 
 ### M3. Writes and transactions
 - [ ] `open` `executeUpdate` with generated keys.
@@ -62,9 +63,10 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M2 remainder (procedure returning several rows / none, procedure error as `SQLException`), then M1 (E2E record→Kafka→WireMock→mock).
+M1 (E2E record→Kafka→WireMock→mock), using the verified procedure samples as source events rather than hand-written mappings.
 
 ## Log
 
 - 2026-10-12: Roadmap created. Baseline delivered in PR #11 (procedure IN parameters, Testcontainers-managed mock backend).
 - 2026-10-12: M2 OUT/INOUT done (mock handler, `PreparedStatementQueryHandler.onOutParameters`, `MockedQueryStubMapper` OUT response, sample record+mock tests, stub `find-mock-call-add-scalar-out.json`).
+- 2026-10-12: M2 closed (record tests assert multiple/empty rows and captured SQLExceptions; mock tests replay multiple/empty rows and reconstruct the SQLNonTransientException). The focused sample tests passed: 12 run, 0 failures/errors/skips.
