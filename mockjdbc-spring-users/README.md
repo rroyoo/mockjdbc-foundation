@@ -18,6 +18,12 @@ Independent Maven Spring Boot project at the repository root with a basic users 
 
 ## Build and test
 
+The integration tests for the `mockjdbc` profile use Testcontainers to start the
+WireMock gRPC/Kafka stack from `docker-compose.yml`. Docker must be available; there is
+no need to start the stack manually before running the tests. Testcontainers uses the
+local Docker Compose v2 plugin to support the stack's relative mounts. The sibling
+MockJDBC reactor artifacts must be installed first as described below.
+
 ```bash
 mvn test
 ```
@@ -76,7 +82,7 @@ cd ../mockjdbc-spring-users
 mvn test
 ```
 
-If the mock profile is needed from a clean workspace:
+To run the application manually with the mock profile, start its backend first:
 
 ```bash
 cd /home/rroyo/IdeaProjects/mockjdbc-foundation/mockjdbc-spring-users
