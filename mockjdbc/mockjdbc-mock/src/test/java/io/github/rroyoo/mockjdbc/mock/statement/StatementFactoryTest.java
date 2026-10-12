@@ -693,6 +693,103 @@ class StatementFactoryTest {
     }
 
     @Test
+    @DisplayName("Given a callable statement, when the mock server returns OUT values, then getters expose them and request carries only IN parameters")
+    void shouldExposeOutValuesReturnedByMockServer() throws Exception {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setCallableStatement(io.github.rroyoo.mockjdbc.mock.CallableStatement.newBuilder()
+                        .setCallSql("{ ? = call add_numbers(?, ?) }")
+                        .addParameters(outParameter(1, Types.INTEGER, JdbcValue.newBuilder().setLongVal(42).build()))
+                        .addParameters(outParameter(2, Types.INTEGER, JdbcValue.newBuilder().setLongVal(19).build(), java.sql.ParameterMetaData.parameterModeIn)))
+                .build();
+
+        try (var callable = statementFactory.prepareCall("{ ? = call add_numbers(?, ?) }")) {
+            callable.registerOutParameter(1, Types.INTEGER);
+            callable.setInt(2, 19);
+            callable.setInt(3, 23);
+            callable.execute();
+
+            assertEquals(42, callable.getInt(1));
+            assertFalse(callable.wasNull());
+            assertEquals(42L, callable.getLong(1));
+            assertEquals("42", callable.getString(1));
+            assertEquals(42, callable.getObject(1));
+        }
+
+        var request = service.lastRequest.get();
+        assertEquals(2, request.getParametersCount());
+        assertEquals(2, request.getParameters(0).getIndex());
+        assertEquals(3, request.getParameters(1).getIndex());
+    }
+
+    @Test
+    @DisplayName("Given a callable statement executed twice, when the second response has no OUT values, then stale values are cleared and wasNull is true")
+    void shouldClearOutValuesBetweenExecutions() throws Exception {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setCallableStatement(io.github.rroyoo.mockjdbc.mock.CallableStatement.newBuilder()
+                        .addParameters(outParameter(1, Types.VARCHAR, JdbcValue.newBuilder().setStringVal("done").build())))
+                .build();
+
+        try (var callable = statementFactory.prepareCall("{ ? = call status() }")) {
+            callable.registerOutParameter(1, Types.VARCHAR);
+            callable.execute();
+            assertEquals("done", callable.getString(1));
+
+            service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+            callable.execute();
+
+            assertNull(callable.getString(1));
+            assertTrue(callable.wasNull());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when execute is called and the response has no columns, then it returns false and exposes the update count")
+    void shouldReturnFalseFromExecuteWhenResponseHasNoResultSet() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET name = ?")) {
+            statement.setString(1, "bob");
+
+            assertFalse(statement.execute());
+            assertEquals(0, statement.getUpdateCount());
+            assertNull(statement.getResultSet());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a callable statement, when the mock server returns a SQL NULL OUT value, then getters return defaults and wasNull is true")
+    void shouldReportNullOutValueFromMockServer() throws Exception {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setCallableStatement(io.github.rroyoo.mockjdbc.mock.CallableStatement.newBuilder()
+                        .addParameters(outParameter(1, Types.INTEGER, JdbcValue.newBuilder().setIsNull(true).build())))
+                .build();
+
+        try (var callable = statementFactory.prepareCall("{ ? = call maybe() }")) {
+            callable.registerOutParameter(1, Types.INTEGER);
+            callable.execute();
+
+            assertEquals(0, callable.getInt(1));
+            assertTrue(callable.wasNull());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a callable statement, when the mock server returns an unconvertible OUT value, then getter throws SQLException")
+    void shouldFailWhenOutValueCannotBeConverted() throws Exception {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setCallableStatement(io.github.rroyoo.mockjdbc.mock.CallableStatement.newBuilder()
+                        .addParameters(outParameter(1, Types.VARCHAR, JdbcValue.newBuilder().setStringVal("abc").build())))
+                .build();
+
+        try (var callable = statementFactory.prepareCall("{ ? = call name() }")) {
+            callable.registerOutParameter(1, Types.VARCHAR);
+            callable.execute();
+
+            assertThrows(java.sql.SQLException.class, () -> callable.getInt(1));
+        }
+    }
+
+    @Test
     @DisplayName("Given a callable statement, when OUT parameter is registered by name, then typed getters return default values")
     void shouldReturnDefaultOutValuesForRegisteredNamedParameter() throws Exception {
         try (var callable = statementFactory.prepareCall("{ call demo(?) }")) {
@@ -785,6 +882,19 @@ class StatementFactoryTest {
 
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
+    }
+
+    private static io.github.rroyoo.mockjdbc.mock.ParameterMetadata outParameter(int index, int sqlType, JdbcValue value) {
+        return outParameter(index, sqlType, value, java.sql.ParameterMetaData.parameterModeOut);
+    }
+
+    private static io.github.rroyoo.mockjdbc.mock.ParameterMetadata outParameter(int index, int sqlType, JdbcValue value, int mode) {
+        return io.github.rroyoo.mockjdbc.mock.ParameterMetadata.newBuilder()
+                .setIndex(index)
+                .setSqlType(sqlType)
+                .setMode(mode)
+                .setValue(value)
+                .build();
     }
 
     private static MockedQuery mockedQuery(SerializedResultSet resultSet) {

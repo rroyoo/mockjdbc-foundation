@@ -122,6 +122,7 @@ public final class StatementFactory implements AutoCloseable {
             var misc           = new StatementMiscHandler(mockConfig, lifecycle);
             var callable       = new PreparedStatementQueryHandler(client, lifecycle, executionState, generatedKeys, false, sql);
             var outParams      = new CallableStatementOutParamHandler(lifecycle);
+            callable.onOutParameters(outParams::applyOutValues);
 
             return (CallableStatement) Proxy.newProxyInstance(
                     StatementFactory.class.getClassLoader(),

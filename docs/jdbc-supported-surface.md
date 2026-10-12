@@ -88,11 +88,12 @@ Source of truth:
 
 **Implemented groups**
 - OUT parameter registration (index/name variants)
+- OUT/INOUT values returned by the mock server (`callableStatement.parameters`) via index-based getters
 - Typed getters by index/name for supported types
 - Inherits prepared/query/lifecycle/config behavior from statement pipeline
 
 **Partial groups**
-- Callable-specific full-surface completeness (named params, advanced types)
+- Callable-specific full-surface completeness (name-based OUT getters return defaults, advanced types)
 
 **Open groups**
 - Remaining callable methods not currently intercepted

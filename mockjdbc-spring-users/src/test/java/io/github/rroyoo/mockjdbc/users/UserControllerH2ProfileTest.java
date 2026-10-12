@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.ParameterMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -106,6 +107,52 @@ public class UserControllerH2ProfileTest {
         } finally {
             jdbcTemplate.execute("DROP ALIAS IF EXISTS ADD_NUMBERS");
         }
+    }
+
+    @Test
+    @DisplayName("Given h2 record profile, when calling a function with an OUT parameter, then OUT value is recorded")
+    void shouldCallAndRecordFunctionWithOutParameterUsingH2Profile() throws Exception {
+        jdbcTemplate.execute("CREATE ALIAS ADD_SCALAR FOR "
+                + "\"io.github.rroyoo.mockjdbc.users.UserControllerH2ProfileTest.addScalar\"");
+
+        var emittedQueries = new CopyOnWriteArrayList<MockedQuery>();
+        var eventLatch = new CountDownLatch(1);
+        try (var registration = JdbcAgentRegistry.register(
+                dataSource,
+                "users-h2-test",
+                event -> {},
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    emittedQueries.add(query);
+                    eventLatch.countDown();
+                }),
+                AsyncDispatchConfig.defaults())) {
+            Integer result = jdbcTemplate.execute((ConnectionCallback<Integer>) connection -> {
+                try (var statement = JdbcAgentRegistry.wrapIfRegistered(dataSource, connection)
+                        .prepareCall("{ ? = call ADD_SCALAR(?, ?) }")) {
+                    statement.registerOutParameter(1, Types.INTEGER);
+                    statement.setInt(2, 19);
+                    statement.setInt(3, 23);
+                    statement.executeUpdate();
+                    return statement.getInt(1);
+                }
+            });
+
+            assertEquals(42, result);
+            assertTrue(eventLatch.await(5, TimeUnit.SECONDS), "Expected the function call to be recorded");
+            var parameters = emittedQueries.get(0).getCallableStatement().getParametersList();
+            var outParameter = parameters.stream()
+                    .filter(parameter -> parameter.getMode() == ParameterMetaData.parameterModeOut)
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(1, outParameter.getIndex());
+            assertEquals(42L, outParameter.getValue().getLongVal());
+        } finally {
+            jdbcTemplate.execute("DROP ALIAS IF EXISTS ADD_SCALAR");
+        }
+    }
+
+    public static int addScalar(int first, int second) {
+        return first + second;
     }
 
     public static ResultSet addNumbers(Connection connection, int first, int second) throws SQLException {

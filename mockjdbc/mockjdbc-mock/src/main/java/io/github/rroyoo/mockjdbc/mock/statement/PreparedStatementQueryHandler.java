@@ -2,6 +2,7 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
+import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
 final class PreparedStatementQueryHandler {
 
@@ -39,6 +41,7 @@ final class PreparedStatementQueryHandler {
     private final boolean returnGeneratedKeys;
     private final Map<Integer, ParameterMetadata> parameters = new TreeMap<>();
     private final List<List<ParameterMetadata>> parameterBatches = new ArrayList<>();
+    private Consumer<List<ParameterMetadata>> outParametersListener = outParameters -> { };
 
     PreparedStatementQueryHandler(MockConfig mockConfig,
                                   StatementLifecycleHandler lifecycle,
@@ -61,6 +64,17 @@ final class PreparedStatementQueryHandler {
         this.returnGeneratedKeys = returnGeneratedKeys;
         this.client = client;
         this.sql = sql;
+    }
+
+    /** Receives the OUT/INOUT parameters returned by the mock backend after each callable execution. */
+    void onOutParameters(Consumer<List<ParameterMetadata>> listener) {
+        this.outParametersListener = listener;
+    }
+
+    private SerializedResultSet execute(List<ParameterMetadata> requestParameters) throws SQLException {
+        var response = client.findMock(sql, requestParameters);
+        outParametersListener.accept(response.getCallableStatement().getParametersList());
+        return response.getResultSet();
     }
 
     public void setString(int index, String value) throws SQLException {
@@ -493,19 +507,27 @@ final class PreparedStatementQueryHandler {
     public ResultSet executeQuery() throws SQLException {
         lifecycle.assertOpen();
         generatedKeys.clearGeneratedKeys();
-        var resultSet = ResultSetFactory.create(client.findResultSet(sql, sortedParameters()));
+        var resultSet = ResultSetFactory.create(execute(sortedParameters()));
         executionState.storeResultSet(resultSet);
         return resultSet;
     }
 
     public boolean execute() throws SQLException {
-        executeQuery();
+        lifecycle.assertOpen();
+        generatedKeys.clearGeneratedKeys();
+        var serialized = execute(sortedParameters());
+        if (serialized.getMetadataCount() == 0) {
+            // No columns means no result set (update or callable without result), as in real JDBC drivers
+            executionState.storeUpdateCount(serialized.getRowsCount());
+            return false;
+        }
+        executionState.storeResultSet(ResultSetFactory.create(serialized));
         return true;
     }
 
     public int executeUpdate() throws SQLException {
         lifecycle.assertOpen();
-        var resultSet = client.findResultSet(sql, sortedParameters());
+        var resultSet = execute(sortedParameters());
         var count = resultSet.getRowsCount();
         executionState.storeUpdateCount(count);
         if (returnGeneratedKeys) {
@@ -518,7 +540,7 @@ final class PreparedStatementQueryHandler {
 
     public long executeLargeUpdate() throws SQLException {
         lifecycle.assertOpen();
-        var resultSet = client.findResultSet(sql, sortedParameters());
+        var resultSet = execute(sortedParameters());
         var count = (long) resultSet.getRowsCount();
         executionState.storeLargeUpdateCount(count);
         if (returnGeneratedKeys) {

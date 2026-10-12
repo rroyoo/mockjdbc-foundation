@@ -99,7 +99,10 @@ class MockedQueryStubMapperTest {
         // Body patterns: one for $.sql, one for the parameter.
         var patterns = mapping.getRequest().getBodyPatterns();
         assertEquals(2, patterns.size(), "expected $.sql pattern + one parameter pattern");
-        var patternStrings = patterns.stream().map(Object::toString).toList();
+        var patternStrings = patterns.stream()
+                .map(b -> ((com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern) b).getMatchesJsonPath()
+                        + "=" + ((com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern) b).getValuePattern().getValue())
+                .toList();
         assertTrue(patternStrings.stream().anyMatch(p -> p.contains("parameters[0].value.longVal")),
                 "expected a pattern for parameters[0].value.longVal");
     }
@@ -189,6 +192,60 @@ class MockedQueryStubMapperTest {
     void shouldBuildSuccessJsonBodyWithEmptyResultSet() {
         var json = MockedQueryStubMapper.buildSuccessJsonBody(SerializedResultSet.newBuilder().build());
         assertEquals("{\"resultSet\":{\"metadata\":[],\"rows\":[]}}", json);
+    }
+
+    @Test
+    @DisplayName("Given a callable event with IN and OUT parameters, mapper matches only IN values and returns OUT values in the response")
+    void shouldMapCallableEventWithOutParameters() {
+        var mapper = new MockedQueryStubMapper(List.of(), List.of());
+        var event = MockedQuery.newBuilder()
+                .setDatasourceId("users-primary")
+                .setStatus(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS)
+                .setCallableStatement(CallableStatement.newBuilder()
+                        .setCallSql("{? = call add_numbers(?, ?)}")
+                        .addParameters(callableParameter(1, java.sql.ParameterMetaData.parameterModeOut, 42))
+                        .addParameters(callableParameter(2, java.sql.ParameterMetaData.parameterModeIn, 19))
+                        .addParameters(callableParameter(3, java.sql.ParameterMetaData.parameterModeIn, 23)))
+                .setResultSet(SerializedResultSet.newBuilder().build())
+                .build();
+
+        var mapping = mapper.map(event).orElseThrow();
+
+        var patterns = mapping.getRequest().getBodyPatterns().stream()
+                .map(b -> ((com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern) b).getMatchesJsonPath()
+                        + "=" + ((com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern) b).getValuePattern().getValue())
+                .toList();
+        assertTrue(patterns.stream().anyMatch(p -> p.equals("$.parameters[0].value.longVal=19")));
+        assertTrue(patterns.stream().anyMatch(p -> p.equals("$.parameters[1].value.longVal=23")));
+        assertTrue(patterns.stream().noneMatch(p -> p.startsWith("$.parameters[2]") || p.endsWith("=42")));
+        assertTrue(mapping.getName().endsWith("::p2=19::p3=23"));
+
+        var body = mapping.getResponse().getBody();
+        assertTrue(body.contains("\"callableStatement\":{\"parameters\":["));
+        assertTrue(body.contains("\"index\":1"));
+        assertTrue(body.contains("\"mode\":4"));
+        assertTrue(body.contains("\"longVal\":\"42\""));
+        assertFalse(body.contains("\"longVal\":\"19\""));
+    }
+
+    @Test
+    @DisplayName("Given OUT parameters, buildSuccessJsonBody appends callableStatement parameters after the resultSet")
+    void shouldAppendOutParametersToSuccessJsonBody() {
+        var json = MockedQueryStubMapper.buildSuccessJsonBody(SerializedResultSet.newBuilder().build(),
+                List.of(callableParameter(1, java.sql.ParameterMetaData.parameterModeOut, 7)));
+
+        assertEquals("{\"resultSet\":{\"metadata\":[],\"rows\":[]},\"callableStatement\":{\"parameters\":["
+                + "{\"index\":1,\"sqlType\":4,\"typeName\":\"Integer\",\"mode\":4,\"value\":{\"longVal\":\"7\"}}]}}", json);
+    }
+
+    private static ParameterMetadata callableParameter(int index, int mode, long value) {
+        return ParameterMetadata.newBuilder()
+                .setIndex(index)
+                .setMode(mode)
+                .setSqlType(Types.INTEGER)
+                .setTypeName("Integer")
+                .setValue(JdbcValue.newBuilder().setLongVal(value))
+                .build();
     }
 
     // ── buildErrorJsonBody ────────────────────────────────────────────────────

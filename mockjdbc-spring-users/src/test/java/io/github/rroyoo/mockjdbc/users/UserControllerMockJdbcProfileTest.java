@@ -19,6 +19,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.File;
 import java.sql.ResultSet;
+import java.sql.Types;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -91,6 +92,22 @@ class UserControllerMockJdbcProfileTest {
                     assertTrue(resultSet.next());
                     return resultSet.getInt(1);
                 }
+            }
+        });
+
+        assertEquals(42, result);
+    }
+
+    @Test
+    @DisplayName("Given mockjdbc profile, when calling a function with an OUT parameter, then mocked OUT value is returned")
+    void shouldReadOutParameterUsingMockJdbcProfile() {
+        Integer result = jdbcTemplate.execute((ConnectionCallback<Integer>) connection -> {
+            try (var statement = connection.prepareCall("{ ? = call ADD_SCALAR(?, ?) }")) {
+                statement.registerOutParameter(1, Types.INTEGER);
+                statement.setInt(2, 19);
+                statement.setInt(3, 23);
+                statement.execute();
+                return statement.getInt(1);
             }
         });
 

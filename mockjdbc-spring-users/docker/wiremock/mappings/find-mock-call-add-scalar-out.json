@@ -1,0 +1,44 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "POST",
+    "urlPath": "/io.github.rroyoo.mockjdbc.mock.MockQueryService/FindMock",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.sql == '{ ? = call ADD_SCALAR(?, ?) }')]"
+      },
+      {
+        "matchesJsonPath": "$[?(@.parameters[0].value.longVal == '19' || @.parameters[0].value.longVal == 19)]"
+      },
+      {
+        "matchesJsonPath": "$[?(@.parameters[1].value.longVal == '23' || @.parameters[1].value.longVal == 23)]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json",
+      "grpc-status-name": "OK"
+    },
+    "jsonBody": {
+      "resultSet": {
+        "metadata": [],
+        "rows": []
+      },
+      "callableStatement": {
+        "parameters": [
+          {
+            "index": 1,
+            "sqlType": 4,
+            "typeName": "INTEGER",
+            "mode": 4,
+            "value": {
+              "longVal": "42"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
