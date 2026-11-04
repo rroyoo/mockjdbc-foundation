@@ -30,19 +30,21 @@ mvn -pl mockjdbc-mock -am -Dtest=ConnectionFactoryTest#shouldCreateConnectionFro
 
 # Test the standalone sample
 cd ../mockjdbc-spring-users
-mvn test
+mvn verify
 ```
 
 For a clean sample-app build, install the sibling reactor first because the sample consumes the reusable modules as regular Maven dependencies, which must exist in the local repository (`package` alone does not install them):
 
 ```bash
 cd mockjdbc
-mvn clean install -DskipTests
+mvn -B -ntp clean install
 cd ../mockjdbc-spring-users
-mvn test
+mvn -B -ntp verify
 ```
 
-There is no separate lint or formatting Maven task configured. Use the CI-equivalent commands when checking a change: `cd mockjdbc && mvn -B -ntp verify`, followed by `cd ../mockjdbc-spring-users && mvn -B -ntp test`.
+There is no separate lint or formatting Maven task configured. Use the CI-equivalent commands when checking a change: `cd mockjdbc && mvn -B -ntp clean install`, followed by `cd ../mockjdbc-spring-users && mvn -B -ntp verify`.
+
+The GitHub Actions workflow runs Docker-backed Kafka tests, generates JaCoCo reports for both Maven builds, enforces at least 50% combined line coverage (90% target), and publishes test/coverage totals in the Actions summary. CodeQL results are published to the repository Security tab. See `docs/adr/ADR-0005-github-ci-cd-quality-gates.md`.
 
 ## Architecture
 

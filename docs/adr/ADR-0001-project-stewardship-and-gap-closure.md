@@ -8,6 +8,7 @@
 - `docs/adr/ADR-0002-jdbc-proxy-capture-and-kafka-event-pipeline.md`
 - `docs/adr/ADR-0003-mock-driver-scope-and-jdbc-compatibility.md`
 - `docs/adr/ADR-0004-wiremock-kafka-bridge-extension.md`
+- `docs/adr/ADR-0005-github-ci-cd-quality-gates.md`
 
 ## Context
 
@@ -127,6 +128,7 @@ Assessment notes:
 - [x] Create dedicated ADR for mock driver scope (`ADR-0003`).
 - [x] Create dedicated ADR for WireMock bridge scope (`ADR-0004`).
 - [x] Add GitHub Actions workflows for build and test automation.
+- [x] Define CI quality gates and free GitHub Actions reporting in `ADR-0005`.
 
 ### B. Documentation alignment
 - [x] Update `mockjdbc/README.md` so its architecture section reflects the current factory/handler/ByteBuddy implementation.
@@ -165,6 +167,7 @@ Assessment notes:
 - [x] Add an integration test that validates `DriverManager` + SPI discovery end-to-end.
 - [ ] Keep `mockjdbc` and `mockjdbc-spring-users` tests green after each milestone.
 - [x] Introduce automated verification for both the reactor build and the standalone sample.
+- [x] Enforce combined line coverage, publish test/coverage summaries, and publish CodeQL results (ADR-0005).
 
 ### H. Proxy implementation and adoption
 - [ ] Follow `ADR-0002` checklist for proxy event contract, capture, Kafka publication, and integration guides.
@@ -183,7 +186,7 @@ The steward agent should normally take the next unchecked item from this order:
 6. `Connection` coverage backlog
 7. remaining `Statement` contract gaps
 8. result-set fidelity expansion
-9. CI automation
+9. Raise CI coverage from the 50% baseline toward the 90% target and confirm Docker-backed Kafka suites run without skips
 
 ## Consequences
 
