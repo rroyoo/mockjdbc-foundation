@@ -67,7 +67,7 @@ final class GrpcMockQueryClient implements AutoCloseable {
         var activeChannel = acquireChannel();
         try {
             var request = QueryLookupRequest.newBuilder()
-                    .setSql(sql)
+                    .setSql(SqlNormalizer.normalize(sql))
                     .addAllParameters(parameters)
                     .build();
 
@@ -166,4 +166,5 @@ final class GrpcMockQueryClient implements AutoCloseable {
             return hasMessage ? new SQLException(message) : new SQLException();
         }
     }
+
 }

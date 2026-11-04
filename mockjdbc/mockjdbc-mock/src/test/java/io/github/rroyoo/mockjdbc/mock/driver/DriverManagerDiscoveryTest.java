@@ -88,7 +88,7 @@ class DriverManagerDiscoveryTest {
             }
         }
 
-        assertEquals("SELECT greeting FROM hello WHERE id = ?", lastRequest.get().getSql());
+        assertEquals("select greeting from hello where id = ?", lastRequest.get().getSql());
         assertEquals(1, lastRequest.get().getParametersCount());
     }
 

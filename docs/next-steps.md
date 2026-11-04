@@ -1,6 +1,6 @@
 # Next Steps
 
-Hand-off for continuing project improvements. Last updated: 2026-10-07, branch `feat/jdbc-gaps` (based on `main` after PR #9).
+Hand-off for continuing project improvements. Last updated: 2026-11-04.
 
 Read first: `docs/module-status-matrix.md`, `docs/jdbc-supported-surface.md`, `.github/copilot-instructions.md`.
 
@@ -10,6 +10,7 @@ Read first: `docs/module-status-matrix.md`, `docs/jdbc-supported-surface.md`, `.
 - Test counts: proxy 68 (1 skipped), mock 232, wiremock 22 (1 skipped). The skipped tests are the Testcontainers/Kafka integration tests.
 - `Connection` gaps are closed (validity/abort, wrappers, metadata, type map, LOB/array/struct factories). `createSQLXML` and request/sharding methods are explicitly unsupported.
 - `ResultSetFactory` coerces values to the declared SQL type; `DriverManager` discovers `MockDriver` via `META-INF/services/java.sql.Driver` and static self-registration.
+- The sample E2E test now proves H2 capture → Kafka → WireMock bridge → gRPC → mock-driver replay without a hand-authored mapping; lookup SQL normalization is aligned with bridge matching.
 
 ## Local build
 
@@ -45,7 +46,7 @@ Precision, scale, nullability, table/schema/catalog names and auto-increment do 
 
 ### 4. CI and quality
 - [ ] Confirm Testcontainers tests really run in CI (check the CI log for "Tests run" with 0 skipped for `KafkaMappingConsumerIntegrationTest` and `KafkaMockedQueryEventProducerIntegrationTest`).
-- [ ] End-to-end test: proxy -> Kafka -> WireMock bridge -> WireMock gRPC -> mock driver.
+- [x] End-to-end test: proxy -> Kafka -> WireMock bridge -> WireMock gRPC -> mock driver (`mockjdbc-spring-users/RecordReplayEndToEndTest`).
 - [ ] Add JaCoCo report (no threshold at first).
 - [ ] Pin `maven-jar-plugin` version in `mockjdbc-proxy/pom.xml` (Maven warns it is missing) and consider a Maven wrapper (`.mvn/wrapper`).
 - [ ] Qodana: `qodana.yaml` and `.github/workflows/qodana_code_quality.yml` are untracked. Either add them and configure the `QODANA_TOKEN` secret, or delete them.

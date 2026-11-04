@@ -75,6 +75,31 @@ class MockedQueryStubMapperTest {
     }
 
     @Test
+    @DisplayName("Given SQL differing inside a quoted literal, mapper preserves literal content and creates distinct stubs")
+    void shouldPreserveQuotedSqlContentInStubKeysAndMatchers() {
+        var mapper = new MockedQueryStubMapper(List.of(), List.of());
+        var first = simpleEvent(" SELECT 'Alice  Smith' AS name; ");
+        var second = simpleEvent("SELECT 'alice smith' AS name");
+
+        var firstMapping = mapper.map(first).orElseThrow();
+        var secondMapping = mapper.map(second).orElseThrow();
+
+        assertNotEquals(firstMapping.getId(), secondMapping.getId());
+        assertTrue(firstMapping.getName().contains("select 'Alice  Smith' as name"));
+        assertTrue(secondMapping.getName().contains("select 'alice smith' as name"));
+        var firstSqlPattern = (com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern)
+                firstMapping.getRequest().getBodyPatterns().get(0);
+        var secondSqlPattern = (com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern)
+                secondMapping.getRequest().getBodyPatterns().get(0);
+        assertEquals("$.sql", firstSqlPattern.getMatchesJsonPath());
+        assertEquals("select 'Alice  Smith' as name", firstSqlPattern.getValuePattern().getValue());
+        assertEquals("$.sql", secondSqlPattern.getMatchesJsonPath());
+        assertEquals("select 'alice smith' as name", secondSqlPattern.getValuePattern().getValue());
+        assertEquals("select 'Alice  Smith' as name", MockedQueryStubMapper.normalizeSql(
+                " SELECT 'Alice  Smith' AS name; "));
+    }
+
+    @Test
     @DisplayName("Given a prepared statement with one long parameter, mapper adds parameter body pattern and encodes value in stub key")
     void shouldAddParameterBodyPatternForPreparedStatement() {
         var mapper = new MockedQueryStubMapper(List.of(), List.of());
@@ -321,6 +346,15 @@ class MockedQueryStubMapperTest {
                                 .setValue(JdbcValue.newBuilder().setLongVal(paramValue).build())
                                 .build())
                         .build())
+                .setResultSet(SerializedResultSet.newBuilder().build())
+                .build();
+    }
+
+    private static MockedQuery simpleEvent(String sql) {
+        return MockedQuery.newBuilder()
+                .setDatasourceId("users-primary")
+                .setStatus(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS)
+                .setSimpleStatement(PlainStatement.newBuilder().setSql(sql).build())
                 .setResultSet(SerializedResultSet.newBuilder().build())
                 .build();
     }

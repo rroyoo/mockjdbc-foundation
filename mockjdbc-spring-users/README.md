@@ -18,11 +18,13 @@ Independent Maven Spring Boot project at the repository root with a basic users 
 
 ## Build and test
 
-The integration tests for the `mockjdbc` profile use Testcontainers to start the
-WireMock gRPC/Kafka stack from `docker-compose.yml`. Docker must be available; there is
-no need to start the stack manually before running the tests. Testcontainers uses the
-local Docker Compose v2 plugin to support the stack's relative mounts. The sibling
-MockJDBC reactor artifacts must be installed first as described below.
+The `mockjdbc` profile tests and the record/replay E2E test use Testcontainers to start
+the WireMock gRPC/Kafka stack from `docker-compose.yml`. The E2E test captures an H2
+query, waits for the bridge-generated WireMock mapping, then replays it through the mock
+driver without a hand-written mapping. Docker must be available; there is no need to
+start the stack manually before running the tests. Testcontainers uses the local Docker
+Compose v2 plugin to support the stack's relative mounts. The sibling MockJDBC reactor
+artifacts must be installed first as described below.
 
 ```bash
 mvn test
@@ -100,7 +102,7 @@ mvn -pl mockjdbc-proxy -am package -DskipTests
 ## WireMock assets
 
 - `docker-compose.yml`
-- `docker/wiremock/mappings/` contains gRPC stubs for `MockQueryService/FindMock`
+- `docker/wiremock/mappings/` contains gRPC stubs for `MockQueryService/FindMock`; SQL matchers use the same normalized form as proxy-generated mappings (trimmed, lowercase, collapsed whitespace, no trailing semicolon)
 - descriptors are generated at startup from `../mockjdbc/mockjdbc-proto/src/main/protobuf`
 - WireMock extension volume now also includes `mockjdbc-wiremock` bridge jar copied from `../mockjdbc/mockjdbc-wiremock/target`
 

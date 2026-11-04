@@ -70,13 +70,26 @@ class GrpcMockQueryClientTest {
                 .setValue(JdbcValue.newBuilder().setStringVal("bob").build())
                 .build();
 
-        var resultSet = client.findResultSet("SELECT ?", List.of(parameter));
+        var resultSet = client.findResultSet(" SELECT   ?; ", List.of(parameter));
 
         assertEquals(1, resultSet.getRowsCount());
         assertNotNull(service.lastRequest.get());
-        assertEquals("SELECT ?", service.lastRequest.get().getSql());
+        assertEquals("select ?", service.lastRequest.get().getSql());
         assertEquals(1, service.lastRequest.get().getParametersCount());
         assertEquals("bob", service.lastRequest.get().getParameters(0).getValue().getStringVal());
+    }
+
+    @Test
+    @DisplayName("Given SQL literals with different case or whitespace, when looked up, then quoted content stays distinct")
+    void shouldPreserveQuotedSqlContentWhenNormalizingLookup() throws Exception {
+        service.responder = request -> mockedQuery(singleRowResultSet());
+        var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
+
+        client.findMock(" SELECT 'Alice  Smith' AS name; ", List.of());
+        assertEquals("select 'Alice  Smith' as name", service.lastRequest.get().getSql());
+
+        client.findMock("SELECT 'alice smith' AS name", List.of());
+        assertEquals("select 'alice smith' as name", service.lastRequest.get().getSql());
     }
 
     @Test
@@ -187,4 +200,3 @@ class GrpcMockQueryClientTest {
         }
     }
 }
-
