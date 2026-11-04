@@ -4,6 +4,7 @@ import io
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 SUMMARY_SCRIPT = Path(__file__).with_name("summarize-test-results.py")
 SPEC = importlib.util.spec_from_file_location("summarize_test_results", SUMMARY_SCRIPT)
@@ -15,6 +16,8 @@ main = SUMMARY.main
 
 class SummarizeTestResultsTest(unittest.TestCase):
     def setUp(self):
+        self.summary_environment = patch.dict("os.environ", {"GITHUB_STEP_SUMMARY": ""})
+        self.summary_environment.start()
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary_directory.name)
         for report in REQUIRED_COVERAGE_REPORTS:
@@ -41,6 +44,7 @@ class SummarizeTestResultsTest(unittest.TestCase):
 
     def tearDown(self):
         self.temporary_directory.cleanup()
+        self.summary_environment.stop()
 
     def test_passes_when_all_required_reports_and_tests_are_present(self):
         output = io.StringIO()
