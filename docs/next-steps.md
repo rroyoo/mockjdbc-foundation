@@ -45,7 +45,7 @@ Precision, scale, nullability, table/schema/catalog names and auto-increment do 
 - [ ] `DatabaseMetaData` catalog queries are unsupported; revisit only if a real use case appears.
 
 ### 4. CI and quality
-- [ ] Confirm Testcontainers tests really run in CI (check the CI summary for successful, non-skipped `KafkaMappingConsumerIntegrationTest` and `KafkaMockedQueryEventProducerIntegrationTest` results).
+- [x] Confirm Testcontainers tests run in CI (PR #14 verified `KafkaMappingConsumerIntegrationTest` and `KafkaMockedQueryEventProducerIntegrationTest` without skips).
 - [x] End-to-end test: proxy -> Kafka -> WireMock bridge -> WireMock gRPC -> mock driver (`mockjdbc-spring-users/RecordReplayEndToEndTest`).
 - [x] Add JaCoCo line coverage reporting with a 50% combined minimum and a 90% target.
 - [x] Add GitHub CodeQL analysis and publish test/coverage totals to the Actions run summary (ADR-0005).
@@ -60,7 +60,7 @@ Precision, scale, nullability, table/schema/catalog names and auto-increment do 
 ### 6. Documentation upkeep
 - [ ] ADR-0001 still has unchecked items that may already be done (for example reclassifying `mockjdbc-proxy` as active); verify against code and tick or update.
 - [x] Add `docs/adr/ADR-0005-github-ci-cd-quality-gates.md` and align the CI quality checklist.
-- [ ] ADR-0002 / ADR-0004 checklists: re-verify the Docker-backed integration items once CI evidence exists.
+- [x] ADR-0002 / ADR-0004 Docker-backed integration checks verified in CI (PR #14).
 - [ ] `mockjdbc-spring-users` status in the module matrix is `partial`; the `mockjdbc` profile tests are skipped by default.
 
 ## Working agreements
