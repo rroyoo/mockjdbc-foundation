@@ -20,7 +20,7 @@ The workflow must:
 
 1. Build, run tests, and install the `mockjdbc` reactor with Maven so the independent sample can resolve reactor dependencies.
 2. Run the `mockjdbc-spring-users` verification suite with Docker available for Testcontainers.
-3. Generate JaCoCo XML reports in both Maven builds and fail when combined line coverage is below 50%. Track 90% as the project target; do not make that target a gate until explicitly adopted.
+3. Generate JaCoCo XML reports for `mockjdbc-mock`, `mockjdbc-proxy`, `mockjdbc-wiremock`, and `mockjdbc-spring-users`; fail if any report or its line counter is missing, or if combined line coverage is below 50%. Track 90% as the project target; do not make that target a gate until explicitly adopted.
 4. Run GitHub CodeQL for Java/Kotlin and publish findings to GitHub code scanning. Skip upload analysis for pull requests from forks, where the token cannot publish security events; build and tests still run.
 5. Require both Kafka Testcontainers integration suites to be discovered and pass without skips.
 6. Publish test counts, failures, skipped tests, line coverage, and the threshold in the GitHub Actions job summary. Keep detailed logs and CodeQL findings in GitHub; do not upload test/coverage artifacts.
@@ -52,6 +52,7 @@ The JaCoCo gate does not imply a guarantee of defect-free code. It establishes a
 - [x] Update Testcontainers and pin its Docker API version to support Docker Engine 29.
 - [x] Generate JaCoCo reports for both Maven builds.
 - [x] Enforce a 50% combined line-coverage minimum and report the 90% target.
+- [x] Require complete coverage reports from all four code-bearing projects before calculating the combined gate.
 - [x] Publish test and coverage totals in the GitHub Actions run summary.
 - [x] Publish CodeQL analysis findings in GitHub code scanning.
 - [x] Fail the summary gate if required Kafka integration tests are missing or skipped.

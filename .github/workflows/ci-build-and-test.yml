@@ -31,6 +31,9 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Test CI quality summary gate
+        run: python3 .github/scripts/test_summarize_test_results.py
+
       - name: Initialize CodeQL
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: github/codeql-action/init@v4
@@ -47,7 +50,7 @@ jobs:
 
       - name: Test standalone sample app
         working-directory: mockjdbc-spring-users
-        run: mvn -B -ntp verify
+        run: mvn -B -ntp clean verify
 
       - name: Analyze with CodeQL
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository

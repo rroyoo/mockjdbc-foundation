@@ -12,11 +12,17 @@ REQUIRED_DOCKER_TESTS = {
     "io.github.rroyoo.mockjdbc.proxy.KafkaMockedQueryEventProducerIntegrationTest",
     "io.github.rroyoo.mockjdbc.wiremock.KafkaMappingConsumerIntegrationTest",
 }
+REQUIRED_COVERAGE_REPORTS = (
+    Path("mockjdbc/mockjdbc-mock/target/site/jacoco/jacoco.xml"),
+    Path("mockjdbc/mockjdbc-proxy/target/site/jacoco/jacoco.xml"),
+    Path("mockjdbc/mockjdbc-wiremock/target/site/jacoco/jacoco.xml"),
+    Path("mockjdbc-spring-users/target/site/jacoco/jacoco.xml"),
+)
 
 
-def main():
+def main(root=ROOT):
     test_suites = []
-    for report in sorted(ROOT.rglob("target/surefire-reports/TEST-*.xml")):
+    for report in sorted(root.rglob("target/surefire-reports/TEST-*.xml")):
         suite_root = ET.parse(report).getroot()
         test_suites.extend(suite_root.iter("testsuite"))
 
@@ -43,17 +49,26 @@ def main():
 
     covered_lines = 0
     missed_lines = 0
-    coverage_reports = sorted(ROOT.rglob("target/site/jacoco/jacoco.xml"))
-    for report in coverage_reports:
+    coverage_report_results = {}
+    for relative_report in REQUIRED_COVERAGE_REPORTS:
+        report = root / relative_report
+        if not report.is_file():
+            coverage_report_results[relative_report] = "missing"
+            continue
+
         report_root = ET.parse(report).getroot()
         line_counter = next(
             (counter for counter in report_root.findall("counter")
              if counter.get("type") == "LINE"),
             None,
         )
-        if line_counter is not None:
-            covered_lines += int(line_counter.get("covered", 0))
-            missed_lines += int(line_counter.get("missed", 0))
+        if line_counter is None:
+            coverage_report_results[relative_report] = "missing LINE counter"
+            continue
+
+        coverage_report_results[relative_report] = "present"
+        covered_lines += int(line_counter.get("covered", 0))
+        missed_lines += int(line_counter.get("missed", 0))
 
     total_lines = covered_lines + missed_lines
     coverage = (covered_lines / total_lines * 100) if total_lines else 0.0
@@ -66,10 +81,18 @@ def main():
         f"| Failures | {failures} |",
         f"| Errors | {errors} |",
         f"| Skipped | {skipped} |",
-        f"| JaCoCo XML reports | {len(coverage_reports)} |",
+        f"| Required JaCoCo reports | {len(coverage_report_results) - sum(result != 'present' for result in coverage_report_results.values())}/{len(REQUIRED_COVERAGE_REPORTS)} |",
         f"| Line coverage | {coverage:.2f}% ({covered_lines}/{total_lines}) |",
         f"| Required line coverage | {MINIMUM_LINE_COVERAGE:.0f}% |",
         f"| Line coverage target | {TARGET_LINE_COVERAGE:.0f}% |",
+        "",
+        "| JaCoCo report | Status |",
+        "| --- | --- |",
+        *(
+            f"| `{report}` | {result} |"
+            for report, result in coverage_report_results.items()
+        ),
+        "",
         "| Required Docker tests | " + ", ".join(
             f"`{suite_name}`: {result}"
             for suite_name, result in sorted(docker_test_results.items())
@@ -90,8 +113,11 @@ def main():
     if not test_suites:
         print("No Surefire test reports were found.", file=sys.stderr)
         return 1
-    if not coverage_reports or total_lines == 0:
-        print("No JaCoCo line coverage reports were found.", file=sys.stderr)
+    if any(result != "present" for result in coverage_report_results.values()):
+        print("One or more required JaCoCo reports are missing or invalid.", file=sys.stderr)
+        return 1
+    if total_lines == 0:
+        print("No JaCoCo line coverage data was found.", file=sys.stderr)
         return 1
     if failures or errors:
         print(f"Tests reported {failures} failures and {errors} errors.", file=sys.stderr)
