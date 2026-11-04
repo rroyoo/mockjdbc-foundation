@@ -9,6 +9,7 @@ import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
+import io.github.rroyoo.mockjdbc.mock.SqlNormalizer;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.ParameterMetaData;
@@ -20,7 +21,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 final class MockedQueryStubMapper {
 
@@ -30,8 +30,6 @@ final class MockedQueryStubMapper {
      */
     static final String GRPC_METHOD_URL =
             "/io.github.rroyoo.mockjdbc.mock.MockQueryService/FindMock";
-
-    private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
 
     private final Set<String> datasourceAllowlist;
     private final List<String> sqlDenyPrefixes;
@@ -280,14 +278,7 @@ final class MockedQueryStubMapper {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     static String normalizeSql(String sql) {
-        if (sql == null) {
-            return "";
-        }
-        var normalized = MULTI_SPACE.matcher(sql.strip().toLowerCase(Locale.ROOT)).replaceAll(" ");
-        while (normalized.endsWith(";")) {
-            normalized = normalized.substring(0, normalized.length() - 1).strip();
-        }
-        return normalized;
+        return SqlNormalizer.normalize(sql);
     }
 
     /** Stable unique key incorporating datasource, SQL, and all parameter values. */
