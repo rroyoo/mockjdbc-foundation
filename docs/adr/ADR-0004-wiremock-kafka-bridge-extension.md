@@ -139,7 +139,7 @@ try (var consumer = new KafkaMappingConsumer(config)) {
 - [x] Add `WireMockMappingRegistrar` with registration logic and tests.
 - [x] Add `KafkaMappingConsumer` with lifecycle management and tests.
 - [x] Add `KafkaMappingConsumerConfig` with validation.
-- [ ] Add integration test with Testcontainers Kafka + WireMock (implemented; executes when Docker is available).
+- [x] Add and verify a Docker-backed Testcontainers E2E test covering Kafka, WireMock bridge, gRPC replay, and the mock driver (`mockjdbc-spring-users/RecordReplayEndToEndTest`).
 - [x] Add `README.md` with usage guide and integration examples.
 - [x] Update `ADR-0001` backlog with this new module.
 - [x] Update reactor `pom.xml` to include new module.

@@ -5,7 +5,7 @@
     "urlPath": "/io.github.rroyoo.mockjdbc.mock.MockQueryService/FindMock",
     "bodyPatterns": [
       {
-        "matchesJsonPath": "$[?(@.sql == '{ call MULTI_ROW_PROCEDURE() }')]"
+        "matchesJsonPath": "$[?(@.sql == '{ call multi_row_procedure() }')]"
       }
     ]
   },

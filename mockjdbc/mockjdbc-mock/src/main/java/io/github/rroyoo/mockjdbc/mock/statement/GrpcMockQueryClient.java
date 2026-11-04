@@ -9,10 +9,14 @@ import io.grpc.StatusRuntimeException;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 final class GrpcMockQueryClient implements AutoCloseable {
+
+    private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
 
     /**
      * Reference-counted channel per host:port. Each client acquires its channel on first use and
@@ -67,7 +71,7 @@ final class GrpcMockQueryClient implements AutoCloseable {
         var activeChannel = acquireChannel();
         try {
             var request = QueryLookupRequest.newBuilder()
-                    .setSql(sql)
+                    .setSql(normalizeSql(sql))
                     .addAllParameters(parameters)
                     .build();
 
@@ -165,5 +169,13 @@ final class GrpcMockQueryClient implements AutoCloseable {
         } catch (ClassNotFoundException e) {
             return hasMessage ? new SQLException(message) : new SQLException();
         }
+    }
+
+    private static String normalizeSql(String sql) {
+        var normalized = MULTI_SPACE.matcher(sql.strip().toLowerCase(Locale.ROOT)).replaceAll(" ");
+        while (normalized.endsWith(";")) {
+            normalized = normalized.substring(0, normalized.length() - 1).strip();
+        }
+        return normalized;
     }
 }

@@ -90,7 +90,7 @@ class StatementFactoryTest {
         }
 
         assertNotNull(service.lastRequest.get());
-        assertEquals("SELECT ?", service.lastRequest.get().getSql());
+        assertEquals("select ?", service.lastRequest.get().getSql());
         assertEquals(1, service.lastRequest.get().getParametersCount());
         assertEquals(1, service.lastRequest.get().getParameters(0).getIndex());
         assertEquals("bob", service.lastRequest.get().getParameters(0).getValue().getStringVal());

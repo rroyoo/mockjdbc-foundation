@@ -26,8 +26,9 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 ## Milestones
 
 ### M1. Record -> mock round trip
-- [ ] `open` E2E test: proxy capture -> Kafka -> WireMock bridge -> WireMock gRPC -> mock driver, with the stub generated from the captured event instead of hand-written.
+- [x] `done` E2E test: proxy capture -> Kafka -> WireMock bridge -> WireMock gRPC -> mock driver, with the stub generated from the captured event instead of hand-written.
   - Exit criteria: a query executed against H2 through the proxy is replayed by the mock driver with identical rows and parameters, with no hand-written stub.
+  - `RecordReplayEndToEndTest` verifies the generated mapping and replays the captured H2 result through the mock driver. Mock query SQL is normalized with the same trim/lowercase/whitespace/trailing-semicolon rules as the bridge so captured mappings match consistently.
 
 ### M2. Procedures beyond IN parameters (`done`)
 - [x] `done` OUT / INOUT parameters in record and mock. The wiremock mapper emits `callableStatement.parameters` (OUT/INOUT) in the stub response; the mock exposes them via index-based `getXxx(int)`.
@@ -63,10 +64,11 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M1 (E2E record→Kafka→WireMock→mock), using the verified procedure samples as source events rather than hand-written mappings.
+M3 writes and transactions, starting with `executeUpdate` and generated keys.
 
 ## Log
 
 - 2026-10-12: Roadmap created. Baseline delivered in PR #11 (procedure IN parameters, Testcontainers-managed mock backend).
 - 2026-10-12: M2 OUT/INOUT done (mock handler, `PreparedStatementQueryHandler.onOutParameters`, `MockedQueryStubMapper` OUT response, sample record+mock tests, stub `find-mock-call-add-scalar-out.json`).
 - 2026-10-12: M2 closed (record tests assert multiple/empty rows and captured SQLExceptions; mock tests replay multiple/empty rows and reconstruct the SQLNonTransientException). The focused sample tests passed: 12 run, 0 failures/errors/skips.
+- 2026-11-04: M1 done. Added an E2E H2 capture → Kafka → WireMock bridge → gRPC → mock-driver test that replays a generated stub without a hand-written mapping. The test exposed and fixed SQL normalization mismatch between bridge matchers and mock-driver lookup requests.

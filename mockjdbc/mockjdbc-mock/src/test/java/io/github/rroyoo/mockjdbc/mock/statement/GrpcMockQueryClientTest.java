@@ -70,11 +70,11 @@ class GrpcMockQueryClientTest {
                 .setValue(JdbcValue.newBuilder().setStringVal("bob").build())
                 .build();
 
-        var resultSet = client.findResultSet("SELECT ?", List.of(parameter));
+        var resultSet = client.findResultSet(" SELECT   ?; ", List.of(parameter));
 
         assertEquals(1, resultSet.getRowsCount());
         assertNotNull(service.lastRequest.get());
-        assertEquals("SELECT ?", service.lastRequest.get().getSql());
+        assertEquals("select ?", service.lastRequest.get().getSql());
         assertEquals(1, service.lastRequest.get().getParametersCount());
         assertEquals("bob", service.lastRequest.get().getParameters(0).getValue().getStringVal());
     }
@@ -187,4 +187,3 @@ class GrpcMockQueryClientTest {
         }
     }
 }
-
