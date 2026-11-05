@@ -70,6 +70,7 @@ Guides must include:
 - [x] Add unit tests for event mapping (query + result + error).
 - [x] Add tests for multi-datasource capture and identity consistency.
 - [x] Add Kafka publication tests, including the Docker-backed record/replay E2E test in `mockjdbc-spring-users/RecordReplayEndToEndTest`.
+- [x] Verify the Docker-backed Kafka producer integration test runs without skips in GitHub Actions (ADR-0005, PR #14).
 - [x] Publish integration guides for generic Java JDBC usage.
 - [x] Add sample proving two datasources emitting events.
 - [x] Capture `CallableStatement` OUT/INOUT parameter values (deferred capture via

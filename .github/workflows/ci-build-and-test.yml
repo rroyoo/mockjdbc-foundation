@@ -4,10 +4,21 @@ on:
   push:
     branches: [ "**" ]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -20,13 +31,31 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Test CI quality summary gate
+        run: python3 .github/scripts/test_summarize_test_results.py
+
+      - name: Initialize CodeQL
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
       - name: Verify Docker availability (Testcontainers)
         run: docker version
 
       - name: Build and test mockjdbc reactor
         working-directory: mockjdbc
-        run: mvn -B -ntp install
+        run: mvn -B -ntp clean install
 
       - name: Test standalone sample app
         working-directory: mockjdbc-spring-users
-        run: mvn -B -ntp test
+        run: mvn -B -ntp clean verify
+
+      - name: Analyze with CodeQL
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/analyze@v4
+
+      - name: Publish test and coverage summary
+        if: always()
+        run: python3 .github/scripts/summarize-test-results.py

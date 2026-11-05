@@ -2,6 +2,8 @@
 
 **Technical documentation for developers and integrators.**
 
+[![CI](https://github.com/rroyoo/mockjdbc-foundation/actions/workflows/ci-build-and-test.yml/badge.svg?branch=main)](https://github.com/rroyoo/mockjdbc-foundation/actions/workflows/ci-build-and-test.yml)
+
 For project stewardship context and backlog status, see [`docs/adr/ADR-0001-project-stewardship-and-gap-closure.md`](../docs/adr/ADR-0001-project-stewardship-and-gap-closure.md).
 
 ---
