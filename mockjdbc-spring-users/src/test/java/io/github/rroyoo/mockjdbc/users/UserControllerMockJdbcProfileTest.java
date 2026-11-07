@@ -29,8 +29,10 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -88,6 +90,33 @@ class UserControllerMockJdbcProfileTest {
         mockMvc.perform(get("/users"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[2].name").value("Donald Knuth"));
+    }
+
+    @Test
+    @DisplayName("Given mockjdbc profile, when getting a user by id, then mocked and missing responses are returned")
+    void shouldGetUserByIdUsingMockJdbcProfile() throws Exception {
+        mockMvc.perform(get("/users/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Ada Lovelace"))
+                .andExpect(jsonPath("$.email").value("ada@mockjdbc.dev"));
+
+        mockMvc.perform(get("/users/999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Given mockjdbc profile, when updating and deleting a user, then mocked operation results are returned")
+    void shouldUpdateAndDeleteUserUsingMockJdbcProfile() throws Exception {
+        mockMvc.perform(put("/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Updated Ada\",\"email\":\"updated-ada@mockjdbc.dev\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Updated Ada"))
+                .andExpect(jsonPath("$.email").value("updated-ada@mockjdbc.dev"));
+
+        mockMvc.perform(delete("/users/2"))
+                .andExpect(status().isNoContent());
     }
 
     @Test

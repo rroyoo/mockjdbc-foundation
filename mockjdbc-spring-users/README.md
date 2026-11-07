@@ -26,6 +26,10 @@ start the stack manually before running the tests. Testcontainers uses the local
 Compose v2 plugin to support the stack's relative mounts. The sibling MockJDBC reactor
 artifacts must be installed first as described below.
 
+The mock JDBC profile replays query responses but does not maintain mutable database
+state. `commit` and `rollback` are no-ops; update and delete endpoints demonstrate their
+JDBC operation results, not changes visible to later queries.
+
 ```bash
 mvn test
 ```

@@ -41,8 +41,9 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 - [x] `done` `executeUpdate` with generated keys. The H2 capture → Kafka → WireMock → mock-driver round trip preserves the update count and generated-key rows.
 - [x] `done` Batch (`Statement` and `PreparedStatement`, including `executeLargeBatch`). Capture/replay preserves per-command indices, update counts, JDBC `SUCCESS_NO_INFO` values, and `BatchUpdateException` partial counts, including repeated identical commands with different outcomes.
   - Exit criteria: an H2 prepared batch containing duplicate deletes replays counts `[1, 0]` through Kafka/WireMock; unit coverage verifies plain/prepared batches, large counts, count sentinels, and partial failures.
-- [ ] `open` `commit` / `rollback` / `autoCommit`.
-- [ ] `open` `GET /users/{id}`, `PUT /users/{id}`, `DELETE /users/{id}` covered in both flows.
+- [ ] `deferred` Transaction effects (`commit` / `rollback`) are not captured as query results; the mock treats them as no-ops and only tracks `autoCommit` state. Revisit only if replay needs transactional data changes.
+- [x] `done` `GET /users/{id}`, `PUT /users/{id}`, `DELETE /users/{id}` covered in both flows; H2 verifies persistence, while mock verifies each captured operation response without claiming mutable database state.
+  - Exit criteria: successful GET/PUT/DELETE and not-found GET responses are asserted for H2 and mockjdbc profiles; mock replay remains explicitly stateless.
 
 ### M4. Type and metadata fidelity
 - [ ] `open` Nulls, `DECIMAL`, dates/time zones, `BLOB` / `CLOB`.
@@ -65,7 +66,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M3 transaction behavior (`commit` / `rollback` / `autoCommit`), then the remaining user API writes.
+M4 type fidelity, starting with null and `DECIMAL` values.
 
 ## Log
 
@@ -77,3 +78,4 @@ M3 transaction behavior (`commit` / `rollback` / `autoCommit`), then the remaini
 - 2026-11-05: M3 generated keys done. Added an additive `MockedQuery.generated_keys` field and verified that H2-captured `PreparedStatement.executeUpdate` returns the same update count and generated key through the WireMock replay path. The next slice is prepared batch execution.
 - 2026-11-07: M3 batch execution done. Added batch indices to the event and lookup contracts so identical entries can map to distinct outcomes; plain/prepared capture and replay preserve counts, including large counts and JDBC sentinels. An H2 duplicate-delete batch round-trips `[1, 0]` through Kafka → WireMock → mock driver.
 - 2026-11-07: Batch review follow-up preserves partial `BatchUpdateException` counts during capture and recreates `BatchUpdateException` during replay; regression tests cover plain and large prepared batches plus replayed partial counts.
+- 2026-11-07: User API GET/PUT/DELETE coverage added for H2 and mockjdbc profiles. Transaction effects remain deferred because `commit` / `rollback` return no query payload and the mock is stateless; replay validates recorded SQL method results rather than transactional database changes.

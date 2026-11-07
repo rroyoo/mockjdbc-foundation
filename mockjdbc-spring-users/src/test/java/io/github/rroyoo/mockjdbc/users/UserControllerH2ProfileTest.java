@@ -25,6 +25,7 @@ import java.sql.SQLNonTransientException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -32,8 +33,10 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -70,6 +73,54 @@ public class UserControllerH2ProfileTest {
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.name").value("Linus Torvalds"))
                 .andExpect(jsonPath("$.email").value("linus@mockjdbc.dev"));
+    }
+
+    @Test
+    @DisplayName("Given h2 profile, when getting a user by id, then existing and missing users return the right status")
+    void shouldGetUserByIdWithH2Profile() throws Exception {
+        mockMvc.perform(get("/users/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Ada Lovelace"))
+                .andExpect(jsonPath("$.email").value("ada@mockjdbc.dev"));
+
+        mockMvc.perform(get("/users/999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Given h2 profile, when updating and deleting a user, then changes persist and deletion returns not found")
+    void shouldUpdateAndDeleteUserWithH2Profile() throws Exception {
+        var email = "crud-" + UUID.randomUUID() + "@mockjdbc.dev";
+        var updatedEmail = "updated-" + UUID.randomUUID() + "@mockjdbc.dev";
+        jdbcTemplate.update("insert into users(name, email) values (?, ?)", "Temporary User", email);
+        var userId = jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
+
+        try {
+            mockMvc.perform(get("/users/{id}", userId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.name").value("Temporary User"));
+
+            mockMvc.perform(put("/users/{id}", userId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"name\":\"Updated User\",\"email\":\"" + updatedEmail + "\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(userId))
+                    .andExpect(jsonPath("$.name").value("Updated User"))
+                    .andExpect(jsonPath("$.email").value(updatedEmail));
+
+            mockMvc.perform(get("/users/{id}", userId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.name").value("Updated User"))
+                    .andExpect(jsonPath("$.email").value(updatedEmail));
+
+            mockMvc.perform(delete("/users/{id}", userId))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(get("/users/{id}", userId))
+                    .andExpect(status().isNotFound());
+        } finally {
+            jdbcTemplate.update("delete from users where id = ?", userId);
+        }
     }
 
     @Test
