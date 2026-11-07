@@ -63,6 +63,39 @@ final class GrpcMockQueryClient implements AutoCloseable {
         return findMock(sql, parameters).getResultSet();
     }
 
+    static long updateCount(MockedQuery response) {
+        var resultSet = response.getResultSet();
+        if (response.hasGeneratedKeys() || isUpdateCountResultSet(resultSet)) {
+            return response.getUpdateCount();
+        }
+        return resultSet.getRowsCount();
+    }
+
+    static int updateCountAsInt(MockedQuery response) throws SQLException {
+        var updateCount = updateCount(response);
+        if (updateCount < Integer.MIN_VALUE || updateCount > Integer.MAX_VALUE) {
+            throw new SQLException("Mock update count exceeds the JDBC int range: " + updateCount);
+        }
+        return (int) updateCount;
+    }
+
+    static SerializedResultSet generatedKeys(MockedQuery response) {
+        return response.hasGeneratedKeys()
+                ? response.getGeneratedKeys()
+                : response.getResultSet();
+    }
+
+    static boolean hasGeneratedKeys(MockedQuery response) {
+        return response.hasGeneratedKeys()
+                || (response.getResultSet().getMetadataCount() > 0
+                && !isUpdateCountResultSet(response.getResultSet()));
+    }
+
+    private static boolean isUpdateCountResultSet(SerializedResultSet resultSet) {
+        return resultSet.getMetadataCount() > 0
+                && "update_count".equals(resultSet.getMetadata(0).getName());
+    }
+
     MockedQuery findMock(String sql, List<ParameterMetadata> parameters) throws SQLException {
         var activeChannel = acquireChannel();
         try {

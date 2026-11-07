@@ -38,7 +38,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
   - Exit criteria: OUT/INOUT values, multiple/empty results, and SQL exception type/message are covered in both record and replay flows.
 
 ### M3. Writes and transactions
-- [ ] `open` `executeUpdate` with generated keys.
+- [x] `done` `executeUpdate` with generated keys. The H2 capture → Kafka → WireMock → mock-driver round trip preserves the update count and generated-key rows.
 - [ ] `open` Batch (`addBatch` / `executeBatch`).
 - [ ] `open` `commit` / `rollback` / `autoCommit`.
 - [ ] `open` `GET /users/{id}`, `PUT /users/{id}`, `DELETE /users/{id}` covered in both flows.
@@ -64,7 +64,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M3 writes and transactions, starting with `executeUpdate` and generated keys.
+M3 batch execution (`addBatch` / `executeBatch`), then commit/rollback/autoCommit and the remaining user API writes.
 
 ## Log
 
@@ -73,3 +73,4 @@ M3 writes and transactions, starting with `executeUpdate` and generated keys.
 - 2026-10-12: M2 closed (record tests assert multiple/empty rows and captured SQLExceptions; mock tests replay multiple/empty rows and reconstruct the SQLNonTransientException). The focused sample tests passed: 12 run, 0 failures/errors/skips.
 - 2026-11-04: M1 done. Added an E2E H2 capture → Kafka → WireMock bridge → gRPC → mock-driver test that replays a generated stub without a hand-written mapping. The test exposed and fixed SQL normalization mismatch between bridge matchers and mock-driver lookup requests.
 - 2026-11-04: CI quality gate implemented in ADR-0005: GitHub Actions builds both Maven projects, reports test/coverage totals, enforces 50% combined line coverage, and publishes CodeQL findings. Local verification passed 349 tests with no skips and 75.45% line coverage. Testcontainers was updated to 1.21.4 with Docker API 1.44 pinned so the Kafka integration suites run on Docker Engine 29; the CI summary fails if either is skipped. PR #14 passed both push- and PR-triggered workflows, including CodeQL and the required non-skipped Kafka checks.
+- 2026-11-05: M3 generated keys done. Added an additive `MockedQuery.generated_keys` field and verified that H2-captured `PreparedStatement.executeUpdate` returns the same update count and generated key through the WireMock replay path. The next slice is prepared batch execution.
