@@ -19,10 +19,12 @@ import java.net.http.HttpResponse;
 import java.sql.DriverManager;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -156,6 +158,71 @@ class RecordReplayEndToEndTest {
                 assertEquals(1L, generatedKeys.getLong(1));
                 assertFalse(generatedKeys.next());
             }
+        }
+    }
+
+    @Test
+    @DisplayName("Given a captured prepared batch, when replayed, then each entry returns its update count")
+    void shouldReplayPreparedBatchWithCapturedUpdateCounts() throws Exception {
+        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
+        var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
+        var sql = "DELETE FROM replay_batch_users WHERE id = ?";
+        var firstMapping = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT)
+                + "::p1=1::batch=0";
+        var secondMapping = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT)
+                + "::p1=1::batch=1";
+
+        var dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUrl("jdbc:h2:mem:prepared-batch-replay;DB_CLOSE_DELAY=-1");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+        try (var connection = dataSource.getConnection();
+             var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE replay_batch_users (id BIGINT PRIMARY KEY, name VARCHAR(100))");
+            statement.execute("INSERT INTO replay_batch_users (id, name) VALUES (1, 'batch row')");
+        }
+
+        var kafkaProperties = new Properties();
+        kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
+        kafkaProperties.setProperty("acks", "all");
+
+        try (var producer = KafkaMockedQueryEventProducer.create(
+                     kafkaProperties,
+                     TOPIC,
+                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
+             var registration = JdbcAgentRegistry.register(
+                     dataSource,
+                     DATASOURCE_ID,
+                     event -> { },
+                     producer::send,
+                     AsyncDispatchConfig.defaults());
+             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+             var statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, 1);
+            statement.addBatch();
+            statement.setLong(1, 1);
+            statement.addBatch();
+
+            assertArrayEquals(new int[]{1, 0}, statement.executeBatch());
+            assertEquals(1, registration.events().size(), "One local capture event represents the prepared batch");
+            assertEquals(List.of(List.of(1L), List.of(1L)),
+                    registration.events().get(0).parameters());
+            awaitGeneratedStub(wireMockHost, wireMockPort, firstMapping);
+            awaitGeneratedStub(wireMockHost, wireMockPort, secondMapping);
+        }
+
+        try (var connection = DriverManager.getConnection(
+                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+             var statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, 1);
+            statement.addBatch();
+            statement.setLong(1, 1);
+            statement.addBatch();
+
+            assertArrayEquals(new int[]{1, 0}, statement.executeBatch());
         }
     }
 
