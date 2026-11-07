@@ -325,6 +325,55 @@ class StatementFactoryTest {
     }
 
     @Test
+    @DisplayName("Given an update with separate generated keys, when replayed, then update count and keys are preserved")
+    void shouldReplayUpdateCountSeparatelyFromGeneratedKeys() throws Exception {
+        var generatedKeys = twoRowResultSet("id", "id");
+        var updateResult = singleColumnResultSet("update_count", "update_count",
+                JdbcValue.newBuilder().setLongVal(1).build());
+        service.responder = request -> MockedQuery.newBuilder()
+                .setResultSet(updateResult)
+                .setUpdateCount(1)
+                .setGeneratedKeys(generatedKeys)
+                .build();
+
+        try (var statement = statementFactory.prepareStatement(
+                "INSERT INTO users(name) VALUES (?)", java.sql.Statement.RETURN_GENERATED_KEYS)) {
+            statement.setString(1, "Ada");
+            assertEquals(1, statement.executeUpdate());
+
+            try (var keys = statement.getGeneratedKeys()) {
+                assertTrue(keys.next());
+                assertEquals(1, keys.getInt("id"));
+                assertTrue(keys.next());
+                assertEquals(2, keys.getInt("id"));
+                assertFalse(keys.next());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Given an update with no generated keys, when requested, then an empty generated-keys result is returned")
+    void shouldReturnEmptyGeneratedKeysWhenUpdateResponseHasNone() throws Exception {
+        var updateResult = singleColumnResultSet("update_count", "update_count",
+                JdbcValue.newBuilder().setLongVal(1).build());
+        service.responder = request -> MockedQuery.newBuilder()
+                .setResultSet(updateResult)
+                .setUpdateCount(1)
+                .build();
+
+        try (var statement = statementFactory.prepareStatement(
+                "UPDATE users SET active=?", java.sql.Statement.RETURN_GENERATED_KEYS)) {
+            statement.setBoolean(1, true);
+            assertEquals(1, statement.executeUpdate());
+
+            try (var keys = statement.getGeneratedKeys()) {
+                assertEquals(1, keys.getMetaData().getColumnCount());
+                assertFalse(keys.next());
+            }
+        }
+    }
+
+    @Test
     @DisplayName("Given a statement with batched SQLs, when executeBatch is called, then it returns deterministic update counts")
     void shouldExecuteStatementBatchAndReturnCounts() throws Exception {
         service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));

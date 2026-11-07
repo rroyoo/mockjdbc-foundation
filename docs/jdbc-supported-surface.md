@@ -59,7 +59,8 @@ Source of truth:
 
 **Implemented groups**
 - Query/update/large-update execution families
-- Batch and result-state APIs (`executeBatch`, `executeLargeBatch`, `getResultSet`, `getUpdateCount`, `getMoreResults`)
+- Generated keys for `executeUpdate` calls that request them
+- Batch and result-state APIs (`executeBatch`, `executeLargeBatch`, `getResultSet`, `getGeneratedKeys`, `getUpdateCount`, `getMoreResults`)
 - Lifecycle and warnings
 - Config (`maxRows`, `largeMaxRows`, timeout, fetch direction/size, result-set config getters)
 - Misc (`setPoolable`, `cancel`, `getConnection`, cursor/escape hooks)
@@ -75,6 +76,7 @@ Source of truth:
 
 **Implemented groups**
 - Core execute methods without SQL argument
+- Generated keys from `executeUpdate` when the prepared statement is created with a generated-keys mode
 - Broad parameter binding coverage (primitive, object, temporal, null, stream/blob/clob/nclob)
 - Parameter metadata hooks and batching (`addBatch`, `clearParameters`)
 
@@ -109,6 +111,7 @@ Source of truth:
 
 - 2026-03-21: Baseline created from current factory wiring and test surface.
 - 2026-10-07: Closed the `Connection` gaps (validity/abort, wrappers, metadata, type map, LOB/array/struct factories); documented request/sharding and `createSQLXML` as unsupported. `ResultSetFactory` now coerces values to the declared SQL type. The `java.sql.Driver` service descriptor moved to `META-INF/services` and `MockDriver` self-registers, so `DriverManager` discovers it.
+- 2026-11-05: Added record/replay support for generated-key result sets on `executeUpdate`; update counts and key rows are carried separately in the `MockedQuery` response.
 
 
 ## 7. Result-set materialization (replay side)

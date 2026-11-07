@@ -81,7 +81,8 @@ final class MockedQueryStubMapper {
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
                     .withHeader("grpc-status-name", "OK")
-                    .withBody(buildSuccessJsonBody(event.getResultSet(), outParameters(event))));
+                    .withBody(buildSuccessJsonBody(event.getResultSet(), outParameters(event),
+                            event.hasGeneratedKeys() ? event.getGeneratedKeys() : null, event.getUpdateCount())));
         }
 
         // Key includes parameter values so each unique (sql + params) combination gets its own stub.
@@ -203,7 +204,48 @@ final class MockedQueryStubMapper {
      * empty, adds {@code callableStatement.parameters} so the driver can expose OUT/INOUT values.
      */
     static String buildSuccessJsonBody(SerializedResultSet rs, List<ParameterMetadata> outParameters) {
-        var sb = new StringBuilder("{\"resultSet\":{\"metadata\":[");
+        return buildSuccessJsonBody(rs, outParameters, null);
+    }
+
+    static String buildSuccessJsonBody(SerializedResultSet rs,
+                                       List<ParameterMetadata> outParameters,
+                                       SerializedResultSet generatedKeys) {
+        return buildSuccessJsonBody(rs, outParameters, generatedKeys, null);
+    }
+
+    static String buildSuccessJsonBody(SerializedResultSet rs,
+                                       List<ParameterMetadata> outParameters,
+                                       SerializedResultSet generatedKeys,
+                                       Long updateCount) {
+        var sb = new StringBuilder("{\"resultSet\":");
+        appendResultSetJson(sb, rs);
+        if (updateCount != null) {
+            sb.append(",\"updateCount\":\"").append(updateCount).append('"');
+        }
+        if (!outParameters.isEmpty()) {
+            sb.append(",\"callableStatement\":{\"parameters\":[");
+            for (int i = 0; i < outParameters.size(); i++) {
+                if (i > 0) sb.append(',');
+                var p = outParameters.get(i);
+                sb.append("{\"index\":").append(p.getIndex())
+                  .append(",\"sqlType\":").append(p.getSqlType())
+                  .append(",\"typeName\":").append(jsonString(p.getTypeName()))
+                  .append(",\"mode\":").append(p.getMode())
+                  .append(",\"value\":").append(jdbcValueJson(p.getValue()))
+                  .append('}');
+            }
+            sb.append("]}");
+        }
+        if (generatedKeys != null) {
+            sb.append(",\"generatedKeys\":");
+            appendResultSetJson(sb, generatedKeys);
+        }
+        sb.append('}');
+        return sb.toString();
+    }
+
+    private static void appendResultSetJson(StringBuilder sb, SerializedResultSet rs) {
+        sb.append("{\"metadata\":[");
         for (int i = 0; i < rs.getMetadataCount(); i++) {
             if (i > 0) sb.append(',');
             var m = rs.getMetadata(i);
@@ -225,22 +267,6 @@ final class MockedQueryStubMapper {
             sb.append("]}");
         }
         sb.append("]}");
-        if (!outParameters.isEmpty()) {
-            sb.append(",\"callableStatement\":{\"parameters\":[");
-            for (int i = 0; i < outParameters.size(); i++) {
-                if (i > 0) sb.append(',');
-                var p = outParameters.get(i);
-                sb.append("{\"index\":").append(p.getIndex())
-                  .append(",\"sqlType\":").append(p.getSqlType())
-                  .append(",\"typeName\":").append(jsonString(p.getTypeName()))
-                  .append(",\"mode\":").append(p.getMode())
-                  .append(",\"value\":").append(jdbcValueJson(p.getValue()))
-                  .append('}');
-            }
-            sb.append("]}");
-        }
-        sb.append('}');
-        return sb.toString();
     }
 
     /**

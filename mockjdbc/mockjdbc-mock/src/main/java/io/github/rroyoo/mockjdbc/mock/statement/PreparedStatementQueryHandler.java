@@ -2,6 +2,7 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
+import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 
@@ -71,10 +72,14 @@ final class PreparedStatementQueryHandler {
         this.outParametersListener = listener;
     }
 
-    private SerializedResultSet execute(List<ParameterMetadata> requestParameters) throws SQLException {
+    private MockedQuery executeResponse(List<ParameterMetadata> requestParameters) throws SQLException {
         var response = client.findMock(sql, requestParameters);
         outParametersListener.accept(response.getCallableStatement().getParametersList());
-        return response.getResultSet();
+        return response;
+    }
+
+    private SerializedResultSet execute(List<ParameterMetadata> requestParameters) throws SQLException {
+        return executeResponse(requestParameters).getResultSet();
     }
 
     public void setString(int index, String value) throws SQLException {
@@ -527,11 +532,12 @@ final class PreparedStatementQueryHandler {
 
     public int executeUpdate() throws SQLException {
         lifecycle.assertOpen();
-        var resultSet = execute(sortedParameters());
-        var count = resultSet.getRowsCount();
+        var response = executeResponse(sortedParameters());
+        var resultSet = response.getResultSet();
+        var count = GrpcMockQueryClient.updateCountAsInt(response);
         executionState.storeUpdateCount(count);
         if (returnGeneratedKeys) {
-            generatedKeys.storeGeneratedKeys(resultSet);
+            storeGeneratedKeys(response);
         } else {
             generatedKeys.clearGeneratedKeys();
         }
@@ -540,11 +546,12 @@ final class PreparedStatementQueryHandler {
 
     public long executeLargeUpdate() throws SQLException {
         lifecycle.assertOpen();
-        var resultSet = execute(sortedParameters());
-        var count = (long) resultSet.getRowsCount();
+        var response = executeResponse(sortedParameters());
+        var resultSet = response.getResultSet();
+        var count = GrpcMockQueryClient.updateCount(response);
         executionState.storeLargeUpdateCount(count);
         if (returnGeneratedKeys) {
-            generatedKeys.storeGeneratedKeys(resultSet);
+            storeGeneratedKeys(response);
         } else {
             generatedKeys.clearGeneratedKeys();
         }
@@ -554,6 +561,14 @@ final class PreparedStatementQueryHandler {
     public ResultSet getResultSet() throws SQLException {
         lifecycle.assertOpen();
         return executionState.getResultSet();
+    }
+
+    private void storeGeneratedKeys(MockedQuery response) throws SQLException {
+        if (GrpcMockQueryClient.hasGeneratedKeys(response)) {
+            generatedKeys.storeGeneratedKeys(GrpcMockQueryClient.generatedKeys(response));
+        } else {
+            generatedKeys.clearGeneratedKeys();
+        }
     }
 
     public int getUpdateCount() throws SQLException {

@@ -80,6 +80,25 @@ class GrpcMockQueryClientTest {
     }
 
     @Test
+    @DisplayName("Given a legacy update response, when update count is decoded, then the update_count cell is used")
+    void shouldDecodeUpdateCountFromLegacyResultSetColumn() throws Exception {
+        var legacyUpdateResult = SerializedResultSet.newBuilder()
+                .addMetadata(ColumnMetadata.newBuilder()
+                        .setName("update_count")
+                        .setLabel("update_count")
+                        .setSqlType(Types.BIGINT)
+                        .setTypeName("BIGINT")
+                        .build())
+                .addRows(Row.newBuilder()
+                        .addValues(JdbcValue.newBuilder().setLongVal(7).build())
+                        .build())
+                .build();
+        var response = mockedQuery(legacyUpdateResult);
+
+        assertEquals(7L, GrpcMockQueryClient.updateCount(response));
+    }
+
+    @Test
     @DisplayName("Given SQL literals with different case or whitespace, when looked up, then quoted content stays distinct")
     void shouldPreserveQuotedSqlContentWhenNormalizingLookup() throws Exception {
         service.responder = request -> mockedQuery(singleRowResultSet());
