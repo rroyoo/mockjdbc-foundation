@@ -60,7 +60,17 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                        long elapsedMs,
                        boolean success,
                        Throwable error) {
-        publishUpdate(sql, params, updateCount, elapsedMs, success, error, null);
+        publishUpdate(sql, params, updateCount, elapsedMs, success, error, null, null);
+    }
+
+    private void captureUpdate(String sql,
+                               List<Object> params,
+                               long updateCount,
+                               long elapsedMs,
+                               boolean success,
+                               Throwable error,
+                               int batchIndex) {
+        publishUpdate(sql, params, updateCount, elapsedMs, success, error, null, batchIndex);
     }
 
     java.sql.ResultSet captureUpdateWithGeneratedKeys(String sql,
@@ -75,7 +85,7 @@ public final class JdbcExecutionCapture implements AutoCloseable {
             return null;
         }
         return resultSetWrapperFactory.wrapSingleResultSet(generatedKeys, serialized ->
-                publishUpdate(sql, params, updateCount, elapsedMs, success, error, serialized));
+                publishUpdate(sql, params, updateCount, elapsedMs, success, error, serialized, null));
     }
 
     private void publishUpdate(String sql,
@@ -84,7 +94,8 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                                long elapsedMs,
                                boolean success,
                                Throwable error,
-                               SerializedResultSet generatedKeys) {
+                               SerializedResultSet generatedKeys,
+                               Integer batchIndex) {
         // List.copyOf rejects null elements; use ArrayList wrapper to allow null parameters (e.g. setNull())
         var paramGroups = params.isEmpty()
                 ? List.<List<Object>>of()
@@ -95,8 +106,12 @@ public final class JdbcExecutionCapture implements AutoCloseable {
 
         var paramMetadata = toParameterMetadata(params);
         var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(updateCount);
-        dispatcher.publish(buildMockedQuery(sql, paramMetadata, serializedResultSet,
-                error, elapsedMs, success, datasourceId, updateCount, 0L, generatedKeys));
+        var query = buildMockedQuery(sql, paramMetadata, serializedResultSet,
+                error, elapsedMs, success, datasourceId, updateCount, 0L, generatedKeys);
+        if (batchIndex != null) {
+            query = query.toBuilder().setBatchIndex(batchIndex).build();
+        }
+        dispatcher.publish(query);
     }
 
     /**
@@ -176,21 +191,36 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                       long elapsedMs,
                       boolean success,
                       Throwable error) {
+        if (groups.isEmpty()) {
+            return;
+        }
         var event = new JdbcQueryInterceptedEvent(datasourceId, sql, List.copyOf(groups), elapsedMs, success, error);
         events.add(event);
         localConsumer.accept(event);
 
-        if (groups.isEmpty()) {
-            dispatcher.publish(buildMockedQuery(sql, List.of(),
-                    ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(0L),
-                    error, elapsedMs, success, datasourceId, 0L, 0L, null));
-            return;
-        }
         for (var i = 0; i < groups.size(); i++) {
-            var count = counts != null && i < counts.length && counts[i] > 0 ? counts[i] : 0L;
-            dispatcher.publish(buildMockedQuery(sql, toParameterMetadata(groups.get(i)),
+            var count = counts != null && i < counts.length ? counts[i] : 0L;
+            var query = buildMockedQuery(sql, toParameterMetadata(groups.get(i)),
                     ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(count),
-                    error, elapsedMs, success, datasourceId, count, 0L, null));
+                    error, elapsedMs, success, datasourceId, count, 0L, null)
+                    .toBuilder()
+                    .setBatchIndex(i)
+                    .build();
+            dispatcher.publish(query);
+        }
+    }
+
+    /**
+     * Captures a plain {@code Statement} batch as one query event per SQL command.
+     */
+    void captureStatementBatch(List<String> statements,
+                               long[] counts,
+                               long elapsedMs,
+                               boolean success,
+                               Throwable error) {
+        for (var i = 0; i < statements.size(); i++) {
+            var count = counts != null && i < counts.length ? counts[i] : 0L;
+            captureUpdate(statements.get(i), List.of(), count, elapsedMs, success, error, i);
         }
     }
 

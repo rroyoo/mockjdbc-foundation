@@ -132,10 +132,45 @@ class CapturingStatementTest {
         statement.addBatch("UPDATE users SET name='Grace'");
         statement.executeBatch();
 
-        assertEquals(1, capture.events().size());
+        assertEquals(2, capture.events().size());
         assertEquals("INSERT INTO users(name) VALUES ('Ada')", capture.events().get(0).sql());
+        assertEquals("UPDATE users SET name='Grace'", capture.events().get(1).sql());
         assertTrue(capture.events().get(0).success());
+        assertTrue(capture.events().get(1).success());
         verify(delegate).executeBatch();
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given a plain statement batch, when executeBatch runs, then each SQL and returned count are captured")
+    void shouldCapturePlainStatementBatchEntries() throws Exception {
+        var protoEvents = new java.util.concurrent.CopyOnWriteArrayList<io.github.rroyoo.mockjdbc.mock.MockedQuery>();
+        var published = new CountDownLatch(2);
+        var events = new java.util.concurrent.CopyOnWriteArrayList<JdbcQueryInterceptedEvent>();
+        var capture = new JdbcExecutionCapture("users", events::add,
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    protoEvents.add(query);
+                    published.countDown();
+                }),
+                AsyncDispatchConfig.defaults());
+        var firstSql = "UPDATE users SET active=true WHERE id=1";
+        var secondSql = "UPDATE users SET active=true WHERE id=2";
+        var delegate = mock(Statement.class);
+        when(delegate.executeBatch()).thenReturn(new int[]{2, Statement.SUCCESS_NO_INFO});
+        var statement = capturingProxy(delegate, capture);
+
+        statement.addBatch(firstSql);
+        statement.addBatch(secondSql);
+        assertEquals(2, statement.executeBatch().length);
+
+        assertTrue(published.await(2, TimeUnit.SECONDS));
+        assertEquals(List.of(firstSql, secondSql), events.stream().map(JdbcQueryInterceptedEvent::sql).toList());
+        assertEquals(2L, protoEvents.get(0).getUpdateCount());
+        assertEquals((long) Statement.SUCCESS_NO_INFO, protoEvents.get(1).getUpdateCount());
+        assertTrue(protoEvents.get(0).hasBatchIndex());
+        assertEquals(0, protoEvents.get(0).getBatchIndex());
+        assertEquals(1, protoEvents.get(1).getBatchIndex());
+        assertTrue(protoEvents.stream().allMatch(io.github.rroyoo.mockjdbc.mock.MockedQuery::hasSimpleStatement));
         capture.close();
     }
 

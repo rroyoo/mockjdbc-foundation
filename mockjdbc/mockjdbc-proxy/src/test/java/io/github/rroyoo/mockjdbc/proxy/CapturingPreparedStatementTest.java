@@ -427,7 +427,10 @@ class CapturingPreparedStatementTest {
         var capture = new JdbcExecutionCapture("ds", events::add,
                 MockedQueryEventProducer.fromConsumer(protos::add), AsyncDispatchConfig.defaults());
         var delegate = mock(PreparedStatement.class);
-        when(delegate.executeBatch()).thenAnswer(inv -> { Thread.sleep(20); return new int[]{1, 1}; });
+        when(delegate.executeBatch()).thenAnswer(inv -> {
+            Thread.sleep(20);
+            return new int[]{2, java.sql.Statement.SUCCESS_NO_INFO};
+        });
         var proxy = capturingProxy(delegate, "INSERT INTO t(a) VALUES (?)", capture);
 
         proxy.setString(1, "a");
@@ -443,6 +446,25 @@ class CapturingPreparedStatementTest {
         while (protos.size() < 2 && System.currentTimeMillis() < deadline) Thread.sleep(5);
         assertEquals(2, protos.size());
         assertTrue(protos.stream().allMatch(MockedQuery::hasPreparedStatement));
+        assertEquals(2L, protos.get(0).getUpdateCount());
+        assertEquals((long) java.sql.Statement.SUCCESS_NO_INFO, protos.get(1).getUpdateCount());
+        assertTrue(protos.get(0).hasBatchIndex());
+        assertEquals(0, protos.get(0).getBatchIndex());
+        assertEquals(1, protos.get(1).getBatchIndex());
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given an empty prepared batch, when executeBatch runs, then no query event is captured")
+    void shouldNotCaptureEmptyPreparedBatch() throws Exception {
+        var events = new java.util.concurrent.CopyOnWriteArrayList<JdbcQueryInterceptedEvent>();
+        var capture = localCapture(events);
+        var delegate = mock(PreparedStatement.class);
+        when(delegate.executeBatch()).thenReturn(new int[0]);
+        var proxy = capturingProxy(delegate, "UPDATE t SET a=?", capture);
+
+        assertEquals(0, proxy.executeBatch().length);
+        assertTrue(events.isEmpty());
         capture.close();
     }
 

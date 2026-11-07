@@ -5,6 +5,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -17,6 +18,7 @@ import java.util.List;
  *   <li>{@code executeQuery(String)} — wraps the returned ResultSet for row capture</li>
  *   <li>{@code executeUpdate(String, ...)}, {@code executeLargeUpdate(String, ...)} — captures update count</li>
  *   <li>{@code execute(String, ...)} — wraps ResultSet when result is a query; captures update count otherwise</li>
+ *   <li>{@code addBatch(String)}, {@code executeBatch()}, {@code executeLargeBatch()} — captures each command and its update count</li>
  * </ul>
  * All other Statement methods are forwarded to the delegate.
  */
@@ -26,6 +28,7 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
     private final JdbcExecutionCapture capture;
     private PendingGeneratedKeysCapture pendingGeneratedKeysCapture;
     private ResultSet activeGeneratedKeys;
+    private final List<String> batchSql = new ArrayList<>();
 
     /**
      * Stores the wrapped ResultSet after {@code execute()} returns {@code true}. Cleared on next
@@ -65,6 +68,26 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
 
         if ("getGeneratedKeys".equals(name) && pendingGeneratedKeysCapture != null) {
             return captureGeneratedKeys();
+        }
+
+        if ("addBatch".equals(name) && args != null && args.length == 1 && args[0] instanceof String sql) {
+            var result = delegateInvoke(method, args);
+            batchSql.add(sql);
+            return result;
+        }
+
+        if ("clearBatch".equals(name)) {
+            var result = delegateInvoke(method, args);
+            batchSql.clear();
+            return result;
+        }
+
+        if ("executeBatch".equals(name) && (args == null || args.length == 0)) {
+            return captureExecuteBatch(method);
+        }
+
+        if ("executeLargeBatch".equals(name) && (args == null || args.length == 0)) {
+            return captureExecuteLargeBatch(method);
         }
 
         // ── executeQuery(String) ─────────────────────────────────────────────
@@ -116,6 +139,44 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
             throw e;
         }
         return capture.wrapResultSet(sql, List.of(), rawRs, startMs);
+    }
+
+    private int[] captureExecuteBatch(Method method) throws Throwable {
+        var statements = List.copyOf(batchSql);
+        var startMs = System.currentTimeMillis();
+        try {
+            var counts = (int[]) method.invoke(delegate);
+            var longCounts = new long[counts.length];
+            for (var i = 0; i < counts.length; i++) {
+                longCounts[i] = counts[i];
+            }
+            capture.captureStatementBatch(statements, longCounts,
+                    System.currentTimeMillis() - startMs, true, null);
+            return counts;
+        } catch (InvocationTargetException e) {
+            capture.captureStatementBatch(statements, null,
+                    System.currentTimeMillis() - startMs, false, e.getTargetException());
+            throw e.getTargetException();
+        } finally {
+            batchSql.clear();
+        }
+    }
+
+    private long[] captureExecuteLargeBatch(Method method) throws Throwable {
+        var statements = List.copyOf(batchSql);
+        var startMs = System.currentTimeMillis();
+        try {
+            var counts = (long[]) method.invoke(delegate);
+            capture.captureStatementBatch(statements, counts,
+                    System.currentTimeMillis() - startMs, true, null);
+            return counts;
+        } catch (InvocationTargetException e) {
+            capture.captureStatementBatch(statements, null,
+                    System.currentTimeMillis() - startMs, false, e.getTargetException());
+            throw e.getTargetException();
+        } finally {
+            batchSql.clear();
+        }
     }
 
     private int captureExecuteUpdate(Method method, String sql, Object[] args) throws Throwable {
