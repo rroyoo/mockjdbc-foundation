@@ -109,14 +109,20 @@ final class GrpcMockQueryClient implements AutoCloseable {
     }
 
     MockedQuery findMock(String sql, List<ParameterMetadata> parameters) throws SQLException {
+        return findMock(sql, parameters, null);
+    }
+
+    MockedQuery findMock(String sql, List<ParameterMetadata> parameters, Integer batchIndex) throws SQLException {
         var activeChannel = acquireChannel();
         try {
-            var request = QueryLookupRequest.newBuilder()
+            var requestBuilder = QueryLookupRequest.newBuilder()
                     .setSql(SqlNormalizer.normalize(sql))
-                    .addAllParameters(parameters)
-                    .build();
+                    .addAllParameters(parameters);
+            if (batchIndex != null) {
+                requestBuilder.setBatchIndex(batchIndex);
+            }
 
-            var response = MockQueryServiceGrpc.newBlockingStub(activeChannel).findMock(request);
+            var response = MockQueryServiceGrpc.newBlockingStub(activeChannel).findMock(requestBuilder.build());
             if (response.hasError()) {
                 throw toSqlException(response.getError());
             }

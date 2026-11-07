@@ -241,12 +241,15 @@ final class StatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
 
         var result = new int[batchSql.size()];
-        for (int i = 0; i < batchSql.size(); i++) {
-            result[i] = client.findResultSet(batchSql.get(i), List.of()).getRowsCount();
+        try {
+            for (int i = 0; i < batchSql.size(); i++) {
+                result[i] = GrpcMockQueryClient.updateCountAsInt(
+                        client.findMock(batchSql.get(i), List.of(), i));
+            }
+        } finally {
+            batchSql.clear();
+            executionState.storeUpdateCount(-1);
         }
-
-        batchSql.clear();
-        executionState.storeUpdateCount(-1);
         return result;
     }
 
@@ -255,12 +258,15 @@ final class StatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
 
         var result = new long[batchSql.size()];
-        for (int i = 0; i < batchSql.size(); i++) {
-            result[i] = client.findResultSet(batchSql.get(i), List.of()).getRowsCount();
+        try {
+            for (int i = 0; i < batchSql.size(); i++) {
+                result[i] = GrpcMockQueryClient.updateCount(
+                        client.findMock(batchSql.get(i), List.of(), i));
+            }
+        } finally {
+            batchSql.clear();
+            executionState.storeLargeUpdateCount(-1L);
         }
-
-        batchSql.clear();
-        executionState.storeLargeUpdateCount(-1L);
         return result;
     }
 }

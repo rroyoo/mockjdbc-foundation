@@ -621,12 +621,15 @@ final class PreparedStatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
 
         var result = new int[parameterBatches.size()];
-        for (int i = 0; i < parameterBatches.size(); i++) {
-            result[i] = client.findResultSet(sql, parameterBatches.get(i)).getRowsCount();
+        try {
+            for (int i = 0; i < parameterBatches.size(); i++) {
+                result[i] = GrpcMockQueryClient.updateCountAsInt(
+                        client.findMock(sql, parameterBatches.get(i), i));
+            }
+        } finally {
+            parameterBatches.clear();
+            executionState.storeUpdateCount(-1);
         }
-
-        parameterBatches.clear();
-        executionState.storeUpdateCount(-1);
         return result;
     }
 
@@ -635,12 +638,14 @@ final class PreparedStatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
 
         var result = new long[parameterBatches.size()];
-        for (int i = 0; i < parameterBatches.size(); i++) {
-            result[i] = client.findResultSet(sql, parameterBatches.get(i)).getRowsCount();
+        try {
+            for (int i = 0; i < parameterBatches.size(); i++) {
+                result[i] = GrpcMockQueryClient.updateCount(client.findMock(sql, parameterBatches.get(i), i));
+            }
+        } finally {
+            parameterBatches.clear();
+            executionState.storeLargeUpdateCount(-1L);
         }
-
-        parameterBatches.clear();
-        executionState.storeLargeUpdateCount(-1L);
         return result;
     }
 
