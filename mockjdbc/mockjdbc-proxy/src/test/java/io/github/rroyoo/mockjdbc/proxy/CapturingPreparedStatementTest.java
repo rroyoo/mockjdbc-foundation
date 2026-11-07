@@ -447,11 +447,11 @@ class CapturingPreparedStatementTest {
         while (protos.size() < 2 && System.currentTimeMillis() < deadline) Thread.sleep(5);
         assertEquals(2, protos.size());
         assertTrue(protos.stream().allMatch(MockedQuery::hasPreparedStatement));
-        assertEquals(2L, protos.get(0).getUpdateCount());
-        assertEquals((long) java.sql.Statement.SUCCESS_NO_INFO, protos.get(1).getUpdateCount());
-        assertTrue(protos.get(0).hasBatchIndex());
-        assertEquals(0, protos.get(0).getBatchIndex());
-        assertEquals(1, protos.get(1).getBatchIndex());
+        assertTrue(protos.stream().allMatch(MockedQuery::hasBatchIndex));
+        var firstEntry = protos.stream().filter(query -> query.getBatchIndex() == 0).findFirst().orElseThrow();
+        var secondEntry = protos.stream().filter(query -> query.getBatchIndex() == 1).findFirst().orElseThrow();
+        assertEquals(2L, firstEntry.getUpdateCount());
+        assertEquals((long) java.sql.Statement.SUCCESS_NO_INFO, secondEntry.getUpdateCount());
         capture.close();
     }
 
