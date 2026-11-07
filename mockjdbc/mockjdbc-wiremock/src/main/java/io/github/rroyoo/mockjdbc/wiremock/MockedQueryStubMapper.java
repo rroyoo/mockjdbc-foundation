@@ -11,6 +11,7 @@ import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import io.github.rroyoo.mockjdbc.mock.SqlNormalizer;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.ParameterMetaData;
 import java.time.Instant;
@@ -68,6 +69,8 @@ final class MockedQueryStubMapper {
         if (event.hasBatchIndex()) {
             mappingBuilder.withRequestBody(WireMock.matchingJsonPath(
                     "$.batchIndex", exact(Integer.toString(event.getBatchIndex()))));
+        } else {
+            mappingBuilder.withRequestBody(WireMock.matchingJsonPath("$.batchIndex", WireMock.absent()));
         }
 
         if (event.getStatus() == QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR) {
@@ -96,7 +99,15 @@ final class MockedQueryStubMapper {
             stubKey += "::batch=" + event.getBatchIndex();
         }
         var mapping  = mappingBuilder.build();
-        mapping.setId(UUID.nameUUIDFromBytes(stubKey.getBytes(StandardCharsets.UTF_8)));
+        var idInput = stubKey.getBytes(StandardCharsets.UTF_8);
+        if (event.hasBatchIndex()) {
+            idInput = ByteBuffer.allocate(Byte.BYTES + Integer.BYTES + idInput.length)
+                    .put((byte) 0xFF)
+                    .putInt(event.getBatchIndex())
+                    .put(idInput)
+                    .array();
+        }
+        mapping.setId(UUID.nameUUIDFromBytes(idInput));
         mapping.setName(stubKey);
         return Optional.of(mapping);
     }
