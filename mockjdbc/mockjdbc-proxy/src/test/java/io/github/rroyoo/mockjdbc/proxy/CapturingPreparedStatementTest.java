@@ -105,6 +105,37 @@ class CapturingPreparedStatementTest {
     }
 
     @Test
+    @DisplayName("Given partially consumed prepared generated keys, when the statement closes, then its update event is finalized")
+    void shouldFinalizePreparedGeneratedKeyCaptureWhenStatementCloses() throws Exception {
+        var protoEvent = new AtomicReference<MockedQuery>();
+        var latch = new CountDownLatch(1);
+        var capture = new JdbcExecutionCapture("users", event -> {},
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    protoEvent.set(query);
+                    latch.countDown();
+                }),
+                AsyncDispatchConfig.defaults());
+        var delegate = mock(PreparedStatement.class);
+        when(delegate.executeUpdate()).thenReturn(1);
+        when(delegate.getGeneratedKeys()).thenReturn(twoRowResultSet());
+        var proxy = (PreparedStatement) java.lang.reflect.Proxy.newProxyInstance(
+                PreparedStatement.class.getClassLoader(),
+                new Class<?>[]{PreparedStatement.class},
+                new CapturingPreparedStatementInvocationHandler(delegate,
+                        "INSERT INTO users(name) VALUES (?)", capture, true));
+
+        assertEquals(1, proxy.executeUpdate());
+        var generatedKeys = proxy.getGeneratedKeys();
+        assertTrue(generatedKeys.next());
+        proxy.close();
+
+        assertTrue(latch.await(2, TimeUnit.SECONDS));
+        assertTrue(protoEvent.get().hasGeneratedKeys());
+        assertEquals(1, protoEvent.get().getGeneratedKeys().getRowsCount());
+        capture.close();
+    }
+
+    @Test
     @DisplayName("Given setNull call, when captured, then parameter value is null in the proto event")
     void shouldCaptureNullParameterAsNullValue() throws Exception {
         var protoEvent = new AtomicReference<MockedQuery>();

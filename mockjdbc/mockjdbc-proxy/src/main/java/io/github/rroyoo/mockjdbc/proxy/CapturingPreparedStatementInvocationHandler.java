@@ -67,6 +67,7 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
     /** Deferred capture awaiting OUT parameter retrieval before being published. */
     private PendingCallableCapture pendingCallableCapture;
     private PendingGeneratedKeysCapture pendingGeneratedKeysCapture;
+    private ResultSet activeGeneratedKeys;
 
     /**
      * Stores the wrapped ResultSet after {@code execute()} returns {@code true}.
@@ -118,11 +119,16 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             return delegateInvoke(method, args);
         }
 
+        if ("getGeneratedKeys".equals(name) && activeGeneratedKeys != null) {
+            return activeGeneratedKeys;
+        }
+
         if ("getGeneratedKeys".equals(name) && pendingGeneratedKeysCapture != null) {
             return captureGeneratedKeys();
         }
 
-        if (pendingGeneratedKeysCapture != null && name.startsWith("execute")) {
+        if (name.startsWith("execute")
+                && (pendingGeneratedKeysCapture != null || activeGeneratedKeys != null)) {
             flushPendingGeneratedKeysCapture();
         }
 
@@ -397,8 +403,9 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             throw error;
         }
         try {
-            return capture.captureUpdateWithGeneratedKeys(sql, pending.parameters(), pending.updateCount(),
+            activeGeneratedKeys = capture.captureUpdateWithGeneratedKeys(sql, pending.parameters(), pending.updateCount(),
                     pending.elapsedMs(), true, null, generatedKeys);
+            return activeGeneratedKeys;
         } catch (java.sql.SQLException error) {
             capture.captureUpdate(sql, pending.parameters(), pending.updateCount(),
                     pending.elapsedMs(), true, null);
@@ -406,7 +413,11 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         }
     }
 
-    private void flushPendingGeneratedKeysCapture() {
+    private void flushPendingGeneratedKeysCapture() throws java.sql.SQLException {
+        if (activeGeneratedKeys != null) {
+            activeGeneratedKeys.close();
+            activeGeneratedKeys = null;
+        }
         if (pendingGeneratedKeysCapture == null) {
             return;
         }

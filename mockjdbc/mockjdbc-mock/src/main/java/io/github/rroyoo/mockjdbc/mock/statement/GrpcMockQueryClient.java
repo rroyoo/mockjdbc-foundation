@@ -63,10 +63,13 @@ final class GrpcMockQueryClient implements AutoCloseable {
         return findMock(sql, parameters).getResultSet();
     }
 
-    static long updateCount(MockedQuery response) {
+    static long updateCount(MockedQuery response) throws SQLException {
         var resultSet = response.getResultSet();
-        if (response.hasGeneratedKeys() || isUpdateCountResultSet(resultSet)) {
+        if (response.hasGeneratedKeys() || response.getUpdateCount() != 0) {
             return response.getUpdateCount();
+        }
+        if (isUpdateCountResultSet(resultSet)) {
+            return legacyUpdateCount(resultSet);
         }
         return resultSet.getRowsCount();
     }
@@ -94,6 +97,15 @@ final class GrpcMockQueryClient implements AutoCloseable {
     private static boolean isUpdateCountResultSet(SerializedResultSet resultSet) {
         return resultSet.getMetadataCount() > 0
                 && "update_count".equals(resultSet.getMetadata(0).getName());
+    }
+
+    private static long legacyUpdateCount(SerializedResultSet resultSet) throws SQLException {
+        if (resultSet.getRowsCount() == 0
+                || resultSet.getRows(0).getValuesCount() == 0
+                || resultSet.getRows(0).getValues(0).getKindCase() != JdbcValue.KindCase.LONG_VAL) {
+            throw new SQLException("Mock update-count result is missing its numeric update_count value");
+        }
+        return resultSet.getRows(0).getValues(0).getLongVal();
     }
 
     MockedQuery findMock(String sql, List<ParameterMetadata> parameters) throws SQLException {

@@ -25,6 +25,7 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
     private final Statement delegate;
     private final JdbcExecutionCapture capture;
     private PendingGeneratedKeysCapture pendingGeneratedKeysCapture;
+    private ResultSet activeGeneratedKeys;
 
     /**
      * Stores the wrapped ResultSet after {@code execute()} returns {@code true}. Cleared on next
@@ -51,6 +52,15 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
         if ("close".equals(name)) {
             flushPendingGeneratedKeysCapture();
             return delegateInvoke(method, args);
+        }
+
+        if (name.startsWith("execute")
+                && (pendingGeneratedKeysCapture != null || activeGeneratedKeys != null)) {
+            flushPendingGeneratedKeysCapture();
+        }
+
+        if ("getGeneratedKeys".equals(name) && activeGeneratedKeys != null) {
+            return activeGeneratedKeys;
         }
 
         if ("getGeneratedKeys".equals(name) && pendingGeneratedKeysCapture != null) {
@@ -165,21 +175,16 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
     }
 
     static boolean requestsGeneratedKeys(Object[] args) {
-        if (args == null) {
+        if (args == null || args.length != 2) {
             return false;
         }
-        for (var index = 1; index < args.length; index++) {
-            if (args[index] instanceof Integer flag && flag == Statement.RETURN_GENERATED_KEYS) {
-                return true;
-            }
-            if (args[index] instanceof int[] columnIndexes && columnIndexes.length > 0) {
-                return true;
-            }
-            if (args[index] instanceof String[] columnNames && columnNames.length > 0) {
-                return true;
-            }
+        if (args[1] instanceof Integer flag) {
+            return flag == Statement.RETURN_GENERATED_KEYS;
         }
-        return false;
+        if (args[1] instanceof int[] columnIndexes) {
+            return columnIndexes.length > 0;
+        }
+        return args[1] instanceof String[] columnNames && columnNames.length > 0;
     }
 
     private void captureUpdate(String sql,
@@ -208,8 +213,9 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
             throw error;
         }
         try {
-            return capture.captureUpdateWithGeneratedKeys(pending.sql(), List.of(), pending.updateCount(),
+            activeGeneratedKeys = capture.captureUpdateWithGeneratedKeys(pending.sql(), List.of(), pending.updateCount(),
                     pending.elapsedMs(), true, null, generatedKeys);
+            return activeGeneratedKeys;
         } catch (java.sql.SQLException error) {
             capture.captureUpdate(pending.sql(), List.of(), pending.updateCount(),
                     pending.elapsedMs(), true, null);
@@ -217,7 +223,11 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
         }
     }
 
-    private void flushPendingGeneratedKeysCapture() {
+    private void flushPendingGeneratedKeysCapture() throws java.sql.SQLException {
+        if (activeGeneratedKeys != null) {
+            activeGeneratedKeys.close();
+            activeGeneratedKeys = null;
+        }
         if (pendingGeneratedKeysCapture == null) {
             return;
         }
