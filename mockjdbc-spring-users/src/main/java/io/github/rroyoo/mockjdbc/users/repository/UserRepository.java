@@ -49,7 +49,7 @@ public class UserRepository {
         if (updatedRows == 0) {
             return Optional.empty();
         }
-        return findById(id);
+        return Optional.of(new User(id, name, email));
     }
 
     public boolean delete(long id) {

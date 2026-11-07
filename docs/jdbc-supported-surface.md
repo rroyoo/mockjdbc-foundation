@@ -34,7 +34,8 @@ Source of truth:
 
 **Implemented groups**
 - Lifecycle: `close`, `isClosed`, `isValid`, `abort`
-- Transaction basics: `setAutoCommit`, `getAutoCommit`, `commit`, `rollback`
+- Transaction hooks: `setAutoCommit`, `getAutoCommit`, `commit`, `rollback`
+  - Replay tracks `autoCommit` per connection; `commit` and `rollback` are no-ops and do not provide transactional persistence.
 - Savepoint basic hooks: `setSavepoint`, `releaseSavepoint`, `rollback(savepoint)`
 - Config/state: read-only, isolation, holdability, catalog, schema, network timeout
 - Warnings and client info
