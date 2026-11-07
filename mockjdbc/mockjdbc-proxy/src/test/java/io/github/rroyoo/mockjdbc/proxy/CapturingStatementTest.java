@@ -58,6 +58,65 @@ class CapturingStatementTest {
     }
 
     @Test
+    @DisplayName("Given generated keys requested on executeUpdate, when consumed, then the capture event includes them")
+    void shouldCaptureGeneratedKeysFromExecuteUpdate() throws Exception {
+        var capturedQuery = new java.util.concurrent.atomic.AtomicReference<io.github.rroyoo.mockjdbc.mock.MockedQuery>();
+        var latch = new CountDownLatch(1);
+        var capture = new JdbcExecutionCapture("users", event -> {},
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    capturedQuery.set(query);
+                    latch.countDown();
+                }),
+                AsyncDispatchConfig.defaults());
+        var keys = twoRowResultSet();
+        var delegate = mock(Statement.class);
+        when(delegate.executeUpdate("INSERT INTO users(name) VALUES ('Ada')",
+                Statement.RETURN_GENERATED_KEYS)).thenReturn(1);
+        when(delegate.getGeneratedKeys()).thenReturn(keys);
+
+        var statement = capturingProxy(delegate, capture);
+        assertEquals(1, statement.executeUpdate("INSERT INTO users(name) VALUES ('Ada')",
+                Statement.RETURN_GENERATED_KEYS));
+        try (var generatedKeys = statement.getGeneratedKeys()) {
+            assertTrue(generatedKeys.next());
+            assertEquals(1L, generatedKeys.getLong(1));
+            assertTrue(generatedKeys.next());
+            assertEquals(2L, generatedKeys.getLong(1));
+            assertFalse(generatedKeys.next());
+        }
+
+        assertTrue(latch.await(2, TimeUnit.SECONDS));
+        assertTrue(capturedQuery.get().hasGeneratedKeys());
+        assertEquals(2, capturedQuery.get().getGeneratedKeys().getRowsCount());
+        assertEquals(1L, capturedQuery.get().getUpdateCount());
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given generated-key retrieval fails, when executeUpdate succeeds, then the update remains successful")
+    void shouldNotRetrieveGeneratedKeysBeforeCallerRequestsThem() throws Exception {
+        var capture = new JdbcExecutionCapture("users", event -> {},
+                MockedQueryEventProducer.fromConsumer(query -> {}),
+                AsyncDispatchConfig.defaults());
+        var delegate = mock(Statement.class);
+        when(delegate.executeUpdate("INSERT INTO users(name) VALUES ('Ada')",
+                Statement.RETURN_GENERATED_KEYS)).thenReturn(1);
+        when(delegate.getGeneratedKeys()).thenThrow(new java.sql.SQLException("keys unavailable"));
+
+        var statement = capturingProxy(delegate, capture);
+
+        assertEquals(1, statement.executeUpdate("INSERT INTO users(name) VALUES ('Ada')",
+                Statement.RETURN_GENERATED_KEYS));
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+                java.sql.SQLException.class, statement::getGeneratedKeys);
+        assertEquals("keys unavailable", error.getMessage());
+        assertEquals(1, capture.events().size());
+        assertTrue(capture.events().get(0).success());
+
+        capture.close();
+    }
+
+    @Test
     @DisplayName("Given executeUpdate throws, when called via capturing proxy, then failure event is captured and exception propagated")
     void shouldCaptureExecuteUpdateFailureAndPropagate() throws Exception {
         var capture = new JdbcExecutionCapture("default-datasource", event -> {},

@@ -50,6 +50,7 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
     private final PreparedStatement delegate;
     private final String sql;
     private final JdbcExecutionCapture capture;
+    private final boolean returnGeneratedKeys;
 
     /** Current single-execution parameter set. Keyed by 1-based index. */
     private final TreeMap<Integer, Object> currentParams = new TreeMap<>();
@@ -65,6 +66,7 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
 
     /** Deferred capture awaiting OUT parameter retrieval before being published. */
     private PendingCallableCapture pendingCallableCapture;
+    private PendingGeneratedKeysCapture pendingGeneratedKeysCapture;
 
     /**
      * Stores the wrapped ResultSet after {@code execute()} returns {@code true}.
@@ -80,12 +82,25 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
                                           Throwable error) {
     }
 
+    private record PendingGeneratedKeysCapture(List<Object> parameters,
+                                               long updateCount,
+                                               long elapsedMs) {
+    }
+
     CapturingPreparedStatementInvocationHandler(PreparedStatement delegate,
                                                 String sql,
                                                 JdbcExecutionCapture capture) {
+        this(delegate, sql, capture, false);
+    }
+
+    CapturingPreparedStatementInvocationHandler(PreparedStatement delegate,
+                                                String sql,
+                                                JdbcExecutionCapture capture,
+                                                boolean returnGeneratedKeys) {
         this.delegate = delegate;
         this.sql = sql;
         this.capture = capture;
+        this.returnGeneratedKeys = returnGeneratedKeys;
     }
 
     @Override
@@ -99,7 +114,16 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         // ── close() — flush any deferred callable capture first ─────────────
         if ("close".equals(name)) {
             flushPendingCallableCapture();
+            flushPendingGeneratedKeysCapture();
             return delegateInvoke(method, args);
+        }
+
+        if ("getGeneratedKeys".equals(name) && pendingGeneratedKeysCapture != null) {
+            return captureGeneratedKeys();
+        }
+
+        if (pendingGeneratedKeysCapture != null && name.startsWith("execute")) {
+            flushPendingGeneratedKeysCapture();
         }
 
         // ── OUT/INOUT parameter retrieval while a deferred capture is open ──
@@ -220,6 +244,8 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             var elapsedMs = System.currentTimeMillis() - startMs;
             if (hasOutParams) {
                 pendingCallableCapture = new PendingCallableCapture(inParamsByIndex, count, elapsedMs, true, null);
+            } else if (returnGeneratedKeys) {
+                pendingGeneratedKeysCapture = new PendingGeneratedKeysCapture(params, count, elapsedMs);
             } else {
                 capture.captureUpdate(sql, params, count, elapsedMs, true, null);
             }
@@ -240,8 +266,12 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         var startMs = System.currentTimeMillis();
         try {
             long count = delegate.executeLargeUpdate();
-            capture.captureUpdate(sql, params, count,
-                    System.currentTimeMillis() - startMs, true, null);
+            var elapsedMs = System.currentTimeMillis() - startMs;
+            if (returnGeneratedKeys) {
+                pendingGeneratedKeysCapture = new PendingGeneratedKeysCapture(params, count, elapsedMs);
+            } else {
+                capture.captureUpdate(sql, params, count, elapsedMs, true, null);
+            }
             return count;
         } catch (Exception e) {
             capture.captureUpdate(sql, params, 0L,
@@ -279,8 +309,12 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             pendingCallableCapture = new PendingCallableCapture(inParamsByIndex,
                     (long) delegate.getUpdateCount(), elapsedMs, true, null);
         } else {
-            capture.captureUpdate(sql, params, (long) delegate.getUpdateCount(),
-                    elapsedMs, true, null);
+            var updateCount = (long) delegate.getUpdateCount();
+            if (returnGeneratedKeys) {
+                pendingGeneratedKeysCapture = new PendingGeneratedKeysCapture(params, updateCount, elapsedMs);
+            } else {
+                capture.captureUpdate(sql, params, updateCount, elapsedMs, true, null);
+            }
         }
         return hasResultSet;
     }
@@ -349,6 +383,37 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         } else {
             capture.captureCallableUpdate(sql, merged, pending.updateCount(), pending.elapsedMs(), true, null);
         }
+    }
+
+    private ResultSet captureGeneratedKeys() throws Throwable {
+        var pending = pendingGeneratedKeysCapture;
+        pendingGeneratedKeysCapture = null;
+        ResultSet generatedKeys;
+        try {
+            generatedKeys = delegate.getGeneratedKeys();
+        } catch (java.sql.SQLException error) {
+            capture.captureUpdate(sql, pending.parameters(), pending.updateCount(),
+                    pending.elapsedMs(), true, null);
+            throw error;
+        }
+        try {
+            return capture.captureUpdateWithGeneratedKeys(sql, pending.parameters(), pending.updateCount(),
+                    pending.elapsedMs(), true, null, generatedKeys);
+        } catch (java.sql.SQLException error) {
+            capture.captureUpdate(sql, pending.parameters(), pending.updateCount(),
+                    pending.elapsedMs(), true, null);
+            throw error;
+        }
+    }
+
+    private void flushPendingGeneratedKeysCapture() {
+        if (pendingGeneratedKeysCapture == null) {
+            return;
+        }
+        var pending = pendingGeneratedKeysCapture;
+        pendingGeneratedKeysCapture = null;
+        capture.captureUpdate(sql, pending.parameters(), pending.updateCount(),
+                pending.elapsedMs(), true, null);
     }
 
     /**

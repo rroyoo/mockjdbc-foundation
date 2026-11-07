@@ -41,4 +41,5 @@ message MockedQuery {
   int64 update_count = 10;
   string event_id = 11;
   google.protobuf.Timestamp observed_at = 12;
+  SerializedResultSet generated_keys = 13;
 }

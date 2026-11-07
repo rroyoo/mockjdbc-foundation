@@ -220,6 +220,28 @@ class MockedQueryStubMapperTest {
     }
 
     @Test
+    @DisplayName("Given generated keys, buildSuccessJsonBody includes them as a separate result set")
+    void shouldBuildSuccessJsonBodyWithGeneratedKeys() {
+        var updateResult = SerializedResultSet.newBuilder()
+                .addMetadata(ColumnMetadata.newBuilder()
+                        .setName("update_count").setLabel("update_count")
+                        .setSqlType(Types.BIGINT).setTypeName("BIGINT").build())
+                .addRows(Row.newBuilder().addValues(JdbcValue.newBuilder().setLongVal(1).build()).build())
+                .build();
+        var generatedKeys = SerializedResultSet.newBuilder()
+                .addMetadata(ColumnMetadata.newBuilder()
+                        .setName("id").setLabel("id").setSqlType(Types.BIGINT).setTypeName("BIGINT").build())
+                .addRows(Row.newBuilder().addValues(JdbcValue.newBuilder().setLongVal(42).build()).build())
+                .build();
+
+        var json = MockedQueryStubMapper.buildSuccessJsonBody(updateResult, List.of(), generatedKeys);
+
+        assertTrue(json.contains("\"resultSet\":{\"metadata\":[{\"name\":\"update_count\""));
+        assertTrue(json.contains("\"generatedKeys\":{\"metadata\":[{\"name\":\"id\""));
+        assertTrue(json.contains("\"longVal\":\"42\""));
+    }
+
+    @Test
     @DisplayName("Given a callable event with IN and OUT parameters, mapper matches only IN values and returns OUT values in the response")
     void shouldMapCallableEventWithOutParameters() {
         var mapper = new MockedQueryStubMapper(List.of(), List.of());

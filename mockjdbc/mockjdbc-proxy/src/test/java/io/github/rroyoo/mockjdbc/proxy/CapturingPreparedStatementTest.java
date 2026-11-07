@@ -69,6 +69,42 @@ class CapturingPreparedStatementTest {
     }
 
     @Test
+    @DisplayName("Given a prepared statement requests generated keys, when keys are consumed, then the proto event includes them")
+    void shouldCaptureGeneratedKeysForPreparedStatement() throws Exception {
+        var protoEvent = new AtomicReference<MockedQuery>();
+        var latch = new CountDownLatch(1);
+        var capture = new JdbcExecutionCapture("users", event -> {},
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    protoEvent.set(query);
+                    latch.countDown();
+                }),
+                AsyncDispatchConfig.defaults());
+        var delegate = mock(PreparedStatement.class);
+        when(delegate.executeUpdate()).thenReturn(1);
+        when(delegate.getGeneratedKeys()).thenReturn(twoRowResultSet());
+
+        var proxy = (PreparedStatement) java.lang.reflect.Proxy.newProxyInstance(
+                PreparedStatement.class.getClassLoader(),
+                new Class<?>[]{PreparedStatement.class},
+                new CapturingPreparedStatementInvocationHandler(delegate,
+                        "INSERT INTO users(name) VALUES (?)", capture, true));
+        proxy.setString(1, "Ada");
+        assertEquals(1, proxy.executeUpdate());
+        try (var generatedKeys = proxy.getGeneratedKeys()) {
+            while (generatedKeys.next()) {
+                generatedKeys.getLong(1);
+            }
+        }
+
+        assertTrue(latch.await(2, TimeUnit.SECONDS));
+        assertTrue(protoEvent.get().hasGeneratedKeys());
+        assertEquals(2, protoEvent.get().getGeneratedKeys().getRowsCount());
+        assertEquals("Ada", protoEvent.get().getPreparedStatement().getParameters(0)
+                .getValue().getStringVal());
+        capture.close();
+    }
+
+    @Test
     @DisplayName("Given setNull call, when captured, then parameter value is null in the proto event")
     void shouldCaptureNullParameterAsNullValue() throws Exception {
         var protoEvent = new AtomicReference<MockedQuery>();

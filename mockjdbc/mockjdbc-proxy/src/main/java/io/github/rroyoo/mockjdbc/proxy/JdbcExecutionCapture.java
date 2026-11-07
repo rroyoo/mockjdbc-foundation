@@ -60,6 +60,31 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                        long elapsedMs,
                        boolean success,
                        Throwable error) {
+        publishUpdate(sql, params, updateCount, elapsedMs, success, error, null);
+    }
+
+    java.sql.ResultSet captureUpdateWithGeneratedKeys(String sql,
+                                                      List<Object> params,
+                                                      long updateCount,
+                                                      long elapsedMs,
+                                                      boolean success,
+                                                      Throwable error,
+                                                      java.sql.ResultSet generatedKeys) throws java.sql.SQLException {
+        if (generatedKeys == null) {
+            captureUpdate(sql, params, updateCount, elapsedMs, success, error);
+            return null;
+        }
+        return resultSetWrapperFactory.wrapSingleResultSet(generatedKeys, serialized ->
+                publishUpdate(sql, params, updateCount, elapsedMs, success, error, serialized));
+    }
+
+    private void publishUpdate(String sql,
+                               List<Object> params,
+                               long updateCount,
+                               long elapsedMs,
+                               boolean success,
+                               Throwable error,
+                               SerializedResultSet generatedKeys) {
         // List.copyOf rejects null elements; use ArrayList wrapper to allow null parameters (e.g. setNull())
         var paramGroups = params.isEmpty()
                 ? List.<List<Object>>of()
@@ -71,7 +96,7 @@ public final class JdbcExecutionCapture implements AutoCloseable {
         var paramMetadata = toParameterMetadata(params);
         var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(updateCount);
         dispatcher.publish(buildMockedQuery(sql, paramMetadata, serializedResultSet,
-                error, elapsedMs, success, datasourceId, updateCount, 0L));
+                error, elapsedMs, success, datasourceId, updateCount, 0L, generatedKeys));
     }
 
     /**
@@ -114,7 +139,7 @@ public final class JdbcExecutionCapture implements AutoCloseable {
         var paramMetadata = toParameterMetadataFromCaptured(params);
         var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(updateCount);
         dispatcher.publish(buildMockedQuery(sql, paramMetadata, serializedResultSet,
-                error, elapsedMs, success, datasourceId, updateCount, 0L));
+                error, elapsedMs, success, datasourceId, updateCount, 0L, null));
     }
 
     /**
@@ -135,7 +160,7 @@ public final class JdbcExecutionCapture implements AutoCloseable {
 
         var paramMetadata = toParameterMetadata(params);
         dispatcher.publish(buildMockedQuery(sql, paramMetadata, serializedResultSet,
-                null, elapsedMs, success, datasourceId, 0L, serializedResultSet.getRowsCount()));
+                null, elapsedMs, success, datasourceId, 0L, serializedResultSet.getRowsCount(), null));
     }
 
     /**
@@ -158,14 +183,14 @@ public final class JdbcExecutionCapture implements AutoCloseable {
         if (groups.isEmpty()) {
             dispatcher.publish(buildMockedQuery(sql, List.of(),
                     ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(0L),
-                    error, elapsedMs, success, datasourceId, 0L, 0L));
+                    error, elapsedMs, success, datasourceId, 0L, 0L, null));
             return;
         }
         for (var i = 0; i < groups.size(); i++) {
             var count = counts != null && i < counts.length && counts[i] > 0 ? counts[i] : 0L;
             dispatcher.publish(buildMockedQuery(sql, toParameterMetadata(groups.get(i)),
                     ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(count),
-                    error, elapsedMs, success, datasourceId, count, 0L));
+                    error, elapsedMs, success, datasourceId, count, 0L, null));
         }
     }
 
@@ -216,7 +241,8 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                                         boolean success,
                                         String datasourceId,
                                         long updateCount,
-                                        long rowCount) {
+                                        long rowCount,
+                                        SerializedResultSet generatedKeys) {
         var builder = MockedQuery.newBuilder()
                 .setResultSet(serializedResultSet)
                 .setDatasourceId(datasourceId)
@@ -228,6 +254,9 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                 .setUpdateCount(updateCount)
                 .setEventId(UUID.randomUUID().toString())
                 .setObservedAt(nowTimestamp());
+        if (generatedKeys != null) {
+            builder.setGeneratedKeys(generatedKeys);
+        }
 
         var normalizedSql = sql == null ? "" : sql.trim();
 

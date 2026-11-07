@@ -65,7 +65,8 @@ final class CapturingConnectionInvocationHandler implements InvocationHandler {
             if ("prepareStatement".equals(name) && args != null && args.length >= 1
                     && args[0] instanceof String sql) {
                 var stmt = (PreparedStatement) method.invoke(delegate, args);
-                return wrapPreparedStatement(stmt, sql);
+                return wrapPreparedStatement(stmt, sql,
+                        CapturingStatementInvocationHandler.requestsGeneratedKeys(args));
             }
 
             if ("prepareCall".equals(name) && args != null && args.length >= 1
@@ -90,12 +91,14 @@ final class CapturingConnectionInvocationHandler implements InvocationHandler {
         );
     }
 
-    private PreparedStatement wrapPreparedStatement(PreparedStatement delegate, String sql) {
+    private PreparedStatement wrapPreparedStatement(PreparedStatement delegate,
+                                                    String sql,
+                                                    boolean returnGeneratedKeys) {
         ClassLoader cl = resolveClassLoader(delegate);
         return (PreparedStatement) Proxy.newProxyInstance(
                 cl,
                 new Class<?>[] { PreparedStatement.class },
-                new CapturingPreparedStatementInvocationHandler(delegate, sql, capture)
+                new CapturingPreparedStatementInvocationHandler(delegate, sql, capture, returnGeneratedKeys)
         );
     }
 

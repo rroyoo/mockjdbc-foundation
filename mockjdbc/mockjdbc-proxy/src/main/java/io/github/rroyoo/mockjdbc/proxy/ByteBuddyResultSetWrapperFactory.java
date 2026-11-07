@@ -33,11 +33,21 @@ final class ByteBuddyResultSetWrapperFactory {
      * {@link SerializedResultSet} to {@code onConsumed} when the ResultSet is exhausted or closed.
      */
     ResultSet wrap(ResultSet delegate, Consumer<SerializedResultSet> onConsumed) throws SQLException {
+        return wrap(delegate, onConsumed, rowBatchSize);
+    }
+
+    ResultSet wrapSingleResultSet(ResultSet delegate, Consumer<SerializedResultSet> onConsumed) throws SQLException {
+        return wrap(delegate, onConsumed, Integer.MAX_VALUE);
+    }
+
+    private ResultSet wrap(ResultSet delegate,
+                           Consumer<SerializedResultSet> onConsumed,
+                           int batchSize) throws SQLException {
         try {
             return (ResultSet) java.lang.reflect.Proxy.newProxyInstance(
                     delegate.getClass().getClassLoader(),
                     new Class<?>[]{ ResultSet.class },
-                    new ConsumptionTrackingInvocationHandler(delegate, onConsumed, rowBatchSize)
+                    new ConsumptionTrackingInvocationHandler(delegate, onConsumed, batchSize)
             );
         } catch (Exception e) {
             throw new SQLException("Failed to create ResultSet wrapper proxy", e);

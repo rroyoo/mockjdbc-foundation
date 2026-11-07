@@ -24,12 +24,16 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
 
     private final Statement delegate;
     private final JdbcExecutionCapture capture;
+    private PendingGeneratedKeysCapture pendingGeneratedKeysCapture;
 
     /**
      * Stores the wrapped ResultSet after {@code execute()} returns {@code true}. Cleared on next
      * {@code getResultSet()} call so the caller receives it exactly once, matching JDBC semantics.
      */
     private ResultSet pendingResultSet;
+
+    private record PendingGeneratedKeysCapture(String sql, long updateCount, long elapsedMs) {
+    }
 
     CapturingStatementInvocationHandler(Statement delegate, JdbcExecutionCapture capture) {
         this.delegate = delegate;
@@ -43,6 +47,15 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
         if ("equals".equals(name))   return proxy == (args != null ? args[0] : null);
         if ("hashCode".equals(name)) return System.identityHashCode(proxy);
         if ("toString".equals(name)) return "CapturingStatement{" + delegate + "}";
+
+        if ("close".equals(name)) {
+            flushPendingGeneratedKeysCapture();
+            return delegateInvoke(method, args);
+        }
+
+        if ("getGeneratedKeys".equals(name) && pendingGeneratedKeysCapture != null) {
+            return captureGeneratedKeys();
+        }
 
         // ── executeQuery(String) ─────────────────────────────────────────────
         if ("executeQuery".equals(name) && args != null && args.length == 1 && args[0] instanceof String sql) {
@@ -82,6 +95,7 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
     // ── Capture helpers ──────────────────────────────────────────────────────
 
     private ResultSet captureExecuteQuery(String sql) throws Throwable {
+        flushPendingGeneratedKeysCapture();
         var startMs = System.currentTimeMillis();
         ResultSet rawRs;
         try {
@@ -95,11 +109,12 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
     }
 
     private int captureExecuteUpdate(Method method, String sql, Object[] args) throws Throwable {
+        flushPendingGeneratedKeysCapture();
         var startMs = System.currentTimeMillis();
         try {
             int count = (int) method.invoke(delegate, args);
-            capture.captureUpdate(sql, List.of(), count,
-                    System.currentTimeMillis() - startMs, true, null);
+            captureUpdate(sql, List.of(), count, System.currentTimeMillis() - startMs,
+                    true, null, requestsGeneratedKeys(args));
             return count;
         } catch (InvocationTargetException e) {
             capture.captureUpdate(sql, List.of(), 0L,
@@ -109,11 +124,12 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
     }
 
     private long captureExecuteLargeUpdate(Method method, String sql, Object[] args) throws Throwable {
+        flushPendingGeneratedKeysCapture();
         var startMs = System.currentTimeMillis();
         try {
             long count = (long) method.invoke(delegate, args);
-            capture.captureUpdate(sql, List.of(), count,
-                    System.currentTimeMillis() - startMs, true, null);
+            captureUpdate(sql, List.of(), count, System.currentTimeMillis() - startMs,
+                    true, null, requestsGeneratedKeys(args));
             return count;
         } catch (InvocationTargetException e) {
             capture.captureUpdate(sql, List.of(), 0L,
@@ -123,6 +139,7 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
     }
 
     private boolean captureExecute(Method method, String sql, Object[] args) throws Throwable {
+        flushPendingGeneratedKeysCapture();
         var startMs = System.currentTimeMillis();
         boolean hasResultSet;
         try {
@@ -141,9 +158,80 @@ final class CapturingStatementInvocationHandler implements InvocationHandler {
                 pendingResultSet = capture.wrapResultSet(sql, List.of(), rawRs, startMs);
             }
         } else {
-            capture.captureUpdate(sql, List.of(), (long) delegate.getUpdateCount(),
-                    elapsedMs, true, null);
+            captureUpdate(sql, List.of(), (long) delegate.getUpdateCount(),
+                    elapsedMs, true, null, requestsGeneratedKeys(args));
         }
         return hasResultSet;
+    }
+
+    static boolean requestsGeneratedKeys(Object[] args) {
+        if (args == null) {
+            return false;
+        }
+        for (var index = 1; index < args.length; index++) {
+            if (args[index] instanceof Integer flag && flag == Statement.RETURN_GENERATED_KEYS) {
+                return true;
+            }
+            if (args[index] instanceof int[] columnIndexes && columnIndexes.length > 0) {
+                return true;
+            }
+            if (args[index] instanceof String[] columnNames && columnNames.length > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void captureUpdate(String sql,
+                               List<Object> params,
+                               long updateCount,
+                               long elapsedMs,
+                               boolean success,
+                               Throwable error,
+                               boolean requestsGeneratedKeys) throws Throwable {
+        if (requestsGeneratedKeys && success) {
+            pendingGeneratedKeysCapture = new PendingGeneratedKeysCapture(sql, updateCount, elapsedMs);
+        } else {
+            capture.captureUpdate(sql, params, updateCount, elapsedMs, success, error);
+        }
+    }
+
+    private ResultSet captureGeneratedKeys() throws Throwable {
+        var pending = pendingGeneratedKeysCapture;
+        pendingGeneratedKeysCapture = null;
+        ResultSet generatedKeys;
+        try {
+            generatedKeys = delegate.getGeneratedKeys();
+        } catch (java.sql.SQLException error) {
+            capture.captureUpdate(pending.sql(), List.of(), pending.updateCount(),
+                    pending.elapsedMs(), true, null);
+            throw error;
+        }
+        try {
+            return capture.captureUpdateWithGeneratedKeys(pending.sql(), List.of(), pending.updateCount(),
+                    pending.elapsedMs(), true, null, generatedKeys);
+        } catch (java.sql.SQLException error) {
+            capture.captureUpdate(pending.sql(), List.of(), pending.updateCount(),
+                    pending.elapsedMs(), true, null);
+            throw error;
+        }
+    }
+
+    private void flushPendingGeneratedKeysCapture() {
+        if (pendingGeneratedKeysCapture == null) {
+            return;
+        }
+        var pending = pendingGeneratedKeysCapture;
+        pendingGeneratedKeysCapture = null;
+        capture.captureUpdate(pending.sql(), List.of(), pending.updateCount(),
+                pending.elapsedMs(), true, null);
+    }
+
+    private Object delegateInvoke(Method method, Object[] args) throws Throwable {
+        try {
+            return method.invoke(delegate, args);
+        } catch (InvocationTargetException e) {
+            throw e.getTargetException();
+        }
     }
 }
