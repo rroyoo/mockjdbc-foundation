@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
 import java.sql.Array;
+import java.sql.BatchUpdateException;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -623,8 +624,13 @@ final class PreparedStatementQueryHandler {
         var result = new int[parameterBatches.size()];
         try {
             for (int i = 0; i < parameterBatches.size(); i++) {
-                result[i] = GrpcMockQueryClient.updateCountAsInt(
-                        client.findMock(sql, parameterBatches.get(i), i));
+                try {
+                    result[i] = GrpcMockQueryClient.updateCountAsInt(
+                            client.findMock(sql, parameterBatches.get(i), i));
+                } catch (SQLException error) {
+                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
+                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                }
             }
         } finally {
             parameterBatches.clear();
@@ -640,7 +646,12 @@ final class PreparedStatementQueryHandler {
         var result = new long[parameterBatches.size()];
         try {
             for (int i = 0; i < parameterBatches.size(); i++) {
-                result[i] = GrpcMockQueryClient.updateCount(client.findMock(sql, parameterBatches.get(i), i));
+                try {
+                    result[i] = GrpcMockQueryClient.updateCount(client.findMock(sql, parameterBatches.get(i), i));
+                } catch (SQLException error) {
+                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
+                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                }
             }
         } finally {
             parameterBatches.clear();

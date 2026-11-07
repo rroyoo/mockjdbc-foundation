@@ -457,6 +457,35 @@ class StatementFactoryTest {
     }
 
     @Test
+    @DisplayName("Given a failed prepared batch lookup, when replayed, then BatchUpdateException preserves completed counts")
+    void shouldPreserveCompletedCountsWhenPreparedBatchReplayFails() throws Exception {
+        service.responder = request -> request.getBatchIndex() == 0
+                ? updateCountQuery(5)
+                : MockedQuery.newBuilder()
+                        .setError(io.github.rroyoo.mockjdbc.mock.QueryError.newBuilder()
+                                .setType(java.sql.SQLException.class.getName())
+                                .setMessage("batch failure")
+                                .build())
+                        .build();
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET active=? WHERE id=?")) {
+            statement.setBoolean(1, true);
+            statement.setInt(2, 1);
+            statement.addBatch();
+            statement.setBoolean(1, false);
+            statement.setInt(2, 2);
+            statement.addBatch();
+
+            var error = assertThrows(java.sql.BatchUpdateException.class, statement::executeBatch);
+
+            assertEquals("batch failure", error.getMessage());
+            assertEquals(1, error.getUpdateCounts().length);
+            assertEquals(5, error.getUpdateCounts()[0]);
+            assertEquals(0, statement.executeBatch().length, "The failed batch should be cleared");
+        }
+    }
+
+    @Test
     @DisplayName("Given a prepared statement batch with large update counts, when executeLargeBatch is called, then it preserves each count")
     void shouldReplayPreparedStatementLargeBatchUpdateCounts() throws Exception {
         service.responder = request -> updateCountQuery(

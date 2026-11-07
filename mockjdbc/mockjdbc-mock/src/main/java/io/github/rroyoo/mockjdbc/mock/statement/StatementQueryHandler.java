@@ -2,6 +2,7 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 
+import java.sql.BatchUpdateException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -243,8 +244,13 @@ final class StatementQueryHandler {
         var result = new int[batchSql.size()];
         try {
             for (int i = 0; i < batchSql.size(); i++) {
-                result[i] = GrpcMockQueryClient.updateCountAsInt(
-                        client.findMock(batchSql.get(i), List.of(), i));
+                try {
+                    result[i] = GrpcMockQueryClient.updateCountAsInt(
+                            client.findMock(batchSql.get(i), List.of(), i));
+                } catch (SQLException error) {
+                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
+                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                }
             }
         } finally {
             batchSql.clear();
@@ -260,8 +266,13 @@ final class StatementQueryHandler {
         var result = new long[batchSql.size()];
         try {
             for (int i = 0; i < batchSql.size(); i++) {
-                result[i] = GrpcMockQueryClient.updateCount(
-                        client.findMock(batchSql.get(i), List.of(), i));
+                try {
+                    result[i] = GrpcMockQueryClient.updateCount(
+                            client.findMock(batchSql.get(i), List.of(), i));
+                } catch (SQLException error) {
+                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
+                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                }
             }
         } finally {
             batchSql.clear();

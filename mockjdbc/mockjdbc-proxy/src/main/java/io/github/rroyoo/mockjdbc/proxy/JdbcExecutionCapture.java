@@ -8,7 +8,9 @@ import io.github.rroyoo.mockjdbc.mock.PreparedStatement;
 import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 
+import java.sql.BatchUpdateException;
 import java.sql.ParameterMetaData;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -198,11 +200,13 @@ public final class JdbcExecutionCapture implements AutoCloseable {
         events.add(event);
         localConsumer.accept(event);
 
-        for (var i = 0; i < groups.size(); i++) {
-            var count = counts != null && i < counts.length ? counts[i] : 0L;
+        var outcomes = batchEntryOutcomes(groups.size(), counts, success, error);
+        for (var i = 0; i < outcomes.size(); i++) {
+            var outcome = outcomes.get(i);
             var query = buildMockedQuery(sql, toParameterMetadata(groups.get(i)),
-                    ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(count),
-                    error, elapsedMs, success, datasourceId, count, 0L, null)
+                    ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(outcome.updateCount()),
+                    outcome.error(), elapsedMs, outcome.success(), datasourceId,
+                    outcome.updateCount(), 0L, null)
                     .toBuilder()
                     .setBatchIndex(i)
                     .build();
@@ -218,10 +222,55 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                                long elapsedMs,
                                boolean success,
                                Throwable error) {
-        for (var i = 0; i < statements.size(); i++) {
-            var count = counts != null && i < counts.length ? counts[i] : 0L;
-            captureUpdate(statements.get(i), List.of(), count, elapsedMs, success, error, i);
+        var outcomes = batchEntryOutcomes(statements.size(), counts, success, error);
+        for (var i = 0; i < outcomes.size(); i++) {
+            var outcome = outcomes.get(i);
+            publishUpdate(statements.get(i), List.of(), outcome.updateCount(), elapsedMs,
+                    outcome.success(), outcome.error(), null, i);
         }
+    }
+
+    private static List<BatchEntryOutcome> batchEntryOutcomes(int batchSize,
+                                                              long[] counts,
+                                                              boolean success,
+                                                              Throwable error) {
+        var result = new ArrayList<BatchEntryOutcome>();
+        if (batchSize == 0) {
+            return result;
+        }
+        var actualCounts = error instanceof BatchUpdateException batchError
+                ? batchError.getLargeUpdateCounts()
+                : counts;
+        if (success) {
+            for (var i = 0; i < batchSize; i++) {
+                var count = actualCounts != null && i < actualCounts.length ? actualCounts[i] : 0L;
+                result.add(new BatchEntryOutcome(count, true, null));
+            }
+            return result;
+        }
+
+        var failureIndex = 0;
+        if (actualCounts != null) {
+            failureIndex = actualCounts.length < batchSize ? actualCounts.length : batchSize - 1;
+            for (var i = 0; i < Math.min(actualCounts.length, batchSize); i++) {
+                if (actualCounts[i] == Statement.EXECUTE_FAILED) {
+                    failureIndex = i;
+                    break;
+                }
+            }
+        }
+        for (var i = 0; i <= failureIndex; i++) {
+            if (i == failureIndex) {
+                result.add(new BatchEntryOutcome(Statement.EXECUTE_FAILED, false, error));
+            } else {
+                var count = actualCounts != null && i < actualCounts.length ? actualCounts[i] : 0L;
+                result.add(new BatchEntryOutcome(count, true, null));
+            }
+        }
+        return result;
+    }
+
+    private record BatchEntryOutcome(long updateCount, boolean success, Throwable error) {
     }
 
     /**

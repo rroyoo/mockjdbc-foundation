@@ -60,7 +60,7 @@ Source of truth:
 **Implemented groups**
 - Query/update/large-update execution families
 - Generated keys for `executeUpdate` calls that request them
-- Batch capture/replay for `Statement` and `PreparedStatement`; each command preserves its index and update count, including `executeLargeBatch` counts, JDBC count sentinels, and duplicate entries with distinct outcomes.
+- Batch capture/replay for `Statement` and `PreparedStatement`; each command preserves its index and update count, including `executeLargeBatch` counts, JDBC count sentinels, partial `BatchUpdateException` counts, and duplicate entries with distinct outcomes.
 - Result-state APIs (`executeBatch`, `executeLargeBatch`, `getResultSet`, `getGeneratedKeys`, `getUpdateCount`, `getMoreResults`)
 - Lifecycle and warnings
 - Config (`maxRows`, `largeMaxRows`, timeout, fetch direction/size, result-set config getters)
