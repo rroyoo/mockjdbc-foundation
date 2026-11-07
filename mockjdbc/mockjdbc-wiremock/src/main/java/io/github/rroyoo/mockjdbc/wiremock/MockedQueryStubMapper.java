@@ -60,11 +60,15 @@ final class MockedQueryStubMapper {
 
         // WireMock-gRPC intercepts calls at the gRPC method path and converts the binary
         // protobuf request body to JSON before applying stub matchers.
-        // QueryLookupRequest has no datasource_id field — filter on $.sql + each parameter value.
+        // QueryLookupRequest has no datasource_id field — filter on SQL, parameters, and batch index.
         var mappingBuilder = WireMock.post(WireMock.urlPathEqualTo(GRPC_METHOD_URL))
                 .withRequestBody(WireMock.matchingJsonPath("$.sql", exact(normalizedSql)));
 
         addParameterMatchers(mappingBuilder, params);
+        if (event.hasBatchIndex()) {
+            mappingBuilder.withRequestBody(WireMock.matchingJsonPath(
+                    "$.batchIndex", exact(Integer.toString(event.getBatchIndex()))));
+        }
 
         if (event.getStatus() == QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR) {
             // Return a MockedQuery JSON with the error field; the mock driver checks hasError().
@@ -85,9 +89,12 @@ final class MockedQueryStubMapper {
                             event.hasGeneratedKeys() ? event.getGeneratedKeys() : null, event.getUpdateCount())));
         }
 
-        // Key includes parameter values so each unique (sql + params) combination gets its own stub.
+        // Key includes batch index because identical commands may produce different results in one batch.
         var paramKey = paramKeySegment(params);
         var stubKey  = stubKey(datasourceId, normalizedSql, paramKey);
+        if (event.hasBatchIndex()) {
+            stubKey += "::batch=" + event.getBatchIndex();
+        }
         var mapping  = mappingBuilder.build();
         mapping.setId(UUID.nameUUIDFromBytes(stubKey.getBytes(StandardCharsets.UTF_8)));
         mapping.setName(stubKey);

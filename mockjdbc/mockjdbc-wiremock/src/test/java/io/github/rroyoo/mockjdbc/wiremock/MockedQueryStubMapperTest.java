@@ -159,6 +159,23 @@ class MockedQueryStubMapperTest {
     }
 
     @Test
+    @DisplayName("Given identical batch entries with different indices, mapper creates distinct index-matched stubs")
+    void shouldGenerateDistinctStubsForIdenticalBatchEntries() {
+        var mapper = new MockedQueryStubMapper(List.of(), List.of());
+        var captured = preparedEvent("DELETE FROM t WHERE id = ?", 7L, "ds");
+        var first = mapper.map(captured.toBuilder().setBatchIndex(0).build()).orElseThrow();
+        var second = mapper.map(captured.toBuilder().setBatchIndex(1).build()).orElseThrow();
+
+        assertNotEquals(first.getId(), second.getId());
+        assertTrue(first.getName().endsWith("::batch=0"));
+        assertTrue(second.getName().endsWith("::batch=1"));
+        var firstBatchPattern = (com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern)
+                first.getRequest().getBodyPatterns().get(2);
+        assertEquals("$.batchIndex", firstBatchPattern.getMatchesJsonPath());
+        assertEquals("0", firstBatchPattern.getValuePattern().getValue());
+    }
+
+    @Test
     @DisplayName("Given deny prefixes, mapper skips denied SQL")
     void shouldSkipDeniedSql() {
         var mapper = new MockedQueryStubMapper(List.of(), List.of("select 1"));
