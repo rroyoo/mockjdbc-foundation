@@ -11,6 +11,7 @@ import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import io.github.rroyoo.mockjdbc.mock.SqlNormalizer;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.ParameterMetaData;
 import java.time.Instant;
@@ -60,11 +61,17 @@ final class MockedQueryStubMapper {
 
         // WireMock-gRPC intercepts calls at the gRPC method path and converts the binary
         // protobuf request body to JSON before applying stub matchers.
-        // QueryLookupRequest has no datasource_id field — filter on $.sql + each parameter value.
+        // QueryLookupRequest has no datasource_id field — filter on SQL, parameters, and batch index.
         var mappingBuilder = WireMock.post(WireMock.urlPathEqualTo(GRPC_METHOD_URL))
                 .withRequestBody(WireMock.matchingJsonPath("$.sql", exact(normalizedSql)));
 
         addParameterMatchers(mappingBuilder, params);
+        if (event.hasBatchIndex()) {
+            mappingBuilder.withRequestBody(WireMock.matchingJsonPath(
+                    "$.batchIndex", exact(Integer.toString(event.getBatchIndex()))));
+        } else {
+            mappingBuilder.withRequestBody(WireMock.matchingJsonPath("$.batchIndex", WireMock.absent()));
+        }
 
         if (event.getStatus() == QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR) {
             // Return a MockedQuery JSON with the error field; the mock driver checks hasError().
@@ -85,11 +92,22 @@ final class MockedQueryStubMapper {
                             event.hasGeneratedKeys() ? event.getGeneratedKeys() : null, event.getUpdateCount())));
         }
 
-        // Key includes parameter values so each unique (sql + params) combination gets its own stub.
+        // Key includes batch index because identical commands may produce different results in one batch.
         var paramKey = paramKeySegment(params);
         var stubKey  = stubKey(datasourceId, normalizedSql, paramKey);
+        if (event.hasBatchIndex()) {
+            stubKey += "::batch=" + event.getBatchIndex();
+        }
         var mapping  = mappingBuilder.build();
-        mapping.setId(UUID.nameUUIDFromBytes(stubKey.getBytes(StandardCharsets.UTF_8)));
+        var idInput = stubKey.getBytes(StandardCharsets.UTF_8);
+        if (event.hasBatchIndex()) {
+            idInput = ByteBuffer.allocate(Byte.BYTES + Integer.BYTES + idInput.length)
+                    .put((byte) 0xFF)
+                    .putInt(event.getBatchIndex())
+                    .put(idInput)
+                    .array();
+        }
+        mapping.setId(UUID.nameUUIDFromBytes(idInput));
         mapping.setName(stubKey);
         return Optional.of(mapping);
     }

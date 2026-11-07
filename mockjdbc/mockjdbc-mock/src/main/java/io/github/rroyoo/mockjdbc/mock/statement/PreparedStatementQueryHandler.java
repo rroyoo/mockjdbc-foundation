@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
 import java.sql.Array;
+import java.sql.BatchUpdateException;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -621,12 +622,20 @@ final class PreparedStatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
 
         var result = new int[parameterBatches.size()];
-        for (int i = 0; i < parameterBatches.size(); i++) {
-            result[i] = client.findResultSet(sql, parameterBatches.get(i)).getRowsCount();
+        try {
+            for (int i = 0; i < parameterBatches.size(); i++) {
+                try {
+                    result[i] = GrpcMockQueryClient.updateCountAsInt(
+                            client.findMock(sql, parameterBatches.get(i), i));
+                } catch (SQLException error) {
+                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
+                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                }
+            }
+        } finally {
+            parameterBatches.clear();
+            executionState.storeUpdateCount(-1);
         }
-
-        parameterBatches.clear();
-        executionState.storeUpdateCount(-1);
         return result;
     }
 
@@ -635,12 +644,19 @@ final class PreparedStatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
 
         var result = new long[parameterBatches.size()];
-        for (int i = 0; i < parameterBatches.size(); i++) {
-            result[i] = client.findResultSet(sql, parameterBatches.get(i)).getRowsCount();
+        try {
+            for (int i = 0; i < parameterBatches.size(); i++) {
+                try {
+                    result[i] = GrpcMockQueryClient.updateCount(client.findMock(sql, parameterBatches.get(i), i));
+                } catch (SQLException error) {
+                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
+                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                }
+            }
+        } finally {
+            parameterBatches.clear();
+            executionState.storeLargeUpdateCount(-1L);
         }
-
-        parameterBatches.clear();
-        executionState.storeLargeUpdateCount(-1L);
         return result;
     }
 

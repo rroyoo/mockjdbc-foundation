@@ -60,7 +60,8 @@ Source of truth:
 **Implemented groups**
 - Query/update/large-update execution families
 - Generated keys for `executeUpdate` calls that request them
-- Batch and result-state APIs (`executeBatch`, `executeLargeBatch`, `getResultSet`, `getGeneratedKeys`, `getUpdateCount`, `getMoreResults`)
+- Batch capture/replay for `Statement` and `PreparedStatement`; each command preserves its index and update count, including `executeLargeBatch` counts, JDBC count sentinels, partial `BatchUpdateException` counts, and duplicate entries with distinct outcomes.
+- Result-state APIs (`executeBatch`, `executeLargeBatch`, `getResultSet`, `getGeneratedKeys`, `getUpdateCount`, `getMoreResults`)
 - Lifecycle and warnings
 - Config (`maxRows`, `largeMaxRows`, timeout, fetch direction/size, result-set config getters)
 - Misc (`setPoolable`, `cancel`, `getConnection`, cursor/escape hooks)
@@ -77,6 +78,7 @@ Source of truth:
 **Implemented groups**
 - Core execute methods without SQL argument
 - Generated keys from `executeUpdate` when the prepared statement is created with a generated-keys mode
+- Batch execution with per-entry update counts for `addBatch`, `executeBatch`, and `executeLargeBatch`
 - Broad parameter binding coverage (primitive, object, temporal, null, stream/blob/clob/nclob)
 - Parameter metadata hooks and batching (`addBatch`, `clearParameters`)
 

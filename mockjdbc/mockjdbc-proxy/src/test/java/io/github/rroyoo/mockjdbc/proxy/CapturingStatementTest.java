@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -132,10 +133,109 @@ class CapturingStatementTest {
         statement.addBatch("UPDATE users SET name='Grace'");
         statement.executeBatch();
 
-        assertEquals(1, capture.events().size());
+        assertEquals(2, capture.events().size());
         assertEquals("INSERT INTO users(name) VALUES ('Ada')", capture.events().get(0).sql());
+        assertEquals("UPDATE users SET name='Grace'", capture.events().get(1).sql());
         assertTrue(capture.events().get(0).success());
+        assertTrue(capture.events().get(1).success());
         verify(delegate).executeBatch();
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given a plain statement batch, when executeBatch runs, then each SQL and returned count are captured")
+    void shouldCapturePlainStatementBatchEntries() throws Exception {
+        var protoEvents = new java.util.concurrent.CopyOnWriteArrayList<io.github.rroyoo.mockjdbc.mock.MockedQuery>();
+        var published = new CountDownLatch(2);
+        var events = new java.util.concurrent.CopyOnWriteArrayList<JdbcQueryInterceptedEvent>();
+        var capture = new JdbcExecutionCapture("users", events::add,
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    protoEvents.add(query);
+                    published.countDown();
+                }),
+                AsyncDispatchConfig.defaults());
+        var firstSql = "UPDATE users SET active=true WHERE id=1";
+        var secondSql = "UPDATE users SET active=true WHERE id=2";
+        var delegate = mock(Statement.class);
+        when(delegate.executeBatch()).thenReturn(new int[]{2, Statement.SUCCESS_NO_INFO});
+        var statement = capturingProxy(delegate, capture);
+
+        statement.addBatch(firstSql);
+        statement.addBatch(secondSql);
+        assertEquals(2, statement.executeBatch().length);
+
+        assertTrue(published.await(2, TimeUnit.SECONDS));
+        assertEquals(List.of(firstSql, secondSql), events.stream().map(JdbcQueryInterceptedEvent::sql).toList());
+        assertEquals(2L, protoEvents.get(0).getUpdateCount());
+        assertEquals((long) Statement.SUCCESS_NO_INFO, protoEvents.get(1).getUpdateCount());
+        assertTrue(protoEvents.get(0).hasBatchIndex());
+        assertEquals(0, protoEvents.get(0).getBatchIndex());
+        assertEquals(1, protoEvents.get(1).getBatchIndex());
+        assertTrue(protoEvents.stream().allMatch(io.github.rroyoo.mockjdbc.mock.MockedQuery::hasSimpleStatement));
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given a partially failed plain statement batch, when execution throws, then completed counts and failure index are captured")
+    void shouldCapturePartialPlainStatementBatchFailure() throws Exception {
+        var protoEvents = new java.util.concurrent.CopyOnWriteArrayList<io.github.rroyoo.mockjdbc.mock.MockedQuery>();
+        var published = new CountDownLatch(2);
+        var capture = new JdbcExecutionCapture("users", event -> { },
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    protoEvents.add(query);
+                    published.countDown();
+                }),
+                AsyncDispatchConfig.defaults());
+        var delegate = mock(Statement.class);
+        when(delegate.executeBatch()).thenThrow(new java.sql.BatchUpdateException("batch failed", new int[]{2}));
+        var statement = capturingProxy(delegate, capture);
+
+        statement.addBatch("UPDATE users SET active=true WHERE id=1");
+        statement.addBatch("UPDATE users SET active=true WHERE id=2");
+        statement.addBatch("UPDATE users SET active=true WHERE id=3");
+
+        assertThrows(java.sql.BatchUpdateException.class, statement::executeBatch);
+        assertTrue(published.await(2, TimeUnit.SECONDS));
+        assertEquals(2, protoEvents.size());
+        assertEquals(2L, protoEvents.get(0).getUpdateCount());
+        assertEquals(io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS,
+                protoEvents.get(0).getStatus());
+        assertEquals(0, protoEvents.get(0).getBatchIndex());
+        assertEquals((long) Statement.EXECUTE_FAILED, protoEvents.get(1).getUpdateCount());
+        assertEquals(io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR,
+                protoEvents.get(1).getStatus());
+        assertEquals(1, protoEvents.get(1).getBatchIndex());
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given a partially failed plain large batch, when execution throws, then large completed counts are captured")
+    void shouldCapturePartialPlainStatementLargeBatchFailure() throws Exception {
+        var protoEvents = new java.util.concurrent.CopyOnWriteArrayList<io.github.rroyoo.mockjdbc.mock.MockedQuery>();
+        var published = new CountDownLatch(2);
+        var capture = new JdbcExecutionCapture("users", event -> { },
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    protoEvents.add(query);
+                    published.countDown();
+                }),
+                AsyncDispatchConfig.defaults());
+        var delegate = mock(Statement.class);
+        when(delegate.executeLargeBatch()).thenThrow(new java.sql.BatchUpdateException(
+                "batch failed", null, 0,
+                new long[]{(long) Integer.MAX_VALUE + 5, Statement.EXECUTE_FAILED}, null));
+        var statement = capturingProxy(delegate, capture);
+
+        statement.addBatch("UPDATE users SET active=true WHERE id=1");
+        statement.addBatch("UPDATE users SET active=true WHERE id=2");
+        statement.addBatch("UPDATE users SET active=true WHERE id=3");
+
+        assertThrows(java.sql.BatchUpdateException.class, statement::executeLargeBatch);
+        assertTrue(published.await(2, TimeUnit.SECONDS));
+        assertEquals(2, protoEvents.size());
+        assertEquals((long) Integer.MAX_VALUE + 5, protoEvents.get(0).getUpdateCount());
+        assertEquals(0, protoEvents.get(0).getBatchIndex());
+        assertEquals((long) Statement.EXECUTE_FAILED, protoEvents.get(1).getUpdateCount());
+        assertEquals(1, protoEvents.get(1).getBatchIndex());
         capture.close();
     }
 

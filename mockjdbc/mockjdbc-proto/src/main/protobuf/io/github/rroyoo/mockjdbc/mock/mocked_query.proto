@@ -42,4 +42,6 @@ message MockedQuery {
   string event_id = 11;
   google.protobuf.Timestamp observed_at = 12;
   SerializedResultSet generated_keys = 13;
+  // Zero-based position within a batch execution; absent for non-batch events.
+  optional int32 batch_index = 14;
 }

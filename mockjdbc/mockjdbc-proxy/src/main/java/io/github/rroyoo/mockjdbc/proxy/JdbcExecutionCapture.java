@@ -8,7 +8,9 @@ import io.github.rroyoo.mockjdbc.mock.PreparedStatement;
 import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 
+import java.sql.BatchUpdateException;
 import java.sql.ParameterMetaData;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,7 +62,17 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                        long elapsedMs,
                        boolean success,
                        Throwable error) {
-        publishUpdate(sql, params, updateCount, elapsedMs, success, error, null);
+        publishUpdate(sql, params, updateCount, elapsedMs, success, error, null, null);
+    }
+
+    private void captureUpdate(String sql,
+                               List<Object> params,
+                               long updateCount,
+                               long elapsedMs,
+                               boolean success,
+                               Throwable error,
+                               int batchIndex) {
+        publishUpdate(sql, params, updateCount, elapsedMs, success, error, null, batchIndex);
     }
 
     java.sql.ResultSet captureUpdateWithGeneratedKeys(String sql,
@@ -75,7 +87,7 @@ public final class JdbcExecutionCapture implements AutoCloseable {
             return null;
         }
         return resultSetWrapperFactory.wrapSingleResultSet(generatedKeys, serialized ->
-                publishUpdate(sql, params, updateCount, elapsedMs, success, error, serialized));
+                publishUpdate(sql, params, updateCount, elapsedMs, success, error, serialized, null));
     }
 
     private void publishUpdate(String sql,
@@ -84,7 +96,8 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                                long elapsedMs,
                                boolean success,
                                Throwable error,
-                               SerializedResultSet generatedKeys) {
+                               SerializedResultSet generatedKeys,
+                               Integer batchIndex) {
         // List.copyOf rejects null elements; use ArrayList wrapper to allow null parameters (e.g. setNull())
         var paramGroups = params.isEmpty()
                 ? List.<List<Object>>of()
@@ -95,8 +108,12 @@ public final class JdbcExecutionCapture implements AutoCloseable {
 
         var paramMetadata = toParameterMetadata(params);
         var serializedResultSet = ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(updateCount);
-        dispatcher.publish(buildMockedQuery(sql, paramMetadata, serializedResultSet,
-                error, elapsedMs, success, datasourceId, updateCount, 0L, generatedKeys));
+        var query = buildMockedQuery(sql, paramMetadata, serializedResultSet,
+                error, elapsedMs, success, datasourceId, updateCount, 0L, generatedKeys);
+        if (batchIndex != null) {
+            query = query.toBuilder().setBatchIndex(batchIndex).build();
+        }
+        dispatcher.publish(query);
     }
 
     /**
@@ -176,22 +193,84 @@ public final class JdbcExecutionCapture implements AutoCloseable {
                       long elapsedMs,
                       boolean success,
                       Throwable error) {
+        if (groups.isEmpty()) {
+            return;
+        }
         var event = new JdbcQueryInterceptedEvent(datasourceId, sql, List.copyOf(groups), elapsedMs, success, error);
         events.add(event);
         localConsumer.accept(event);
 
-        if (groups.isEmpty()) {
-            dispatcher.publish(buildMockedQuery(sql, List.of(),
-                    ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(0L),
-                    error, elapsedMs, success, datasourceId, 0L, 0L, null));
-            return;
+        var outcomes = batchEntryOutcomes(groups.size(), counts, success, error);
+        for (var i = 0; i < outcomes.size(); i++) {
+            var outcome = outcomes.get(i);
+            var query = buildMockedQuery(sql, toParameterMetadata(groups.get(i)),
+                    ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(outcome.updateCount()),
+                    outcome.error(), elapsedMs, outcome.success(), datasourceId,
+                    outcome.updateCount(), 0L, null)
+                    .toBuilder()
+                    .setBatchIndex(i)
+                    .build();
+            dispatcher.publish(query);
         }
-        for (var i = 0; i < groups.size(); i++) {
-            var count = counts != null && i < counts.length && counts[i] > 0 ? counts[i] : 0L;
-            dispatcher.publish(buildMockedQuery(sql, toParameterMetadata(groups.get(i)),
-                    ByteBuddyResultSetWrapperFactory.resultSetFromUpdateResult(count),
-                    error, elapsedMs, success, datasourceId, count, 0L, null));
+    }
+
+    /**
+     * Captures a plain {@code Statement} batch as one query event per SQL command.
+     */
+    void captureStatementBatch(List<String> statements,
+                               long[] counts,
+                               long elapsedMs,
+                               boolean success,
+                               Throwable error) {
+        var outcomes = batchEntryOutcomes(statements.size(), counts, success, error);
+        for (var i = 0; i < outcomes.size(); i++) {
+            var outcome = outcomes.get(i);
+            publishUpdate(statements.get(i), List.of(), outcome.updateCount(), elapsedMs,
+                    outcome.success(), outcome.error(), null, i);
         }
+    }
+
+    private static List<BatchEntryOutcome> batchEntryOutcomes(int batchSize,
+                                                              long[] counts,
+                                                              boolean success,
+                                                              Throwable error) {
+        var result = new ArrayList<BatchEntryOutcome>();
+        if (batchSize == 0) {
+            return result;
+        }
+        var actualCounts = error instanceof BatchUpdateException batchError
+                ? batchError.getLargeUpdateCounts()
+                : counts;
+        if (success) {
+            for (var i = 0; i < batchSize; i++) {
+                var count = actualCounts != null && i < actualCounts.length ? actualCounts[i] : 0L;
+                result.add(new BatchEntryOutcome(count, true, null));
+            }
+            return result;
+        }
+
+        var failureIndex = 0;
+        if (actualCounts != null) {
+            failureIndex = actualCounts.length < batchSize ? actualCounts.length : batchSize - 1;
+            for (var i = 0; i < Math.min(actualCounts.length, batchSize); i++) {
+                if (actualCounts[i] == Statement.EXECUTE_FAILED) {
+                    failureIndex = i;
+                    break;
+                }
+            }
+        }
+        for (var i = 0; i <= failureIndex; i++) {
+            if (i == failureIndex) {
+                result.add(new BatchEntryOutcome(Statement.EXECUTE_FAILED, false, error));
+            } else {
+                var count = actualCounts != null && i < actualCounts.length ? actualCounts[i] : 0L;
+                result.add(new BatchEntryOutcome(count, true, null));
+            }
+        }
+        return result;
+    }
+
+    private record BatchEntryOutcome(long updateCount, boolean success, Throwable error) {
     }
 
     /**

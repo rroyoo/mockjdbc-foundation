@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -427,7 +428,10 @@ class CapturingPreparedStatementTest {
         var capture = new JdbcExecutionCapture("ds", events::add,
                 MockedQueryEventProducer.fromConsumer(protos::add), AsyncDispatchConfig.defaults());
         var delegate = mock(PreparedStatement.class);
-        when(delegate.executeBatch()).thenAnswer(inv -> { Thread.sleep(20); return new int[]{1, 1}; });
+        when(delegate.executeBatch()).thenAnswer(inv -> {
+            Thread.sleep(20);
+            return new int[]{2, java.sql.Statement.SUCCESS_NO_INFO};
+        });
         var proxy = capturingProxy(delegate, "INSERT INTO t(a) VALUES (?)", capture);
 
         proxy.setString(1, "a");
@@ -443,6 +447,61 @@ class CapturingPreparedStatementTest {
         while (protos.size() < 2 && System.currentTimeMillis() < deadline) Thread.sleep(5);
         assertEquals(2, protos.size());
         assertTrue(protos.stream().allMatch(MockedQuery::hasPreparedStatement));
+        assertTrue(protos.stream().allMatch(MockedQuery::hasBatchIndex));
+        var firstEntry = protos.stream().filter(query -> query.getBatchIndex() == 0).findFirst().orElseThrow();
+        var secondEntry = protos.stream().filter(query -> query.getBatchIndex() == 1).findFirst().orElseThrow();
+        assertEquals(2L, firstEntry.getUpdateCount());
+        assertEquals((long) java.sql.Statement.SUCCESS_NO_INFO, secondEntry.getUpdateCount());
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given an empty prepared batch, when executeBatch runs, then no query event is captured")
+    void shouldNotCaptureEmptyPreparedBatch() throws Exception {
+        var events = new java.util.concurrent.CopyOnWriteArrayList<JdbcQueryInterceptedEvent>();
+        var capture = localCapture(events);
+        var delegate = mock(PreparedStatement.class);
+        when(delegate.executeBatch()).thenReturn(new int[0]);
+        var proxy = capturingProxy(delegate, "UPDATE t SET a=?", capture);
+
+        assertEquals(0, proxy.executeBatch().length);
+        assertTrue(events.isEmpty());
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given a partially failed prepared large batch, when execution throws, then large counts are captured through the failing entry")
+    void shouldCapturePartialPreparedLargeBatchFailure() throws Exception {
+        var protoEvents = new java.util.concurrent.CopyOnWriteArrayList<MockedQuery>();
+        var published = new CountDownLatch(2);
+        var capture = new JdbcExecutionCapture("ds", event -> { },
+                MockedQueryEventProducer.fromConsumer(query -> {
+                    protoEvents.add(query);
+                    published.countDown();
+                }),
+                AsyncDispatchConfig.defaults());
+        var delegate = mock(PreparedStatement.class);
+        when(delegate.executeLargeBatch()).thenThrow(new java.sql.BatchUpdateException(
+                "batch failed", null, 0,
+                new long[]{(long) Integer.MAX_VALUE + 5, java.sql.Statement.EXECUTE_FAILED}, null));
+        var proxy = capturingProxy(delegate, "UPDATE t SET a=?", capture);
+        proxy.setInt(1, 1);
+        proxy.addBatch();
+        proxy.setInt(1, 2);
+        proxy.addBatch();
+        proxy.setInt(1, 3);
+        proxy.addBatch();
+
+        assertThrows(java.sql.BatchUpdateException.class, proxy::executeLargeBatch);
+        assertTrue(published.await(2, TimeUnit.SECONDS));
+        assertEquals(2, protoEvents.size());
+        assertEquals((long) Integer.MAX_VALUE + 5, protoEvents.get(0).getUpdateCount());
+        assertEquals(io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS,
+                protoEvents.get(0).getStatus());
+        assertEquals((long) java.sql.Statement.EXECUTE_FAILED, protoEvents.get(1).getUpdateCount());
+        assertEquals(io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR,
+                protoEvents.get(1).getStatus());
+        assertEquals(1, protoEvents.get(1).getBatchIndex());
         capture.close();
     }
 

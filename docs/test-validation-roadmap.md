@@ -39,7 +39,8 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ### M3. Writes and transactions
 - [x] `done` `executeUpdate` with generated keys. The H2 capture → Kafka → WireMock → mock-driver round trip preserves the update count and generated-key rows.
-- [ ] `open` Batch (`addBatch` / `executeBatch`).
+- [x] `done` Batch (`Statement` and `PreparedStatement`, including `executeLargeBatch`). Capture/replay preserves per-command indices, update counts, JDBC `SUCCESS_NO_INFO` values, and `BatchUpdateException` partial counts, including repeated identical commands with different outcomes.
+  - Exit criteria: an H2 prepared batch containing duplicate deletes replays counts `[1, 0]` through Kafka/WireMock; unit coverage verifies plain/prepared batches, large counts, count sentinels, and partial failures.
 - [ ] `open` `commit` / `rollback` / `autoCommit`.
 - [ ] `open` `GET /users/{id}`, `PUT /users/{id}`, `DELETE /users/{id}` covered in both flows.
 
@@ -64,7 +65,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M3 batch execution (`addBatch` / `executeBatch`), then commit/rollback/autoCommit and the remaining user API writes.
+M3 transaction behavior (`commit` / `rollback` / `autoCommit`), then the remaining user API writes.
 
 ## Log
 
@@ -74,3 +75,5 @@ M3 batch execution (`addBatch` / `executeBatch`), then commit/rollback/autoCommi
 - 2026-11-04: M1 done. Added an E2E H2 capture → Kafka → WireMock bridge → gRPC → mock-driver test that replays a generated stub without a hand-written mapping. The test exposed and fixed SQL normalization mismatch between bridge matchers and mock-driver lookup requests.
 - 2026-11-04: CI quality gate implemented in ADR-0005: GitHub Actions builds both Maven projects, reports test/coverage totals, enforces 50% combined line coverage, and publishes CodeQL findings. Local verification passed 349 tests with no skips and 75.45% line coverage. Testcontainers was updated to 1.21.4 with Docker API 1.44 pinned so the Kafka integration suites run on Docker Engine 29; the CI summary fails if either is skipped. PR #14 passed both push- and PR-triggered workflows, including CodeQL and the required non-skipped Kafka checks.
 - 2026-11-05: M3 generated keys done. Added an additive `MockedQuery.generated_keys` field and verified that H2-captured `PreparedStatement.executeUpdate` returns the same update count and generated key through the WireMock replay path. The next slice is prepared batch execution.
+- 2026-11-07: M3 batch execution done. Added batch indices to the event and lookup contracts so identical entries can map to distinct outcomes; plain/prepared capture and replay preserve counts, including large counts and JDBC sentinels. An H2 duplicate-delete batch round-trips `[1, 0]` through Kafka → WireMock → mock driver.
+- 2026-11-07: Batch review follow-up preserves partial `BatchUpdateException` counts during capture and recreates `BatchUpdateException` during replay; regression tests cover plain and large prepared batches plus replayed partial counts.

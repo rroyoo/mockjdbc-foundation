@@ -12,6 +12,7 @@ Read first: `docs/module-status-matrix.md`, `docs/jdbc-supported-surface.md`, `.
 - `ResultSetFactory` coerces values to the declared SQL type; `DriverManager` discovers `MockDriver` via `META-INF/services/java.sql.Driver` and static self-registration.
 - The sample E2E test now proves H2 capture → Kafka → WireMock bridge → gRPC → mock-driver replay without a hand-authored mapping; lookup SQL normalization is aligned with bridge matching.
 - The same end-to-end path now captures and replays `PreparedStatement.executeUpdate` generated keys separately from the affected-row count.
+- Statement and prepared batches now preserve entry indices and per-entry update counts through H2 capture → Kafka → WireMock → mock driver, including repeated identical commands with different results.
 
 ## Local build
 
