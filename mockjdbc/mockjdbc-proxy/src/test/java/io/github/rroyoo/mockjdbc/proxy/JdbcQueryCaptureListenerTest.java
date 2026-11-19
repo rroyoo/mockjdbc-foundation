@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class JdbcQueryCaptureListenerTest {
 
@@ -147,6 +149,45 @@ class JdbcQueryCaptureListenerTest {
         assertEquals("SELECT id, name FROM users WHERE active = ?", protoEvent.get().getSimpleStatement().getSql());
 
         listener.close();
+    }
+
+    @Test
+    @DisplayName("Given null column metadata, when a result set is consumed, then the listener publishes it without interrupting JDBC")
+    void shouldPublishNullableMetadataAfterResultSetConsumption() throws Exception {
+        var protoEvent = new AtomicReference<MockedQuery>();
+        var latch = new CountDownLatch(1);
+        try (var listener = new JdbcQueryCaptureListener(event -> {}, mockedQuery -> {
+            protoEvent.set(mockedQuery);
+            latch.countDown();
+        })) {
+            var metadata = mock(java.sql.ResultSetMetaData.class);
+            when(metadata.getColumnCount()).thenReturn(1);
+            when(metadata.getColumnType(1)).thenReturn(Types.VARCHAR);
+            var rawRs = mock(ResultSet.class);
+            when(rawRs.getMetaData()).thenReturn(metadata);
+            when(rawRs.next()).thenReturn(true, false);
+            when(rawRs.getObject(1)).thenReturn("value");
+            var queryInfo = new QueryInfo("SELECT value");
+            var executionInfo = new ExecutionInfo();
+            executionInfo.setSuccess(true);
+            executionInfo.setResult(rawRs);
+
+            listener.beforeQuery(executionInfo, List.of(queryInfo));
+            try (var wrappedRs = proxyViaFactory(listener, rawRs)) {
+                listener.afterQuery(executionInfo, List.of(queryInfo));
+                assertTrue(wrappedRs.next());
+                assertEquals("value", wrappedRs.getObject(1));
+                assertFalse(wrappedRs.next());
+            }
+
+            assertTrue(latch.await(2, TimeUnit.SECONDS));
+            var parsed = MockedQuery.parseFrom(protoEvent.get().toByteArray());
+            var column = parsed.getResultSet().getMetadata(0);
+            assertFalse(column.hasName());
+            assertFalse(column.hasLabel());
+            assertFalse(column.hasTypeName());
+            assertEquals("value", parsed.getResultSet().getRows(0).getValues(0).getStringVal());
+        }
     }
 
     @Test

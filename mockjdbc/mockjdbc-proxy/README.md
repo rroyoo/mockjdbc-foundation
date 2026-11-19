@@ -96,6 +96,9 @@ Tune `AsyncDispatchConfig` according to throughput and memory constraints.
 - The ByteBuddy wrapper captures consumed rows in batches (`rowBatchSize`) instead of storing full result sets.
 - Each batch is emitted as a `MockedQuery` protobuf event with shared metadata.
 - Update/delete/procedure counts are emitted as lightweight `SerializedResultSet` with `update_count`.
+- Null column names, labels and type names are encoded as absent optional protobuf fields; empty strings remain present. Older proto3 producers could not distinguish absent values from empty strings, so their omitted fields are interpreted as null.
+- The mock driver's cached ResultSet currently exposes an absent type name as an empty string.
+- A capture failure is logged and disables capture for that ResultSet; already emitted batches remain available, and JDBC operations continue normally.
 
 ## Tiny benchmark harness
 
