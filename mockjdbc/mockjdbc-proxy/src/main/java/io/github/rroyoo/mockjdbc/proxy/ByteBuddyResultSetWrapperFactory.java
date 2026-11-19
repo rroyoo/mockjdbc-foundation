@@ -15,9 +15,12 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 final class ByteBuddyResultSetWrapperFactory {
 
+    private static final Logger LOGGER = Logger.getLogger(ByteBuddyResultSetWrapperFactory.class.getName());
     private final int rowBatchSize;
 
     ByteBuddyResultSetWrapperFactory(int rowBatchSize) {
@@ -64,6 +67,7 @@ final class ByteBuddyResultSetWrapperFactory {
         private boolean metadataInitialized;
         private boolean published;
         private boolean emittedChunks;
+        private boolean captureFailed;
 
         private ConsumptionTrackingInvocationHandler(ResultSet delegate,
                                                      Consumer<SerializedResultSet> onConsumed,
@@ -87,23 +91,31 @@ final class ByteBuddyResultSetWrapperFactory {
                 return "CapturingResultSet{" + delegate + "}";
             }
 
+            Object result;
             try {
-                var result = method.invoke(delegate, args);
-
-                if ("next".equals(methodName)) {
-                    if (Boolean.TRUE.equals(result)) {
-                        captureCurrentRow();
-                    } else {
-                        publishIfNeeded();
-                    }
-                } else if ("close".equals(methodName)) {
-                    publishIfNeeded();
-                }
-
-                return result;
+                result = method.invoke(delegate, args);
             } catch (InvocationTargetException e) {
                 throw e.getTargetException();
             }
+            if (!captureFailed) {
+                try {
+                    if ("next".equals(methodName)) {
+                        if (Boolean.TRUE.equals(result)) {
+                            captureCurrentRow();
+                        } else {
+                            publishIfNeeded();
+                        }
+                    } else if ("close".equals(methodName)) {
+                        publishIfNeeded();
+                    }
+                } catch (SQLException | RuntimeException e) {
+                    captureFailed = true;
+                    metadata.clear();
+                    rows.clear();
+                    LOGGER.log(Level.WARNING, "ResultSet capture failed; capture disabled for this result set", e);
+                }
+            }
+            return result;
         }
 
         private void captureCurrentRow() throws SQLException {
@@ -168,12 +180,20 @@ final class ByteBuddyResultSetWrapperFactory {
         }
 
         private static ColumnMetadata toColumnMetadata(ResultSetMetaData metaData, int columnIndex) throws SQLException {
-            return ColumnMetadata.newBuilder()
-                    .setName(metaData.getColumnName(columnIndex))
-                    .setLabel(metaData.getColumnLabel(columnIndex))
-                    .setSqlType(metaData.getColumnType(columnIndex))
-                    .setTypeName(metaData.getColumnTypeName(columnIndex))
-                    .build();
+            var builder = ColumnMetadata.newBuilder().setSqlType(metaData.getColumnType(columnIndex));
+            var name = metaData.getColumnName(columnIndex);
+            var label = metaData.getColumnLabel(columnIndex);
+            var typeName = metaData.getColumnTypeName(columnIndex);
+            if (name != null) {
+                builder.setName(name);
+            }
+            if (label != null) {
+                builder.setLabel(label);
+            }
+            if (typeName != null) {
+                builder.setTypeName(typeName);
+            }
+            return builder.build();
         }
 
     }

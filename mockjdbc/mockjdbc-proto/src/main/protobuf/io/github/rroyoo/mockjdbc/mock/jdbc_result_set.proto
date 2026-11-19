@@ -12,10 +12,11 @@ option optimize_for = SPEED;
  * Column definition from ResultSetMetaData
  */
 message ColumnMetadata {
-  string name = 1;
-  string label = 2;
+  // Absent text fields represent null JDBC metadata; present empty strings remain empty.
+  optional string name = 1;
+  optional string label = 2;
   int32 sql_type = 3;
-  string type_name = 4;
+  optional string type_name = 4;
 }
 
 /**

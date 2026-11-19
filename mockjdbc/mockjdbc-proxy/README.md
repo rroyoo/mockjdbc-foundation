@@ -154,6 +154,11 @@ this was expected and is why LMAX Disruptor was not adopted (see ADR-0002).
 
 Rows are captured in batches (`rowBatchSize`) during normal iteration. Each batch emits one
 `MockedQuery` event so memory is bounded. Large result sets do not accumulate in RAM.
+- Null column names, labels, and type names are encoded as absent optional protobuf fields; empty
+  strings remain present. Older proto3 producers that omitted these fields are interpreted as null.
+- The mock driver's cached ResultSet exposes an absent type name as an empty string.
+- A capture failure is logged and disables capture for that ResultSet. Already emitted batches
+  remain available, and JDBC operations continue normally.
 
 ## Datasource identity strategy
 

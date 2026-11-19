@@ -2,6 +2,7 @@ package io.github.rroyoo.mockjdbc.wiremock;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.google.protobuf.util.JsonFormat;
 import io.github.rroyoo.mockjdbc.mock.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -316,6 +317,35 @@ class MockedQueryStubMapperTest {
         assertTrue(json.contains("\"typeName\":\"BIGINT\""));
         assertTrue(json.contains("\"longVal\":\"1\""));   // int64 → quoted string
         assertTrue(json.contains("\"stringVal\":\"Alice\""));
+    }
+
+    @Test
+    @DisplayName("Given absent and present-empty metadata, when replay JSON is parsed, then protobuf presence is preserved")
+    void shouldPreserveOptionalMetadataPresenceInResponseJson() throws Exception {
+        var rs = SerializedResultSet.newBuilder()
+                .addMetadata(ColumnMetadata.newBuilder().setSqlType(Types.VARCHAR))
+                .addMetadata(ColumnMetadata.newBuilder()
+                        .setName("")
+                        .setLabel("")
+                        .setSqlType(Types.VARCHAR)
+                        .setTypeName(""))
+                .build();
+        var json = MockedQueryStubMapper.buildSuccessJsonBody(rs);
+        var replayed = MockedQuery.newBuilder();
+
+        JsonFormat.parser().merge(json, replayed);
+
+        var absent = replayed.getResultSet().getMetadata(0);
+        assertFalse(absent.hasName());
+        assertFalse(absent.hasLabel());
+        assertFalse(absent.hasTypeName());
+        var empty = replayed.getResultSet().getMetadata(1);
+        assertTrue(empty.hasName());
+        assertEquals("", empty.getName());
+        assertTrue(empty.hasLabel());
+        assertEquals("", empty.getLabel());
+        assertTrue(empty.hasTypeName());
+        assertEquals("", empty.getTypeName());
     }
 
     @Test

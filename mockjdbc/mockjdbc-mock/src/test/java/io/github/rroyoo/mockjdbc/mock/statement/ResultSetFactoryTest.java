@@ -92,6 +92,20 @@ class ResultSetFactoryTest {
 		}
 	}
 
+	@Test
+	@DisplayName("Given absent or empty type names, when creating ResultSet, then metadata uses empty strings")
+	void shouldUseEmptyTypeNamesForAbsentMetadata() throws Exception {
+		var serialized = SerializedResultSet.newBuilder()
+				.addMetadata(ColumnMetadata.newBuilder().setName("a").setLabel("a").setSqlType(Types.VARCHAR))
+				.addMetadata(column("b", "b", Types.VARCHAR, ""))
+				.build();
+
+		try (var resultSet = ResultSetFactory.create(serialized)) {
+			assertEquals("", resultSet.getMetaData().getColumnTypeName(1));
+			assertEquals("", resultSet.getMetaData().getColumnTypeName(2));
+		}
+	}
+
 	@ParameterizedTest(name = "[{index}] {1} -> {3}")
 	@MethodSource("typedValues")
 	@DisplayName("Given a declared SQL type, when creating ResultSet, then getObject returns the matching Java type")
@@ -274,4 +288,3 @@ class ResultSetFactoryTest {
 				.build();
 	}
 }
-
