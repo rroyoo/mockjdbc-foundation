@@ -166,11 +166,12 @@ class CapturingStatementTest {
 
         assertTrue(published.await(2, TimeUnit.SECONDS));
         assertEquals(List.of(firstSql, secondSql), events.stream().map(JdbcQueryInterceptedEvent::sql).toList());
-        assertEquals(2L, protoEvents.get(0).getUpdateCount());
-        assertEquals((long) Statement.SUCCESS_NO_INFO, protoEvents.get(1).getUpdateCount());
-        assertTrue(protoEvents.get(0).hasBatchIndex());
-        assertEquals(0, protoEvents.get(0).getBatchIndex());
-        assertEquals(1, protoEvents.get(1).getBatchIndex());
+        assertEquals(2, protoEvents.size());
+        assertTrue(protoEvents.stream().allMatch(io.github.rroyoo.mockjdbc.mock.MockedQuery::hasBatchIndex));
+        var firstEntry = protoEvents.stream().filter(query -> query.getBatchIndex() == 0).findFirst().orElseThrow();
+        var secondEntry = protoEvents.stream().filter(query -> query.getBatchIndex() == 1).findFirst().orElseThrow();
+        assertEquals(2L, firstEntry.getUpdateCount());
+        assertEquals((long) Statement.SUCCESS_NO_INFO, secondEntry.getUpdateCount());
         assertTrue(protoEvents.stream().allMatch(io.github.rroyoo.mockjdbc.mock.MockedQuery::hasSimpleStatement));
         capture.close();
     }
@@ -197,14 +198,15 @@ class CapturingStatementTest {
         assertThrows(java.sql.BatchUpdateException.class, statement::executeBatch);
         assertTrue(published.await(2, TimeUnit.SECONDS));
         assertEquals(2, protoEvents.size());
-        assertEquals(2L, protoEvents.get(0).getUpdateCount());
+        assertTrue(protoEvents.stream().allMatch(io.github.rroyoo.mockjdbc.mock.MockedQuery::hasBatchIndex));
+        var firstEntry = protoEvents.stream().filter(query -> query.getBatchIndex() == 0).findFirst().orElseThrow();
+        var secondEntry = protoEvents.stream().filter(query -> query.getBatchIndex() == 1).findFirst().orElseThrow();
+        assertEquals(2L, firstEntry.getUpdateCount());
         assertEquals(io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS,
-                protoEvents.get(0).getStatus());
-        assertEquals(0, protoEvents.get(0).getBatchIndex());
-        assertEquals((long) Statement.EXECUTE_FAILED, protoEvents.get(1).getUpdateCount());
+                firstEntry.getStatus());
+        assertEquals((long) Statement.EXECUTE_FAILED, secondEntry.getUpdateCount());
         assertEquals(io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR,
-                protoEvents.get(1).getStatus());
-        assertEquals(1, protoEvents.get(1).getBatchIndex());
+                secondEntry.getStatus());
         capture.close();
     }
 
@@ -232,10 +234,11 @@ class CapturingStatementTest {
         assertThrows(java.sql.BatchUpdateException.class, statement::executeLargeBatch);
         assertTrue(published.await(2, TimeUnit.SECONDS));
         assertEquals(2, protoEvents.size());
-        assertEquals((long) Integer.MAX_VALUE + 5, protoEvents.get(0).getUpdateCount());
-        assertEquals(0, protoEvents.get(0).getBatchIndex());
-        assertEquals((long) Statement.EXECUTE_FAILED, protoEvents.get(1).getUpdateCount());
-        assertEquals(1, protoEvents.get(1).getBatchIndex());
+        assertTrue(protoEvents.stream().allMatch(io.github.rroyoo.mockjdbc.mock.MockedQuery::hasBatchIndex));
+        var firstEntry = protoEvents.stream().filter(query -> query.getBatchIndex() == 0).findFirst().orElseThrow();
+        var secondEntry = protoEvents.stream().filter(query -> query.getBatchIndex() == 1).findFirst().orElseThrow();
+        assertEquals((long) Integer.MAX_VALUE + 5, firstEntry.getUpdateCount());
+        assertEquals((long) Statement.EXECUTE_FAILED, secondEntry.getUpdateCount());
         capture.close();
     }
 
