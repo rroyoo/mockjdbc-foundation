@@ -267,11 +267,18 @@ final class MockedQueryStubMapper {
         for (int i = 0; i < rs.getMetadataCount(); i++) {
             if (i > 0) sb.append(',');
             var m = rs.getMetadata(i);
-            sb.append("{\"name\":").append(jsonString(m.getName()))
-              .append(",\"label\":").append(jsonString(m.getLabel()))
-              .append(",\"sqlType\":").append(m.getSqlType())
-              .append(",\"typeName\":").append(jsonString(m.getTypeName()))
-              .append('}');
+            sb.append('{');
+            if (m.hasName()) {
+                sb.append("\"name\":").append(jsonString(m.getName())).append(',');
+            }
+            if (m.hasLabel()) {
+                sb.append("\"label\":").append(jsonString(m.getLabel())).append(',');
+            }
+            sb.append("\"sqlType\":").append(m.getSqlType());
+            if (m.hasTypeName()) {
+                sb.append(",\"typeName\":").append(jsonString(m.getTypeName()));
+            }
+            sb.append('}');
         }
         sb.append("],\"rows\":[");
         for (int i = 0; i < rs.getRowsCount(); i++) {
