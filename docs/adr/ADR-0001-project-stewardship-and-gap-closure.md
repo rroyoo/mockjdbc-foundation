@@ -8,6 +8,7 @@
 - `docs/adr/ADR-0002-jdbc-proxy-capture-and-kafka-event-pipeline.md`
 - `docs/adr/ADR-0003-mock-driver-scope-and-jdbc-compatibility.md`
 - `docs/adr/ADR-0004-wiremock-kafka-bridge-extension.md`
+- `docs/adr/ADR-0005-github-ci-cd-quality-gates.md`
 
 ## Context
 
@@ -53,7 +54,7 @@ During the repository review, the following verified gaps were detected:
 - That wiring works locally after building the sibling project, but it is fragile for repeatable CI and onboarding.
 
 ### JDBC implementation coverage
-- `ConnectionFactory` covers important stateful areas, but `Connection` is still partial. Missing or not yet wired areas include `nativeSQL`, metadata/type-map methods, LOB factory methods, `isValid`, `abort`, wrapper methods, and modern request/sharding methods.
+- `ConnectionFactory` now wires lifecycle (`isValid`, `abort`), `nativeSQL`, metadata/type-map, LOB/array/struct factories and wrapper methods. `createSQLXML` and the request/sharding methods intentionally throw `SQLFeatureNotSupportedException`.
 - `StatementFactory` is much more complete, but it still does not fully cover the entire JDBC contract. Notable gaps include wrapper methods and some newer convenience methods.
 - Some statement overloads accept `resultSetType`, `resultSetConcurrency`, and `resultSetHoldability`, but current implementation does not clearly enforce those values end-to-end.
 
@@ -127,6 +128,7 @@ Assessment notes:
 - [x] Create dedicated ADR for mock driver scope (`ADR-0003`).
 - [x] Create dedicated ADR for WireMock bridge scope (`ADR-0004`).
 - [x] Add GitHub Actions workflows for build and test automation.
+- [x] Define CI quality gates and free GitHub Actions reporting in `ADR-0005`.
 
 ### B. Documentation alignment
 - [x] Update `mockjdbc/README.md` so its architecture section reflects the current factory/handler/ByteBuddy implementation.
@@ -139,18 +141,18 @@ Assessment notes:
 - [ ] Reclassify `mockjdbc-proxy` from placeholder to active after minimal capture + Kafka publication slice is verified.
 
 ### D. Build and integration hygiene
-- [ ] Replace or reduce `systemPath` usage in `mockjdbc-spring-users` with a more reproducible consumption model.
+- [x] Replace or reduce `systemPath` usage in `mockjdbc-spring-users` with a more reproducible consumption model.
 - [x] If `systemPath` remains temporarily, document the bootstrap path clearly and keep it accurate.
 
 ### E. JDBC coverage backlog
 #### Connection
-- [ ] Implement and test `nativeSQL`.
-- [ ] Implement and test metadata/type-map behavior (`getMetaData`, `getTypeMap`, `setTypeMap`).
-- [ ] Implement and test LOB factory methods (`createBlob`, `createClob`, `createNClob`, `createSQLXML`).
-- [ ] Implement and test `createArrayOf` and `createStruct`.
-- [ ] Implement and test `isValid` and `abort`.
-- [ ] Implement and test `unwrap` and `isWrapperFor`.
-- [ ] Implement and test request/sharding methods or explicitly document them as unsupported.
+- [x] Implement and test `nativeSQL`.
+- [x] Implement and test metadata/type-map behavior (`getMetaData`, `getTypeMap`, `setTypeMap`).
+- [x] Implement and test LOB factory methods (`createBlob`, `createClob`, `createNClob`; `createSQLXML` is explicitly unsupported).
+- [x] Implement and test `createArrayOf` and `createStruct`.
+- [x] Implement and test `isValid` and `abort`.
+- [x] Implement and test `unwrap` and `isWrapperFor`.
+- [x] Implement and test request/sharding methods or explicitly document them as unsupported.
 
 #### Statement family
 - [ ] Audit and complete remaining wrapper and modern convenience methods.
@@ -158,13 +160,14 @@ Assessment notes:
 - [ ] Add targeted tests for any remaining partial or unimplemented methods.
 
 ### F. Result-set fidelity
-- [ ] Expand `ResultSetFactory` type support beyond the current subset where needed.
-- [ ] Add dedicated tests for result-set materialization and metadata fidelity.
+- [x] Expand `ResultSetFactory` type support beyond the current subset where needed.
+- [x] Add dedicated tests for result-set materialization and metadata fidelity.
 
 ### G. Test and release posture
-- [ ] Add an integration test that validates `DriverManager` + SPI discovery end-to-end.
+- [x] Add an integration test that validates `DriverManager` + SPI discovery end-to-end.
 - [ ] Keep `mockjdbc` and `mockjdbc-spring-users` tests green after each milestone.
 - [x] Introduce automated verification for both the reactor build and the standalone sample.
+- [x] Enforce combined line coverage, publish test/coverage summaries, and publish CodeQL results (ADR-0005).
 
 ### H. Proxy implementation and adoption
 - [ ] Follow `ADR-0002` checklist for proxy event contract, capture, Kafka publication, and integration guides.
@@ -183,7 +186,7 @@ The steward agent should normally take the next unchecked item from this order:
 6. `Connection` coverage backlog
 7. remaining `Statement` contract gaps
 8. result-set fidelity expansion
-9. CI automation
+9. Raise CI coverage from the 50% baseline toward the 90% target and confirm Docker-backed Kafka suites run without skips
 
 ## Consequences
 

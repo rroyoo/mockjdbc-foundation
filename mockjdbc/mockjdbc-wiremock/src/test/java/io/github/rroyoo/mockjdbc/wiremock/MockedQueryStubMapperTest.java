@@ -1,9 +1,15 @@
 package io.github.rroyoo.mockjdbc.wiremock;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import io.github.rroyoo.mockjdbc.mock.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.sql.Types;
 import java.util.List;
 
@@ -75,6 +81,31 @@ class MockedQueryStubMapperTest {
     }
 
     @Test
+    @DisplayName("Given SQL differing inside a quoted literal, mapper preserves literal content and creates distinct stubs")
+    void shouldPreserveQuotedSqlContentInStubKeysAndMatchers() {
+        var mapper = new MockedQueryStubMapper(List.of(), List.of());
+        var first = simpleEvent(" SELECT 'Alice  Smith' AS name; ");
+        var second = simpleEvent("SELECT 'alice smith' AS name");
+
+        var firstMapping = mapper.map(first).orElseThrow();
+        var secondMapping = mapper.map(second).orElseThrow();
+
+        assertNotEquals(firstMapping.getId(), secondMapping.getId());
+        assertTrue(firstMapping.getName().contains("select 'Alice  Smith' as name"));
+        assertTrue(secondMapping.getName().contains("select 'alice smith' as name"));
+        var firstSqlPattern = (com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern)
+                firstMapping.getRequest().getBodyPatterns().get(0);
+        var secondSqlPattern = (com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern)
+                secondMapping.getRequest().getBodyPatterns().get(0);
+        assertEquals("$.sql", firstSqlPattern.getMatchesJsonPath());
+        assertEquals("select 'Alice  Smith' as name", firstSqlPattern.getValuePattern().getValue());
+        assertEquals("$.sql", secondSqlPattern.getMatchesJsonPath());
+        assertEquals("select 'alice smith' as name", secondSqlPattern.getValuePattern().getValue());
+        assertEquals("select 'Alice  Smith' as name", MockedQueryStubMapper.normalizeSql(
+                " SELECT 'Alice  Smith' AS name; "));
+    }
+
+    @Test
     @DisplayName("Given a prepared statement with one long parameter, mapper adds parameter body pattern and encodes value in stub key")
     void shouldAddParameterBodyPatternForPreparedStatement() {
         var mapper = new MockedQueryStubMapper(List.of(), List.of());
@@ -96,12 +127,19 @@ class MockedQueryStubMapperTest {
         // Stub name / key must encode the parameter value for distinct-key deduplication.
         assertTrue(mapping.getName().contains("::p1=42"), "stub key must include parameter value");
 
-        // Body patterns: one for $.sql, one for the parameter.
+        // Body patterns: one for $.sql, one for the parameter, and one excluding batch lookups.
         var patterns = mapping.getRequest().getBodyPatterns();
-        assertEquals(2, patterns.size(), "expected $.sql pattern + one parameter pattern");
-        var patternStrings = patterns.stream().map(Object::toString).toList();
+        assertEquals(3, patterns.size(), "expected SQL, parameter, and non-batch patterns");
+        var patternStrings = patterns.stream()
+                .map(b -> ((com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern) b).getMatchesJsonPath()
+                        + "=" + ((com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern) b).getValuePattern().getValue())
+                .toList();
         assertTrue(patternStrings.stream().anyMatch(p -> p.contains("parameters[0].value.longVal")),
                 "expected a pattern for parameters[0].value.longVal");
+        var batchPattern = (com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern)
+                patterns.get(2);
+        assertEquals("$.batchIndex", batchPattern.getMatchesJsonPath());
+        assertEquals(WireMock.absent(), batchPattern.getValuePattern());
     }
 
     @Test
@@ -128,6 +166,102 @@ class MockedQueryStubMapperTest {
         var first  = mapper.map(preparedEvent("SELECT * FROM t WHERE id = ?", 7L, "ds")).orElseThrow();
         var second = mapper.map(preparedEvent("SELECT * FROM t WHERE id = ?", 7L, "ds")).orElseThrow();
         assertEquals(first.getId(), second.getId());
+    }
+
+    @Test
+    @DisplayName("Given identical batch entries with different indices, mapper creates distinct index-matched stubs")
+    void shouldGenerateDistinctStubsForIdenticalBatchEntries() {
+        var mapper = new MockedQueryStubMapper(List.of(), List.of());
+        var captured = preparedEvent("DELETE FROM t WHERE id = ?", 7L, "ds");
+        var first = mapper.map(captured.toBuilder().setBatchIndex(0).build()).orElseThrow();
+        var second = mapper.map(captured.toBuilder().setBatchIndex(1).build()).orElseThrow();
+
+        assertNotEquals(first.getId(), second.getId());
+        assertTrue(first.getName().endsWith("::batch=0"));
+        assertTrue(second.getName().endsWith("::batch=1"));
+        var firstBatchPattern = (com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern)
+                first.getRequest().getBodyPatterns().get(2);
+        assertEquals("$.batchIndex", firstBatchPattern.getMatchesJsonPath());
+        assertEquals("0", firstBatchPattern.getValuePattern().getValue());
+    }
+
+    @Test
+    @DisplayName("Given colliding display keys for batch and non-batch captures, mapper still creates distinct UUIDs")
+    void shouldAvoidBatchAndNonBatchUuidCollisions() {
+        var mapper = new MockedQueryStubMapper(List.of(), List.of());
+        var nonBatch = MockedQuery.newBuilder()
+                .setDatasourceId("ds")
+                .setStatus(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS)
+                .setPreparedStatement(PreparedStatement.newBuilder()
+                        .setSql("SELECT ?")
+                        .addParameters(ParameterMetadata.newBuilder()
+                                .setIndex(1)
+                                .setValue(JdbcValue.newBuilder().setStringVal("x::batch=0").build())
+                                .build())
+                        .build())
+                .setResultSet(SerializedResultSet.newBuilder().build())
+                .build();
+        var batch = MockedQuery.newBuilder()
+                .setDatasourceId("ds")
+                .setStatus(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS)
+                .setPreparedStatement(PreparedStatement.newBuilder()
+                        .setSql("SELECT ?")
+                        .addParameters(ParameterMetadata.newBuilder()
+                                .setIndex(1)
+                                .setValue(JdbcValue.newBuilder().setStringVal("x").build())
+                                .build())
+                        .build())
+                .setResultSet(SerializedResultSet.newBuilder().build())
+                .setBatchIndex(0)
+                .build();
+
+        var nonBatchMapping = mapper.map(nonBatch).orElseThrow();
+        var batchMapping = mapper.map(batch).orElseThrow();
+
+        assertEquals(nonBatchMapping.getName(), batchMapping.getName());
+        assertNotEquals(nonBatchMapping.getId(), batchMapping.getId());
+    }
+
+    @Test
+    @DisplayName("Given batch and non-batch stubs, either registration order matches only the intended request")
+    void shouldMatchBatchAndNonBatchStubsRegardlessOfRegistrationOrder() throws Exception {
+        var mapper = new MockedQueryStubMapper(List.of(), List.of());
+        var batch = preparedEvent("SELECT ?", "x", "ds").toBuilder()
+                .setBatchIndex(0)
+                .setUpdateCount(2)
+                .build();
+        var nonBatch = preparedEvent("SELECT ?", "x", "ds").toBuilder()
+                .setUpdateCount(1)
+                .build();
+        var batchMapping = mapper.map(batch).orElseThrow();
+        var nonBatchMapping = mapper.map(nonBatch).orElseThrow();
+        var client = HttpClient.newHttpClient();
+        var batchRequest = "{\"sql\":\"select ?\",\"parameters\":[{\"index\":1,"
+                + "\"value\":{\"stringVal\":\"x\"}}],\"batchIndex\":0}";
+        var nonBatchRequest = "{\"sql\":\"select ?\",\"parameters\":[{\"index\":1,"
+                + "\"value\":{\"stringVal\":\"x\"}}]}";
+
+        for (var batchFirst : List.of(true, false)) {
+            var server = new WireMockServer(0);
+            server.start();
+            try {
+                if (batchFirst) {
+                    server.addStubMapping(batchMapping);
+                    server.addStubMapping(nonBatchMapping);
+                } else {
+                    server.addStubMapping(nonBatchMapping);
+                    server.addStubMapping(batchMapping);
+                }
+
+                var batchResponse = postJson(client, server, batchRequest);
+                var nonBatchResponse = postJson(client, server, nonBatchRequest);
+
+                assertTrue(batchResponse.contains("\"updateCount\":\"2\""));
+                assertTrue(nonBatchResponse.contains("\"updateCount\":\"1\""));
+            } finally {
+                server.stop();
+            }
+        }
     }
 
     @Test
@@ -189,6 +323,82 @@ class MockedQueryStubMapperTest {
     void shouldBuildSuccessJsonBodyWithEmptyResultSet() {
         var json = MockedQueryStubMapper.buildSuccessJsonBody(SerializedResultSet.newBuilder().build());
         assertEquals("{\"resultSet\":{\"metadata\":[],\"rows\":[]}}", json);
+    }
+
+    @Test
+    @DisplayName("Given generated keys, buildSuccessJsonBody includes them as a separate result set")
+    void shouldBuildSuccessJsonBodyWithGeneratedKeys() {
+        var updateResult = SerializedResultSet.newBuilder()
+                .addMetadata(ColumnMetadata.newBuilder()
+                        .setName("update_count").setLabel("update_count")
+                        .setSqlType(Types.BIGINT).setTypeName("BIGINT").build())
+                .addRows(Row.newBuilder().addValues(JdbcValue.newBuilder().setLongVal(1).build()).build())
+                .build();
+        var generatedKeys = SerializedResultSet.newBuilder()
+                .addMetadata(ColumnMetadata.newBuilder()
+                        .setName("id").setLabel("id").setSqlType(Types.BIGINT).setTypeName("BIGINT").build())
+                .addRows(Row.newBuilder().addValues(JdbcValue.newBuilder().setLongVal(42).build()).build())
+                .build();
+
+        var json = MockedQueryStubMapper.buildSuccessJsonBody(updateResult, List.of(), generatedKeys);
+
+        assertTrue(json.contains("\"resultSet\":{\"metadata\":[{\"name\":\"update_count\""));
+        assertTrue(json.contains("\"generatedKeys\":{\"metadata\":[{\"name\":\"id\""));
+        assertTrue(json.contains("\"longVal\":\"42\""));
+    }
+
+    @Test
+    @DisplayName("Given a callable event with IN and OUT parameters, mapper matches only IN values and returns OUT values in the response")
+    void shouldMapCallableEventWithOutParameters() {
+        var mapper = new MockedQueryStubMapper(List.of(), List.of());
+        var event = MockedQuery.newBuilder()
+                .setDatasourceId("users-primary")
+                .setStatus(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS)
+                .setCallableStatement(CallableStatement.newBuilder()
+                        .setCallSql("{? = call add_numbers(?, ?)}")
+                        .addParameters(callableParameter(1, java.sql.ParameterMetaData.parameterModeOut, 42))
+                        .addParameters(callableParameter(2, java.sql.ParameterMetaData.parameterModeIn, 19))
+                        .addParameters(callableParameter(3, java.sql.ParameterMetaData.parameterModeIn, 23)))
+                .setResultSet(SerializedResultSet.newBuilder().build())
+                .build();
+
+        var mapping = mapper.map(event).orElseThrow();
+
+        var patterns = mapping.getRequest().getBodyPatterns().stream()
+                .map(b -> ((com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern) b).getMatchesJsonPath()
+                        + "=" + ((com.github.tomakehurst.wiremock.matching.MatchesJsonPathPattern) b).getValuePattern().getValue())
+                .toList();
+        assertTrue(patterns.stream().anyMatch(p -> p.equals("$.parameters[0].value.longVal=19")));
+        assertTrue(patterns.stream().anyMatch(p -> p.equals("$.parameters[1].value.longVal=23")));
+        assertTrue(patterns.stream().noneMatch(p -> p.startsWith("$.parameters[2]") || p.endsWith("=42")));
+        assertTrue(mapping.getName().endsWith("::p2=19::p3=23"));
+
+        var body = mapping.getResponse().getBody();
+        assertTrue(body.contains("\"callableStatement\":{\"parameters\":["));
+        assertTrue(body.contains("\"index\":1"));
+        assertTrue(body.contains("\"mode\":4"));
+        assertTrue(body.contains("\"longVal\":\"42\""));
+        assertFalse(body.contains("\"longVal\":\"19\""));
+    }
+
+    @Test
+    @DisplayName("Given OUT parameters, buildSuccessJsonBody appends callableStatement parameters after the resultSet")
+    void shouldAppendOutParametersToSuccessJsonBody() {
+        var json = MockedQueryStubMapper.buildSuccessJsonBody(SerializedResultSet.newBuilder().build(),
+                List.of(callableParameter(1, java.sql.ParameterMetaData.parameterModeOut, 7)));
+
+        assertEquals("{\"resultSet\":{\"metadata\":[],\"rows\":[]},\"callableStatement\":{\"parameters\":["
+                + "{\"index\":1,\"sqlType\":4,\"typeName\":\"Integer\",\"mode\":4,\"value\":{\"longVal\":\"7\"}}]}}", json);
+    }
+
+    private static ParameterMetadata callableParameter(int index, int mode, long value) {
+        return ParameterMetadata.newBuilder()
+                .setIndex(index)
+                .setMode(mode)
+                .setSqlType(Types.INTEGER)
+                .setTypeName("Integer")
+                .setValue(JdbcValue.newBuilder().setLongVal(value))
+                .build();
     }
 
     // ── buildErrorJsonBody ────────────────────────────────────────────────────
@@ -266,5 +476,38 @@ class MockedQueryStubMapperTest {
                         .build())
                 .setResultSet(SerializedResultSet.newBuilder().build())
                 .build();
+    }
+
+    private static MockedQuery simpleEvent(String sql) {
+        return MockedQuery.newBuilder()
+                .setDatasourceId("users-primary")
+                .setStatus(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS)
+                .setSimpleStatement(PlainStatement.newBuilder().setSql(sql).build())
+                .setResultSet(SerializedResultSet.newBuilder().build())
+                .build();
+    }
+
+    private static MockedQuery preparedEvent(String sql, String parameter, String datasourceId) {
+        return MockedQuery.newBuilder()
+                .setDatasourceId(datasourceId)
+                .setStatus(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS)
+                .setPreparedStatement(PreparedStatement.newBuilder()
+                        .setSql(sql)
+                        .addParameters(ParameterMetadata.newBuilder()
+                                .setIndex(1)
+                                .setValue(JdbcValue.newBuilder().setStringVal(parameter).build())
+                                .build())
+                        .build())
+                .setResultSet(SerializedResultSet.newBuilder().build())
+                .build();
+    }
+
+    private static String postJson(HttpClient client, WireMockServer server, String body) throws Exception {
+        var request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:" + server.port() + MockedQueryStubMapper.GRPC_METHOD_URL))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return client.send(request, HttpResponse.BodyHandlers.ofString()).body();
     }
 }

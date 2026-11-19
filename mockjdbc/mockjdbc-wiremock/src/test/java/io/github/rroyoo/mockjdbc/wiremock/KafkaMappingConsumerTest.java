@@ -55,4 +55,98 @@ class KafkaMappingConsumerTest {
 
         kafkaConsumer.close();
     }
+
+    private static final String TOPIC = "mockjdbc.query.events";
+    private static final TopicPartition PARTITION = new TopicPartition(TOPIC, 0);
+
+    private static MockedQuery event(String sql) {
+        return MockedQuery.newBuilder()
+                .setDatasourceId("users-primary")
+                .setStatus(QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS)
+                .setSimpleStatement(PlainStatement.newBuilder().setSql(sql).build())
+                .setResultSet(SerializedResultSet.newBuilder().build())
+                .build();
+    }
+
+    private static MockConsumer<String, byte[]> consumerWith(byte[]... payloads) {
+        var mockConsumer = new MockConsumer<String, byte[]>(OffsetResetStrategy.EARLIEST);
+        mockConsumer.schedulePollTask(() -> {
+            mockConsumer.rebalance(java.util.List.of(PARTITION));
+            mockConsumer.updateBeginningOffsets(Map.of(PARTITION, 0L));
+            long offset = 0;
+            for (byte[] payload : payloads) {
+                mockConsumer.addRecord(new ConsumerRecord<>(TOPIC, 0, offset++, "k", payload));
+            }
+        });
+        return mockConsumer;
+    }
+
+    private static Long committedOffset(MockConsumer<String, byte[]> consumer) {
+        var committed = consumer.committed(java.util.Set.of(PARTITION)).get(PARTITION);
+        return committed == null ? null : committed.offset();
+    }
+
+    @Test
+    @DisplayName("Given two events for the same stub, registrations happen in Kafka offset order")
+    void shouldRegisterSameKeyEventsInOrder() {
+        var first = event("SELECT 1");
+        var second = event("select  1;");
+        var mockConsumer = consumerWith(first.toByteArray(), second.toByteArray());
+        var registrar = mock(WireMockMappingRegistrar.class);
+        var kafkaConsumer = new KafkaMappingConsumer(mockConsumer, registrar, TOPIC, Duration.ofMillis(20));
+
+        kafkaConsumer.start();
+        try {
+            var inOrder = org.mockito.Mockito.inOrder(registrar);
+            inOrder.verify(registrar, timeout(2000)).upsert(first);
+            inOrder.verify(registrar, timeout(2000)).upsert(second);
+        } finally {
+            kafkaConsumer.close();
+        }
+    }
+
+    @Test
+    @DisplayName("Given successful registrations, offset is committed only after the batch is registered")
+    void shouldCommitOffsetAfterRegistration() throws Exception {
+        var mockConsumer = consumerWith(event("SELECT 1").toByteArray(), event("SELECT 2").toByteArray());
+        var registrar = mock(WireMockMappingRegistrar.class);
+        var committedAtRegistration = new java.util.concurrent.atomic.AtomicReference<Long>(-1L);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            committedAtRegistration.compareAndSet(-1L, committedOffset(mockConsumer));
+            return true;
+        }).when(registrar).upsert(org.mockito.ArgumentMatchers.any(MockedQuery.class));
+        var kafkaConsumer = new KafkaMappingConsumer(mockConsumer, registrar, TOPIC, Duration.ofMillis(20));
+
+        kafkaConsumer.start();
+        try {
+            long deadline = System.currentTimeMillis() + 2000;
+            while (!Long.valueOf(2L).equals(committedOffset(mockConsumer)) && System.currentTimeMillis() < deadline) {
+                Thread.sleep(10);
+            }
+            org.junit.jupiter.api.Assertions.assertEquals(2L, committedOffset(mockConsumer));
+            org.junit.jupiter.api.Assertions.assertNull(committedAtRegistration.get());
+        } finally {
+            kafkaConsumer.close();
+        }
+    }
+
+    @Test
+    @DisplayName("Given failing registration, offset is not committed and the partition is rewound for retry")
+    void shouldNotCommitAndRewindOnRegistrationFailure() throws Exception {
+        var mockConsumer = consumerWith(event("SELECT 1").toByteArray());
+        var registrar = mock(WireMockMappingRegistrar.class);
+        org.mockito.Mockito.when(registrar.upsert(org.mockito.ArgumentMatchers.any(MockedQuery.class)))
+                .thenThrow(new IllegalStateException("wiremock down"));
+        var kafkaConsumer = new KafkaMappingConsumer(mockConsumer, registrar, TOPIC, Duration.ofMillis(20));
+
+        kafkaConsumer.start();
+        try {
+            verify(registrar, timeout(2000)).upsert(org.mockito.ArgumentMatchers.any(MockedQuery.class));
+            Thread.sleep(150);
+            org.junit.jupiter.api.Assertions.assertNull(committedOffset(mockConsumer));
+            org.junit.jupiter.api.Assertions.assertEquals(0L, mockConsumer.position(PARTITION));
+        } finally {
+            kafkaConsumer.close();
+        }
+    }
 }

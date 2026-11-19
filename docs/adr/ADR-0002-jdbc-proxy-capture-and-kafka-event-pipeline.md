@@ -69,9 +69,20 @@ Guides must include:
 - [x] Implement Kafka publisher for Proto events.
 - [x] Add unit tests for event mapping (query + result + error).
 - [x] Add tests for multi-datasource capture and identity consistency.
-- [ ] Add Kafka publication tests (unit done; integration test implemented and executes when Docker is available).
+- [x] Add Kafka publication tests, including the Docker-backed record/replay E2E test in `mockjdbc-spring-users/RecordReplayEndToEndTest`.
+- [x] Verify the Docker-backed Kafka producer integration test runs without skips in GitHub Actions (ADR-0005, PR #14).
 - [x] Publish integration guides for generic Java JDBC usage.
 - [x] Add sample proving two datasources emitting events.
+- [x] Capture `CallableStatement` OUT/INOUT parameter values (deferred capture via
+      `registerOutParameter`/getter interception; index-based only, see `mockjdbc-proxy/README.md`).
+- [x] Replace the async dispatcher's `LinkedBlockingDeque` with a real lock-free, array-backed
+      MPMC ring buffer (`MockedQueryRingBuffer`, Vyukov's algorithm). Self-implemented instead of
+      adopting LMAX Disruptor: the dispatcher is multi-producer (Disruptor favors
+      single-producer), no evidence indicated the buffer itself was the bottleneck, and adding a
+      new dependency was not justified. Microbenchmark showed ~60-70% higher raw `publish()`
+      throughput than the previous deque; end-to-end throughput under a downstream-I/O-bound
+      workload was unchanged, confirming the buffer was not the bottleneck. Revisit Disruptor
+      only if future profiling shows the ring buffer itself limits throughput.
 
 ## Consequences
 

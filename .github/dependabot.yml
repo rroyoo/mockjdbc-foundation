@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directories:
+      - /mockjdbc
+      - /mockjdbc-spring-users
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Madrid
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    allow:
+      - dependency-type: direct
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Madrid
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    allow:
+      - dependency-type: direct
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch

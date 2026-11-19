@@ -2,6 +2,8 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
+import io.github.rroyoo.mockjdbc.mock.MockedQuery;
+import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 
 import java.math.BigDecimal;
@@ -9,6 +11,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
 import java.sql.Array;
+import java.sql.BatchUpdateException;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -25,9 +28,10 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.TreeMap;
+import java.util.function.Consumer;
 
 final class PreparedStatementQueryHandler {
 
@@ -37,10 +41,20 @@ final class PreparedStatementQueryHandler {
     private final String sql;
     private final GeneratedKeysHandler generatedKeys;
     private final boolean returnGeneratedKeys;
-    private final ConcurrentHashMap<Integer, ParameterMetadata> parameters = new ConcurrentHashMap<>();
-    private final java.util.List<java.util.List<ParameterMetadata>> parameterBatches = new ArrayList<>();
+    private final Map<Integer, ParameterMetadata> parameters = new TreeMap<>();
+    private final List<List<ParameterMetadata>> parameterBatches = new ArrayList<>();
+    private Consumer<List<ParameterMetadata>> outParametersListener = outParameters -> { };
 
     PreparedStatementQueryHandler(MockConfig mockConfig,
+                                  StatementLifecycleHandler lifecycle,
+                                  StatementExecutionStateHandler executionState,
+                                  GeneratedKeysHandler generatedKeys,
+                                  boolean returnGeneratedKeys,
+                                  String sql) {
+        this(new GrpcMockQueryClient(mockConfig), lifecycle, executionState, generatedKeys, returnGeneratedKeys, sql);
+    }
+
+    PreparedStatementQueryHandler(GrpcMockQueryClient client,
                                   StatementLifecycleHandler lifecycle,
                                   StatementExecutionStateHandler executionState,
                                   GeneratedKeysHandler generatedKeys,
@@ -50,8 +64,23 @@ final class PreparedStatementQueryHandler {
         this.executionState = executionState;
         this.generatedKeys = generatedKeys;
         this.returnGeneratedKeys = returnGeneratedKeys;
-        this.client = new GrpcMockQueryClient(mockConfig);
+        this.client = client;
         this.sql = sql;
+    }
+
+    /** Receives the OUT/INOUT parameters returned by the mock backend after each callable execution. */
+    void onOutParameters(Consumer<List<ParameterMetadata>> listener) {
+        this.outParametersListener = listener;
+    }
+
+    private MockedQuery executeResponse(List<ParameterMetadata> requestParameters) throws SQLException {
+        var response = client.findMock(sql, requestParameters);
+        outParametersListener.accept(response.getCallableStatement().getParametersList());
+        return response;
+    }
+
+    private SerializedResultSet execute(List<ParameterMetadata> requestParameters) throws SQLException {
+        return executeResponse(requestParameters).getResultSet();
     }
 
     public void setString(int index, String value) throws SQLException {
@@ -484,23 +513,32 @@ final class PreparedStatementQueryHandler {
     public ResultSet executeQuery() throws SQLException {
         lifecycle.assertOpen();
         generatedKeys.clearGeneratedKeys();
-        var resultSet = ResultSetFactory.create(client.findResultSet(sql, sortedParameters()));
+        var resultSet = ResultSetFactory.create(execute(sortedParameters()));
         executionState.storeResultSet(resultSet);
         return resultSet;
     }
 
     public boolean execute() throws SQLException {
-        executeQuery();
+        lifecycle.assertOpen();
+        generatedKeys.clearGeneratedKeys();
+        var serialized = execute(sortedParameters());
+        if (serialized.getMetadataCount() == 0) {
+            // No columns means no result set (update or callable without result), as in real JDBC drivers
+            executionState.storeUpdateCount(serialized.getRowsCount());
+            return false;
+        }
+        executionState.storeResultSet(ResultSetFactory.create(serialized));
         return true;
     }
 
     public int executeUpdate() throws SQLException {
         lifecycle.assertOpen();
-        var resultSet = client.findResultSet(sql, sortedParameters());
-        var count = resultSet.getRowsCount();
+        var response = executeResponse(sortedParameters());
+        var resultSet = response.getResultSet();
+        var count = GrpcMockQueryClient.updateCountAsInt(response);
         executionState.storeUpdateCount(count);
         if (returnGeneratedKeys) {
-            generatedKeys.storeGeneratedKeys(resultSet);
+            storeGeneratedKeys(response);
         } else {
             generatedKeys.clearGeneratedKeys();
         }
@@ -509,11 +547,12 @@ final class PreparedStatementQueryHandler {
 
     public long executeLargeUpdate() throws SQLException {
         lifecycle.assertOpen();
-        var resultSet = client.findResultSet(sql, sortedParameters());
-        var count = (long) resultSet.getRowsCount();
+        var response = executeResponse(sortedParameters());
+        var resultSet = response.getResultSet();
+        var count = GrpcMockQueryClient.updateCount(response);
         executionState.storeLargeUpdateCount(count);
         if (returnGeneratedKeys) {
-            generatedKeys.storeGeneratedKeys(resultSet);
+            storeGeneratedKeys(response);
         } else {
             generatedKeys.clearGeneratedKeys();
         }
@@ -523,6 +562,14 @@ final class PreparedStatementQueryHandler {
     public ResultSet getResultSet() throws SQLException {
         lifecycle.assertOpen();
         return executionState.getResultSet();
+    }
+
+    private void storeGeneratedKeys(MockedQuery response) throws SQLException {
+        if (GrpcMockQueryClient.hasGeneratedKeys(response)) {
+            generatedKeys.storeGeneratedKeys(GrpcMockQueryClient.generatedKeys(response));
+        } else {
+            generatedKeys.clearGeneratedKeys();
+        }
     }
 
     public int getUpdateCount() throws SQLException {
@@ -575,12 +622,20 @@ final class PreparedStatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
 
         var result = new int[parameterBatches.size()];
-        for (int i = 0; i < parameterBatches.size(); i++) {
-            result[i] = client.findResultSet(sql, parameterBatches.get(i)).getRowsCount();
+        try {
+            for (int i = 0; i < parameterBatches.size(); i++) {
+                try {
+                    result[i] = GrpcMockQueryClient.updateCountAsInt(
+                            client.findMock(sql, parameterBatches.get(i), i));
+                } catch (SQLException error) {
+                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
+                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                }
+            }
+        } finally {
+            parameterBatches.clear();
+            executionState.storeUpdateCount(-1);
         }
-
-        parameterBatches.clear();
-        executionState.storeUpdateCount(-1);
         return result;
     }
 
@@ -589,19 +644,24 @@ final class PreparedStatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
 
         var result = new long[parameterBatches.size()];
-        for (int i = 0; i < parameterBatches.size(); i++) {
-            result[i] = client.findResultSet(sql, parameterBatches.get(i)).getRowsCount();
+        try {
+            for (int i = 0; i < parameterBatches.size(); i++) {
+                try {
+                    result[i] = GrpcMockQueryClient.updateCount(client.findMock(sql, parameterBatches.get(i), i));
+                } catch (SQLException error) {
+                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
+                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                }
+            }
+        } finally {
+            parameterBatches.clear();
+            executionState.storeLargeUpdateCount(-1L);
         }
-
-        parameterBatches.clear();
-        executionState.storeLargeUpdateCount(-1L);
         return result;
     }
 
-    private java.util.List<ParameterMetadata> sortedParameters() {
-        var sortedParameters = new ArrayList<>(parameters.entrySet());
-        sortedParameters.sort(Comparator.comparingInt(Map.Entry::getKey));
-        return sortedParameters.stream().map(Map.Entry::getValue).toList();
+    private List<ParameterMetadata> sortedParameters() {
+        return List.copyOf(parameters.values());
     }
 
     private static ParameterMetadata parameter(int index, int sqlType, String typeName, JdbcValue value) {

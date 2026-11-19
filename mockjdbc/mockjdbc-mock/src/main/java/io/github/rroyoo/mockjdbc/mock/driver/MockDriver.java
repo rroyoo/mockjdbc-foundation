@@ -4,6 +4,7 @@ import io.github.rroyoo.mockjdbc.mock.connection.ConnectionFactory;
 
 import java.sql.Connection;
 import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -11,6 +12,15 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 public final class MockDriver implements Driver {
+
+    // DriverManager only lists drivers that register themselves when their class is initialized.
+    static {
+        try {
+            DriverManager.registerDriver(new MockDriver());
+        } catch (SQLException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     @Override
     public Connection connect(String url, Properties info) throws SQLException {

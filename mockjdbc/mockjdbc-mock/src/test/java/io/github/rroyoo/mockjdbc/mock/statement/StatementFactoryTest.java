@@ -90,7 +90,7 @@ class StatementFactoryTest {
         }
 
         assertNotNull(service.lastRequest.get());
-        assertEquals("SELECT ?", service.lastRequest.get().getSql());
+        assertEquals("select ?", service.lastRequest.get().getSql());
         assertEquals(1, service.lastRequest.get().getParametersCount());
         assertEquals(1, service.lastRequest.get().getParameters(0).getIndex());
         assertEquals("bob", service.lastRequest.get().getParameters(0).getValue().getStringVal());
@@ -303,7 +303,7 @@ class StatementFactoryTest {
 
             try (var generatedKeys = statement.getGeneratedKeys()) {
                 assertTrue(generatedKeys.next());
-                assertEquals(1L, generatedKeys.getObject(1));
+                assertEquals(1, generatedKeys.getObject(1));
             }
         }
     }
@@ -319,15 +319,65 @@ class StatementFactoryTest {
 
             try (var generatedKeys = statement.getGeneratedKeys()) {
                 assertTrue(generatedKeys.next());
-                assertEquals(1L, generatedKeys.getObject(1));
+                assertEquals(1, generatedKeys.getObject(1));
             }
         }
     }
 
     @Test
-    @DisplayName("Given a statement with batched SQLs, when executeBatch is called, then it returns deterministic update counts")
-    void shouldExecuteStatementBatchAndReturnCounts() throws Exception {
-        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+    @DisplayName("Given an update with separate generated keys, when replayed, then update count and keys are preserved")
+    void shouldReplayUpdateCountSeparatelyFromGeneratedKeys() throws Exception {
+        var generatedKeys = twoRowResultSet("id", "id");
+        var updateResult = singleColumnResultSet("update_count", "update_count",
+                JdbcValue.newBuilder().setLongVal(1).build());
+        service.responder = request -> MockedQuery.newBuilder()
+                .setResultSet(updateResult)
+                .setUpdateCount(1)
+                .setGeneratedKeys(generatedKeys)
+                .build();
+
+        try (var statement = statementFactory.prepareStatement(
+                "INSERT INTO users(name) VALUES (?)", java.sql.Statement.RETURN_GENERATED_KEYS)) {
+            statement.setString(1, "Ada");
+            assertEquals(1, statement.executeUpdate());
+
+            try (var keys = statement.getGeneratedKeys()) {
+                assertTrue(keys.next());
+                assertEquals(1, keys.getInt("id"));
+                assertTrue(keys.next());
+                assertEquals(2, keys.getInt("id"));
+                assertFalse(keys.next());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Given an update with no generated keys, when requested, then an empty generated-keys result is returned")
+    void shouldReturnEmptyGeneratedKeysWhenUpdateResponseHasNone() throws Exception {
+        var updateResult = singleColumnResultSet("update_count", "update_count",
+                JdbcValue.newBuilder().setLongVal(1).build());
+        service.responder = request -> MockedQuery.newBuilder()
+                .setResultSet(updateResult)
+                .setUpdateCount(1)
+                .build();
+
+        try (var statement = statementFactory.prepareStatement(
+                "UPDATE users SET active=?", java.sql.Statement.RETURN_GENERATED_KEYS)) {
+            statement.setBoolean(1, true);
+            assertEquals(1, statement.executeUpdate());
+
+            try (var keys = statement.getGeneratedKeys()) {
+                assertEquals(1, keys.getMetaData().getColumnCount());
+                assertFalse(keys.next());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Given a statement batch, when executeBatch is called, then it returns each captured update count")
+    void shouldReplayStatementBatchUpdateCounts() throws Exception {
+        service.responder = request -> updateCountQuery(
+                request.getSql().endsWith("id=1") ? 3 : 7);
 
         try (var statement = statementFactory.createStatement()) {
             statement.addBatch("UPDATE users SET active=true WHERE id=1");
@@ -336,17 +386,36 @@ class StatementFactoryTest {
             var result = statement.executeBatch();
 
             assertEquals(2, result.length);
-            assertEquals(2, result[0]);
-            assertEquals(2, result[1]);
+            assertEquals(3, result[0]);
+            assertEquals(7, result[1]);
             assertEquals(2, service.callCount.get());
             assertEquals(-1, statement.getUpdateCount());
         }
     }
 
     @Test
-    @DisplayName("Given a prepared statement with batched parameter sets, when executeBatch is called, then it returns deterministic update counts")
-    void shouldExecutePreparedStatementBatchAndReturnCounts() throws Exception {
-        service.responder = request -> mockedQuery(twoRowResultSet("id", "id"));
+    @DisplayName("Given identical statement batch entries with different results, when replayed, then batch indices select each count")
+    void shouldReplayIdenticalStatementBatchEntriesByIndex() throws Exception {
+        service.responder = request -> updateCountQuery(request.getBatchIndex() == 0 ? 1 : 0);
+
+        try (var statement = statementFactory.createStatement()) {
+            statement.addBatch("DELETE FROM users WHERE id=7");
+            statement.addBatch("DELETE FROM users WHERE id=7");
+
+            var result = statement.executeBatch();
+
+            assertEquals(1, result[0]);
+            assertEquals(0, result[1]);
+            assertTrue(service.lastRequest.get().hasBatchIndex());
+            assertEquals(1, service.lastRequest.get().getBatchIndex());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement batch, when executeBatch is called, then it returns each captured update count")
+    void shouldReplayPreparedStatementBatchUpdateCounts() throws Exception {
+        service.responder = request -> updateCountQuery(
+                request.getParameters(1).getValue().getLongVal() == 1 ? 3 : 7);
 
         try (var statement = statementFactory.prepareStatement("UPDATE users SET active=? WHERE id=?")) {
             statement.setBoolean(1, true);
@@ -360,10 +429,84 @@ class StatementFactoryTest {
             var result = statement.executeBatch();
 
             assertEquals(2, result.length);
-            assertEquals(2, result[0]);
-            assertEquals(2, result[1]);
+            assertEquals(3, result[0]);
+            assertEquals(7, result[1]);
             assertEquals(2, service.callCount.get());
             assertEquals(-1, statement.getUpdateCount());
+        }
+    }
+
+    @Test
+    @DisplayName("Given identical prepared batch entries with different results, when replayed, then batch indices select each count")
+    void shouldReplayIdenticalPreparedBatchEntriesByIndex() throws Exception {
+        service.responder = request -> updateCountQuery(request.getBatchIndex() == 0 ? 1 : 0);
+
+        try (var statement = statementFactory.prepareStatement("DELETE FROM users WHERE id=?")) {
+            statement.setInt(1, 7);
+            statement.addBatch();
+            statement.setInt(1, 7);
+            statement.addBatch();
+
+            var result = statement.executeBatch();
+
+            assertEquals(1, result[0]);
+            assertEquals(0, result[1]);
+            assertTrue(service.lastRequest.get().hasBatchIndex());
+            assertEquals(1, service.lastRequest.get().getBatchIndex());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a failed prepared batch lookup, when replayed, then BatchUpdateException preserves completed counts")
+    void shouldPreserveCompletedCountsWhenPreparedBatchReplayFails() throws Exception {
+        service.responder = request -> request.getBatchIndex() == 0
+                ? updateCountQuery(5)
+                : MockedQuery.newBuilder()
+                        .setError(io.github.rroyoo.mockjdbc.mock.QueryError.newBuilder()
+                                .setType(java.sql.SQLException.class.getName())
+                                .setMessage("batch failure")
+                                .build())
+                        .build();
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET active=? WHERE id=?")) {
+            statement.setBoolean(1, true);
+            statement.setInt(2, 1);
+            statement.addBatch();
+            statement.setBoolean(1, false);
+            statement.setInt(2, 2);
+            statement.addBatch();
+
+            var error = assertThrows(java.sql.BatchUpdateException.class, statement::executeBatch);
+
+            assertEquals("batch failure", error.getMessage());
+            assertEquals(1, error.getUpdateCounts().length);
+            assertEquals(5, error.getUpdateCounts()[0]);
+            assertEquals(0, statement.executeBatch().length, "The failed batch should be cleared");
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement batch with large update counts, when executeLargeBatch is called, then it preserves each count")
+    void shouldReplayPreparedStatementLargeBatchUpdateCounts() throws Exception {
+        service.responder = request -> updateCountQuery(
+                request.getParameters(1).getValue().getLongVal() == 1
+                        ? Integer.MAX_VALUE + 10L
+                        : Integer.MAX_VALUE + 20L);
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET active=? WHERE id=?")) {
+            statement.setBoolean(1, true);
+            statement.setInt(2, 1);
+            statement.addBatch();
+            statement.setBoolean(1, false);
+            statement.setInt(2, 2);
+            statement.addBatch();
+
+            var result = statement.executeLargeBatch();
+
+            assertEquals(Integer.MAX_VALUE + 10L, result[0]);
+            assertEquals(Integer.MAX_VALUE + 20L, result[1]);
+            assertEquals(2, service.callCount.get());
+            assertEquals(-1L, statement.getLargeUpdateCount());
         }
     }
 
@@ -693,6 +836,103 @@ class StatementFactoryTest {
     }
 
     @Test
+    @DisplayName("Given a callable statement, when the mock server returns OUT values, then getters expose them and request carries only IN parameters")
+    void shouldExposeOutValuesReturnedByMockServer() throws Exception {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setCallableStatement(io.github.rroyoo.mockjdbc.mock.CallableStatement.newBuilder()
+                        .setCallSql("{ ? = call add_numbers(?, ?) }")
+                        .addParameters(outParameter(1, Types.INTEGER, JdbcValue.newBuilder().setLongVal(42).build()))
+                        .addParameters(outParameter(2, Types.INTEGER, JdbcValue.newBuilder().setLongVal(19).build(), java.sql.ParameterMetaData.parameterModeIn)))
+                .build();
+
+        try (var callable = statementFactory.prepareCall("{ ? = call add_numbers(?, ?) }")) {
+            callable.registerOutParameter(1, Types.INTEGER);
+            callable.setInt(2, 19);
+            callable.setInt(3, 23);
+            callable.execute();
+
+            assertEquals(42, callable.getInt(1));
+            assertFalse(callable.wasNull());
+            assertEquals(42L, callable.getLong(1));
+            assertEquals("42", callable.getString(1));
+            assertEquals(42, callable.getObject(1));
+        }
+
+        var request = service.lastRequest.get();
+        assertEquals(2, request.getParametersCount());
+        assertEquals(2, request.getParameters(0).getIndex());
+        assertEquals(3, request.getParameters(1).getIndex());
+    }
+
+    @Test
+    @DisplayName("Given a callable statement executed twice, when the second response has no OUT values, then stale values are cleared and wasNull is true")
+    void shouldClearOutValuesBetweenExecutions() throws Exception {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setCallableStatement(io.github.rroyoo.mockjdbc.mock.CallableStatement.newBuilder()
+                        .addParameters(outParameter(1, Types.VARCHAR, JdbcValue.newBuilder().setStringVal("done").build())))
+                .build();
+
+        try (var callable = statementFactory.prepareCall("{ ? = call status() }")) {
+            callable.registerOutParameter(1, Types.VARCHAR);
+            callable.execute();
+            assertEquals("done", callable.getString(1));
+
+            service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+            callable.execute();
+
+            assertNull(callable.getString(1));
+            assertTrue(callable.wasNull());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a prepared statement, when execute is called and the response has no columns, then it returns false and exposes the update count")
+    void shouldReturnFalseFromExecuteWhenResponseHasNoResultSet() throws Exception {
+        service.responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+
+        try (var statement = statementFactory.prepareStatement("UPDATE users SET name = ?")) {
+            statement.setString(1, "bob");
+
+            assertFalse(statement.execute());
+            assertEquals(0, statement.getUpdateCount());
+            assertNull(statement.getResultSet());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a callable statement, when the mock server returns a SQL NULL OUT value, then getters return defaults and wasNull is true")
+    void shouldReportNullOutValueFromMockServer() throws Exception {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setCallableStatement(io.github.rroyoo.mockjdbc.mock.CallableStatement.newBuilder()
+                        .addParameters(outParameter(1, Types.INTEGER, JdbcValue.newBuilder().setIsNull(true).build())))
+                .build();
+
+        try (var callable = statementFactory.prepareCall("{ ? = call maybe() }")) {
+            callable.registerOutParameter(1, Types.INTEGER);
+            callable.execute();
+
+            assertEquals(0, callable.getInt(1));
+            assertTrue(callable.wasNull());
+        }
+    }
+
+    @Test
+    @DisplayName("Given a callable statement, when the mock server returns an unconvertible OUT value, then getter throws SQLException")
+    void shouldFailWhenOutValueCannotBeConverted() throws Exception {
+        service.responder = request -> MockedQuery.newBuilder()
+                .setCallableStatement(io.github.rroyoo.mockjdbc.mock.CallableStatement.newBuilder()
+                        .addParameters(outParameter(1, Types.VARCHAR, JdbcValue.newBuilder().setStringVal("abc").build())))
+                .build();
+
+        try (var callable = statementFactory.prepareCall("{ ? = call name() }")) {
+            callable.registerOutParameter(1, Types.VARCHAR);
+            callable.execute();
+
+            assertThrows(java.sql.SQLException.class, () -> callable.getInt(1));
+        }
+    }
+
+    @Test
     @DisplayName("Given a callable statement, when OUT parameter is registered by name, then typed getters return default values")
     void shouldReturnDefaultOutValuesForRegisteredNamedParameter() throws Exception {
         try (var callable = statementFactory.prepareCall("{ call demo(?) }")) {
@@ -787,9 +1027,30 @@ class StatementFactoryTest {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }
 
+    private static io.github.rroyoo.mockjdbc.mock.ParameterMetadata outParameter(int index, int sqlType, JdbcValue value) {
+        return outParameter(index, sqlType, value, java.sql.ParameterMetaData.parameterModeOut);
+    }
+
+    private static io.github.rroyoo.mockjdbc.mock.ParameterMetadata outParameter(int index, int sqlType, JdbcValue value, int mode) {
+        return io.github.rroyoo.mockjdbc.mock.ParameterMetadata.newBuilder()
+                .setIndex(index)
+                .setSqlType(sqlType)
+                .setMode(mode)
+                .setValue(value)
+                .build();
+    }
+
     private static MockedQuery mockedQuery(SerializedResultSet resultSet) {
         return MockedQuery.newBuilder()
                 .setResultSet(resultSet)
+                .build();
+    }
+
+    private static MockedQuery updateCountQuery(long updateCount) {
+        return MockedQuery.newBuilder()
+                .setResultSet(singleColumnResultSet("update_count", "update_count",
+                        JdbcValue.newBuilder().setLongVal(updateCount).build()))
+                .setUpdateCount(updateCount)
                 .build();
     }
 

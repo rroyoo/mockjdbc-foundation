@@ -1,13 +1,14 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
-import net.bytebuddy.implementation.bind.annotation.Argument;
-
 import java.sql.SQLException;
 
 final class NativeSqlHandler {
 
-    public String nativeSQL(@Argument(0) String sql) throws SQLException {
+    /** The mock driver forwards SQL untouched, so the native form equals the input. */
+    public String nativeSQL(String sql) throws SQLException {
+        if (sql == null) {
+            throw new SQLException("SQL must not be null");
+        }
         return sql;
     }
 }
-

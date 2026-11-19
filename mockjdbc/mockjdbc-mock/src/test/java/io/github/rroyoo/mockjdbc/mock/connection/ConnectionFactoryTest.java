@@ -306,11 +306,11 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when nativeSQL is called with null, then it returns null")
-    void shouldReturnNullWhenNativeSqlIsCalledWithNull() throws Exception {
+    @DisplayName("Given a connection, when nativeSQL is called with null, then it throws SQLException")
+    void shouldRejectNullWhenNativeSqlIsCalled() {
         var connection = ConnectionFactory.create(mockConfig());
 
-        assertNull(connection.nativeSQL(null));
+        assertThrows(java.sql.SQLException.class, () -> connection.nativeSQL(null));
     }
 
     @Test
@@ -331,5 +331,33 @@ class ConnectionFactoryTest {
         var properties = new Properties();
         properties.setProperty("keepAliveTime", "60");
         return new MockConfig(new MockConfig.MockServer("localhost", 50051), properties);
+    }
+
+    @Test
+    @DisplayName("Given an unregistered Connection method, when beginRequest is called, then it throws SQLFeatureNotSupportedException")
+    void shouldThrowFeatureNotSupportedForUnregisteredVoidMethod() {
+        var connection = ConnectionFactory.create(mockConfig());
+
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, connection::beginRequest);
+    }
+
+    @Test
+    @DisplayName("Given request and sharding methods, when they are called, then they throw SQLFeatureNotSupportedException")
+    void shouldRejectRequestAndShardingMethodsExplicitly() {
+        var connection = ConnectionFactory.create(mockConfig());
+
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, connection::endRequest);
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> connection.setShardingKey(null));
+        assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> connection.setShardingKeyIfValid(null, 1));
+    }
+
+    @Test
+    @DisplayName("Given a connection, when Object methods are called, then they keep working")
+    void shouldKeepObjectMethodsWorking() {
+        var connection = ConnectionFactory.create(mockConfig());
+
+        assertEquals("MockConnection", connection.toString());
+        assertEquals(connection.hashCode(), connection.hashCode());
+        assertTrue(connection.equals(connection));
     }
 }

@@ -70,13 +70,45 @@ class GrpcMockQueryClientTest {
                 .setValue(JdbcValue.newBuilder().setStringVal("bob").build())
                 .build();
 
-        var resultSet = client.findResultSet("SELECT ?", List.of(parameter));
+        var resultSet = client.findResultSet(" SELECT   ?; ", List.of(parameter));
 
         assertEquals(1, resultSet.getRowsCount());
         assertNotNull(service.lastRequest.get());
-        assertEquals("SELECT ?", service.lastRequest.get().getSql());
+        assertEquals("select ?", service.lastRequest.get().getSql());
         assertEquals(1, service.lastRequest.get().getParametersCount());
         assertEquals("bob", service.lastRequest.get().getParameters(0).getValue().getStringVal());
+    }
+
+    @Test
+    @DisplayName("Given a legacy update response, when update count is decoded, then the update_count cell is used")
+    void shouldDecodeUpdateCountFromLegacyResultSetColumn() throws Exception {
+        var legacyUpdateResult = SerializedResultSet.newBuilder()
+                .addMetadata(ColumnMetadata.newBuilder()
+                        .setName("update_count")
+                        .setLabel("update_count")
+                        .setSqlType(Types.BIGINT)
+                        .setTypeName("BIGINT")
+                        .build())
+                .addRows(Row.newBuilder()
+                        .addValues(JdbcValue.newBuilder().setLongVal(7).build())
+                        .build())
+                .build();
+        var response = mockedQuery(legacyUpdateResult);
+
+        assertEquals(7L, GrpcMockQueryClient.updateCount(response));
+    }
+
+    @Test
+    @DisplayName("Given SQL literals with different case or whitespace, when looked up, then quoted content stays distinct")
+    void shouldPreserveQuotedSqlContentWhenNormalizingLookup() throws Exception {
+        service.responder = request -> mockedQuery(singleRowResultSet());
+        var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
+
+        client.findMock(" SELECT 'Alice  Smith' AS name; ", List.of());
+        assertEquals("select 'Alice  Smith' as name", service.lastRequest.get().getSql());
+
+        client.findMock("SELECT 'alice smith' AS name", List.of());
+        assertEquals("select 'alice smith' as name", service.lastRequest.get().getSql());
     }
 
     @Test
@@ -124,6 +156,25 @@ class GrpcMockQueryClientTest {
         assertTrue(exception.getMessage() == null || exception.getMessage().isBlank());
     }
 
+    @Test
+    @DisplayName("Given clients sharing an endpoint, when all are closed, then the channel is released and closed clients reject queries")
+    void shouldReleaseChannelWhenLastClientCloses() throws Exception {
+        var first = new GrpcMockQueryClient(mockConfig(server.getPort()));
+        var second = new GrpcMockQueryClient(mockConfig(server.getPort()));
+        var baseline = GrpcMockQueryClient.openChannelCount();
+
+        first.findResultSet("SELECT 1", List.of());
+        second.findResultSet("SELECT 1", List.of());
+        assertEquals(baseline + 1, GrpcMockQueryClient.openChannelCount());
+
+        first.close();
+        assertEquals(baseline + 1, GrpcMockQueryClient.openChannelCount());
+        second.close();
+        second.close();
+        assertEquals(baseline, GrpcMockQueryClient.openChannelCount());
+        assertThrows(SQLException.class, () -> first.findResultSet("SELECT 1", List.of()));
+    }
+
     private static MockConfig mockConfig(int port) {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }
@@ -168,4 +219,3 @@ class GrpcMockQueryClientTest {
         }
     }
 }
-

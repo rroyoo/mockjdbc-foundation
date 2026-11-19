@@ -6,7 +6,6 @@ import io.github.rroyoo.mockjdbc.mock.Row;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
-import net.ttddyy.dsproxy.proxy.ResultSetProxyLogic;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -32,24 +31,33 @@ final class ByteBuddyResultSetWrapperFactory {
         return rowBatchSize;
     }
 
+    /**
+     * Wraps the given ResultSet in a JDK proxy that captures rows during iteration and emits a
+     * {@link SerializedResultSet} to {@code onConsumed} when the ResultSet is exhausted or closed.
+     */
     ResultSet wrap(ResultSet delegate, Consumer<SerializedResultSet> onConsumed) throws SQLException {
+        return wrap(delegate, onConsumed, rowBatchSize);
+    }
+
+    ResultSet wrapSingleResultSet(ResultSet delegate, Consumer<SerializedResultSet> onConsumed) throws SQLException {
+        return wrap(delegate, onConsumed, Integer.MAX_VALUE);
+    }
+
+    private ResultSet wrap(ResultSet delegate,
+                           Consumer<SerializedResultSet> onConsumed,
+                           int batchSize) throws SQLException {
         try {
             return (ResultSet) java.lang.reflect.Proxy.newProxyInstance(
                     delegate.getClass().getClassLoader(),
                     new Class<?>[]{ ResultSet.class },
-                    new ConsumptionTrackingInvocationHandler(delegate, onConsumed, rowBatchSize)
+                    new ConsumptionTrackingInvocationHandler(delegate, onConsumed, batchSize)
             );
         } catch (Exception e) {
             throw new SQLException("Failed to create ResultSet wrapper proxy", e);
         }
     }
 
-    /** Creates a ResultSetProxyLogic (for use with datasource-proxy) that captures rows during normal iteration. */
-    static ResultSetProxyLogic capturingLogic(ResultSet delegate, Consumer<SerializedResultSet> onConsumed, int rowBatchSize) {
-        return new ConsumptionTrackingInvocationHandler(delegate, onConsumed, rowBatchSize);
-    }
-
-    private static final class ConsumptionTrackingInvocationHandler implements InvocationHandler, ResultSetProxyLogic {
+    private static final class ConsumptionTrackingInvocationHandler implements InvocationHandler {
 
         private final ResultSet delegate;
         private final Consumer<SerializedResultSet> onConsumed;
@@ -80,7 +88,7 @@ final class ByteBuddyResultSetWrapperFactory {
                 return System.identityHashCode(proxy);
             }
             if ("toString".equals(methodName)) {
-                return "ByteBuddyResultSetWrapper{" + delegate + "}";
+                return "CapturingResultSet{" + delegate + "}";
             }
 
             Object result;

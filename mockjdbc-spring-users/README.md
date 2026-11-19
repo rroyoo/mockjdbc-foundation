@@ -6,7 +6,7 @@ Independent Maven Spring Boot project at the repository root with a basic users 
 
 - `h2`: uses in-memory H2 datasource.
 - `mockjdbc`: uses `io.github.rroyoo.mockjdbc.mock.driver.MockDriver` and an external WireMock gRPC server.
-- `proxy`: wraps a local datasource with `mockjdbc-proxy` and publishes captured `MockedQuery` events to Kafka.
+- `proxy`: registers a local datasource with the `mockjdbc-proxy` Java agent and publishes captured `MockedQuery` events to Kafka.
 
 ## Endpoints
 
@@ -17,6 +17,18 @@ Independent Maven Spring Boot project at the repository root with a basic users 
 - `DELETE /users/{id}`
 
 ## Build and test
+
+The `mockjdbc` profile tests and the record/replay E2E test use Testcontainers to start
+the WireMock gRPC/Kafka stack from `docker-compose.yml`. The E2E test captures an H2
+query, waits for the bridge-generated WireMock mapping, then replays it through the mock
+driver without a hand-written mapping. Docker must be available; there is no need to
+start the stack manually before running the tests. Testcontainers uses the local Docker
+Compose v2 plugin to support the stack's relative mounts. The sibling MockJDBC reactor
+artifacts must be installed first as described below.
+
+The mock JDBC profile replays query responses but does not maintain mutable database
+state. `commit` and `rollback` are no-ops; update and delete endpoints demonstrate their
+JDBC operation results, not changes visible to later queries.
 
 ```bash
 mvn test
@@ -44,10 +56,13 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mockjdbc
 
 ## Run with proxy profile
 
-The `proxy` profile uses a wrapped datasource and emits captured SQL to Kafka.
+The `proxy` profile uses the Java agent and emits captured SQL and ResultSet data to Kafka.
+Start the JVM with the built agent JAR:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=proxy
+mvn spring-boot:run \
+  -Dspring-boot.run.profiles=proxy \
+  -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-1.0.0-SNAPSHOT.jar"
 ```
 
 Optional environment overrides:
@@ -55,23 +70,25 @@ Optional environment overrides:
 ```bash
 export MOCKJDBC_PROXY_KAFKA_BOOTSTRAP=localhost:9092
 export MOCKJDBC_PROXY_KAFKA_TOPIC=mockjdbc.query.events
-mvn spring-boot:run -Dspring-boot.run.profiles=proxy
+mvn spring-boot:run \
+  -Dspring-boot.run.profiles=proxy \
+  -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-1.0.0-SNAPSHOT.jar"
 ```
 
-## Local bootstrap (required while using systemPath)
+## Local bootstrap (install the reactor first)
 
-This project currently depends on sibling jars via `systemPath`, so you must build those artifacts before running `mockjdbc-spring-users`.
+This project consumes the reusable modules through regular Maven coordinates, so install them into your local repository (`~/.m2`) before running `mockjdbc-spring-users`.
 
 From the repository root (`mockjdbc-foundation`):
 
 ```bash
 cd mockjdbc
-mvn clean package -DskipTests
+mvn clean install -DskipTests
 cd ../mockjdbc-spring-users
 mvn test
 ```
 
-If the mock profile is needed from a clean workspace:
+To run the application manually with the mock profile, start its backend first:
 
 ```bash
 cd /home/rroyo/IdeaProjects/mockjdbc-foundation/mockjdbc-spring-users
@@ -89,7 +106,7 @@ mvn -pl mockjdbc-proxy -am package -DskipTests
 ## WireMock assets
 
 - `docker-compose.yml`
-- `docker/wiremock/mappings/` contains gRPC stubs for `MockQueryService/FindMock`
+- `docker/wiremock/mappings/` contains gRPC stubs for `MockQueryService/FindMock`; SQL matchers use the same normalized form as proxy-generated mappings (trimmed, lowercase, collapsed whitespace, no trailing semicolon)
 - descriptors are generated at startup from `../mockjdbc/mockjdbc-proto/src/main/protobuf`
 - WireMock extension volume now also includes `mockjdbc-wiremock` bridge jar copied from `../mockjdbc/mockjdbc-wiremock/target`
 
@@ -105,5 +122,5 @@ If those jars do not exist yet, build them first from the repository root:
 
 ```bash
 cd mockjdbc
-mvn clean package -DskipTests
+mvn clean install -DskipTests
 ```

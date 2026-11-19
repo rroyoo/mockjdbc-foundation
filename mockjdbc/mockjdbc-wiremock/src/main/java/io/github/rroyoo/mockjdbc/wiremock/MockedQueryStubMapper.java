@@ -9,15 +9,19 @@ import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
+import io.github.rroyoo.mockjdbc.mock.SqlNormalizer;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.sql.ParameterMetaData;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 final class MockedQueryStubMapper {
 
@@ -28,13 +32,12 @@ final class MockedQueryStubMapper {
     static final String GRPC_METHOD_URL =
             "/io.github.rroyoo.mockjdbc.mock.MockQueryService/FindMock";
 
-    private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
-
-    private final List<String> datasourceAllowlist;
+    private final Set<String> datasourceAllowlist;
     private final List<String> sqlDenyPrefixes;
 
     MockedQueryStubMapper(List<String> datasourceAllowlist, List<String> sqlDenyPrefixes) {
-        this.datasourceAllowlist = datasourceAllowlist == null ? List.of() : List.copyOf(datasourceAllowlist);
+        // HashSet for O(1) allowlist lookup instead of O(n) stream scan.
+        this.datasourceAllowlist = datasourceAllowlist == null ? Set.of() : new HashSet<>(datasourceAllowlist);
         this.sqlDenyPrefixes = sqlDenyPrefixes == null ? List.of() : List.copyOf(sqlDenyPrefixes);
     }
 
@@ -54,15 +57,21 @@ final class MockedQueryStubMapper {
             return Optional.empty();
         }
 
-        var params = extractParameters(event);
+        var params = requestParameters(event);
 
         // WireMock-gRPC intercepts calls at the gRPC method path and converts the binary
         // protobuf request body to JSON before applying stub matchers.
-        // QueryLookupRequest has no datasource_id field — filter on $.sql + each parameter value.
+        // QueryLookupRequest has no datasource_id field — filter on SQL, parameters, and batch index.
         var mappingBuilder = WireMock.post(WireMock.urlPathEqualTo(GRPC_METHOD_URL))
                 .withRequestBody(WireMock.matchingJsonPath("$.sql", exact(normalizedSql)));
 
         addParameterMatchers(mappingBuilder, params);
+        if (event.hasBatchIndex()) {
+            mappingBuilder.withRequestBody(WireMock.matchingJsonPath(
+                    "$.batchIndex", exact(Integer.toString(event.getBatchIndex()))));
+        } else {
+            mappingBuilder.withRequestBody(WireMock.matchingJsonPath("$.batchIndex", WireMock.absent()));
+        }
 
         if (event.getStatus() == QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR) {
             // Return a MockedQuery JSON with the error field; the mock driver checks hasError().
@@ -79,14 +88,26 @@ final class MockedQueryStubMapper {
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
                     .withHeader("grpc-status-name", "OK")
-                    .withBody(buildSuccessJsonBody(event.getResultSet())));
+                    .withBody(buildSuccessJsonBody(event.getResultSet(), outParameters(event),
+                            event.hasGeneratedKeys() ? event.getGeneratedKeys() : null, event.getUpdateCount())));
         }
 
-        // Key includes parameter values so each unique (sql + params) combination gets its own stub.
+        // Key includes batch index because identical commands may produce different results in one batch.
         var paramKey = paramKeySegment(params);
         var stubKey  = stubKey(datasourceId, normalizedSql, paramKey);
+        if (event.hasBatchIndex()) {
+            stubKey += "::batch=" + event.getBatchIndex();
+        }
         var mapping  = mappingBuilder.build();
-        mapping.setId(UUID.nameUUIDFromBytes(stubKey.getBytes(StandardCharsets.UTF_8)));
+        var idInput = stubKey.getBytes(StandardCharsets.UTF_8);
+        if (event.hasBatchIndex()) {
+            idInput = ByteBuffer.allocate(Byte.BYTES + Integer.BYTES + idInput.length)
+                    .put((byte) 0xFF)
+                    .putInt(event.getBatchIndex())
+                    .put(idInput)
+                    .array();
+        }
+        mapping.setId(UUID.nameUUIDFromBytes(idInput));
         mapping.setName(stubKey);
         return Optional.of(mapping);
     }
@@ -153,6 +174,31 @@ final class MockedQueryStubMapper {
         return sb.toString();
     }
 
+    /**
+     * Parameters the mock driver sends in the lookup request. For callable statements the driver only
+     * sends IN values, so OUT/INOUT entries (whose captured value is the OUT result) are not matched.
+     */
+    private static List<ParameterMetadata> requestParameters(MockedQuery event) {
+        return extractParameters(event).stream()
+                .filter(p -> !isOut(p))
+                .toList();
+    }
+
+    /** OUT/INOUT parameters captured for a callable statement, returned to the driver in the response. */
+    private static List<ParameterMetadata> outParameters(MockedQuery event) {
+        if (event.getStatementDefinitionCase() != MockedQuery.StatementDefinitionCase.CALLABLE_STATEMENT) {
+            return List.of();
+        }
+        return event.getCallableStatement().getParametersList().stream()
+                .filter(MockedQueryStubMapper::isOut)
+                .toList();
+    }
+
+    private static boolean isOut(ParameterMetadata parameter) {
+        return parameter.getMode() == ParameterMetaData.parameterModeOut
+                || parameter.getMode() == ParameterMetaData.parameterModeInOut;
+    }
+
     private static List<ParameterMetadata> extractParameters(MockedQuery event) {
         return switch (event.getStatementDefinitionCase()) {
             case PREPARED_STATEMENT -> event.getPreparedStatement().getParametersList();
@@ -168,7 +214,56 @@ final class MockedQueryStubMapper {
      * Follows the protobuf JSON encoding conventions (int64 as string, camelCase field names).
      */
     static String buildSuccessJsonBody(SerializedResultSet rs) {
-        var sb = new StringBuilder("{\"resultSet\":{\"metadata\":[");
+        return buildSuccessJsonBody(rs, List.of());
+    }
+
+    /**
+     * Same as {@link #buildSuccessJsonBody(SerializedResultSet)} and, when {@code outParameters} is not
+     * empty, adds {@code callableStatement.parameters} so the driver can expose OUT/INOUT values.
+     */
+    static String buildSuccessJsonBody(SerializedResultSet rs, List<ParameterMetadata> outParameters) {
+        return buildSuccessJsonBody(rs, outParameters, null);
+    }
+
+    static String buildSuccessJsonBody(SerializedResultSet rs,
+                                       List<ParameterMetadata> outParameters,
+                                       SerializedResultSet generatedKeys) {
+        return buildSuccessJsonBody(rs, outParameters, generatedKeys, null);
+    }
+
+    static String buildSuccessJsonBody(SerializedResultSet rs,
+                                       List<ParameterMetadata> outParameters,
+                                       SerializedResultSet generatedKeys,
+                                       Long updateCount) {
+        var sb = new StringBuilder("{\"resultSet\":");
+        appendResultSetJson(sb, rs);
+        if (updateCount != null) {
+            sb.append(",\"updateCount\":\"").append(updateCount).append('"');
+        }
+        if (!outParameters.isEmpty()) {
+            sb.append(",\"callableStatement\":{\"parameters\":[");
+            for (int i = 0; i < outParameters.size(); i++) {
+                if (i > 0) sb.append(',');
+                var p = outParameters.get(i);
+                sb.append("{\"index\":").append(p.getIndex())
+                  .append(",\"sqlType\":").append(p.getSqlType())
+                  .append(",\"typeName\":").append(jsonString(p.getTypeName()))
+                  .append(",\"mode\":").append(p.getMode())
+                  .append(",\"value\":").append(jdbcValueJson(p.getValue()))
+                  .append('}');
+            }
+            sb.append("]}");
+        }
+        if (generatedKeys != null) {
+            sb.append(",\"generatedKeys\":");
+            appendResultSetJson(sb, generatedKeys);
+        }
+        sb.append('}');
+        return sb.toString();
+    }
+
+    private static void appendResultSetJson(StringBuilder sb, SerializedResultSet rs) {
+        sb.append("{\"metadata\":[");
         for (int i = 0; i < rs.getMetadataCount(); i++) {
             if (i > 0) sb.append(',');
             var m = rs.getMetadata(i);
@@ -189,8 +284,7 @@ final class MockedQueryStubMapper {
             }
             sb.append("]}");
         }
-        sb.append("]}}");
-        return sb.toString();
+        sb.append("]}");
     }
 
     /**
@@ -228,14 +322,7 @@ final class MockedQueryStubMapper {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     static String normalizeSql(String sql) {
-        if (sql == null) {
-            return "";
-        }
-        var normalized = MULTI_SPACE.matcher(sql.strip().toLowerCase(Locale.ROOT)).replaceAll(" ");
-        while (normalized.endsWith(";")) {
-            normalized = normalized.substring(0, normalized.length() - 1).strip();
-        }
-        return normalized;
+        return SqlNormalizer.normalize(sql);
     }
 
     /** Stable unique key incorporating datasource, SQL, and all parameter values. */
@@ -256,7 +343,7 @@ final class MockedQueryStubMapper {
         if (datasourceAllowlist.isEmpty()) {
             return true;
         }
-        return datasourceAllowlist.stream().anyMatch(id -> id.equals(datasourceId));
+        return datasourceAllowlist.contains(datasourceId);
     }
 
     private boolean denied(String normalizedSql) {
