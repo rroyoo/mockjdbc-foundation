@@ -37,3 +37,21 @@ updates:
         update-types:
           - version-update:semver-minor
           - version-update:semver-patch
+
+  - package-ecosystem: docker-compose
+    directory: /mockjdbc-spring-users
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Madrid
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    allow:
+      - dependency-type: direct
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
