@@ -2,7 +2,7 @@ services:
 
   # ─── Kafka (KRaft, no Zookeeper) ─────────────────────────────────────────────
   kafka:
-    image: confluentinc/cp-kafka:7.9.10
+    image: confluentinc/cp-kafka:7.9.11
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -29,7 +29,7 @@ services:
 
   # ─── Downloads the WireMock gRPC extension ───────────────────────────────────
   wiremock-grpc-extension:
-    image: curlimages/curl:8.22.0
+    image: curlimages/curl:8.23.0
     user: "0:0"
     command:
       - -fsSL
