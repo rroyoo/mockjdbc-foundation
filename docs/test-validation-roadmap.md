@@ -46,7 +46,10 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
   - Exit criteria: successful GET/PUT/DELETE and not-found GET responses are asserted for H2 and mockjdbc profiles; mock replay remains explicitly stateless.
 
 ### M4. Type and metadata fidelity
-- [ ] `open` Nulls, `DECIMAL`, dates/time zones, `BLOB` / `CLOB`.
+- [x] `done` Null and `DECIMAL` values round-trip through H2 capture -> Kafka -> WireMock -> mock driver.
+  - Exit criteria: the replay preserves a `DECIMAL` value and scale, returns null for a SQL `NULL` value, and reports `wasNull()`.
+- [ ] `open` Dates and times, including time-zone semantics.
+- [ ] `open` `BLOB` / `CLOB`.
 - [ ] `blocked` `ResultSetMetaData` precision, scale, nullability. Depends on `docs/next-steps.md` backlog item 1 (`ColumnMetadata` extension).
 
 ### M5. Proxy behaviour
@@ -66,7 +69,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M4 type fidelity, starting with null and `DECIMAL` values.
+M4 type fidelity, continuing with dates and times, then `BLOB` / `CLOB`.
 
 ## Log
 
@@ -79,3 +82,4 @@ M4 type fidelity, starting with null and `DECIMAL` values.
 - 2026-11-07: M3 batch execution done. Added batch indices to the event and lookup contracts so identical entries can map to distinct outcomes; plain/prepared capture and replay preserve counts, including large counts and JDBC sentinels. An H2 duplicate-delete batch round-trips `[1, 0]` through Kafka → WireMock → mock driver.
 - 2026-11-07: Batch review follow-up preserves partial `BatchUpdateException` counts during capture and recreates `BatchUpdateException` during replay; regression tests cover plain and large prepared batches plus replayed partial counts.
 - 2026-11-07: User API GET/PUT/DELETE coverage added for H2 and mockjdbc profiles. Transaction effects remain deferred because `commit` / `rollback` return no query payload and the mock is stateless; replay validates recorded SQL method results rather than transactional database changes.
+- 2026-11-20: M4 null and `DECIMAL` values verified end to end, including decimal scale and `wasNull()` behavior; next slice is date/time fidelity.

@@ -12,12 +12,14 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.sql.Types;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -94,6 +97,68 @@ class RecordReplayEndToEndTest {
             try (var resultSet = statement.executeQuery()) {
                 assertTrue(resultSet.next());
                 assertEquals(4242, resultSet.getInt("captured_value"));
+                assertFalse(resultSet.next());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Given captured null and DECIMAL values, when replayed, then values and null state are preserved")
+    void shouldReplayNullAndDecimalValues() throws Exception {
+        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
+        var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
+        var sql = "SELECT CAST(? AS DECIMAL(12, 4)) AS amount, CAST(? AS VARCHAR(20)) AS optional_text";
+        var expectedDecimal = new BigDecimal("123.4500");
+        var expectedMappingName = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT)
+                + "::p1=123.4500::p2=null";
+
+        var dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUrl("jdbc:h2:mem:null-decimal-replay;DB_CLOSE_DELAY=-1");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+
+        var kafkaProperties = new Properties();
+        kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
+        kafkaProperties.setProperty("acks", "all");
+
+        try (var producer = KafkaMockedQueryEventProducer.create(
+                     kafkaProperties,
+                     TOPIC,
+                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
+             var registration = JdbcAgentRegistry.register(
+                     dataSource,
+                     DATASOURCE_ID,
+                     event -> { },
+                     producer::send,
+                     AsyncDispatchConfig.defaults());
+             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+             var statement = connection.prepareStatement(sql)) {
+            statement.setBigDecimal(1, expectedDecimal);
+            statement.setNull(2, Types.VARCHAR);
+            try (var resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals(expectedDecimal, resultSet.getBigDecimal("amount"));
+                assertNull(resultSet.getObject("optional_text"));
+                assertTrue(resultSet.wasNull());
+                assertFalse(resultSet.next());
+            }
+            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
+            awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
+        }
+
+        try (var connection = DriverManager.getConnection(
+                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+             var statement = connection.prepareStatement(sql)) {
+            statement.setBigDecimal(1, expectedDecimal);
+            statement.setNull(2, Types.VARCHAR);
+            try (var resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals(expectedDecimal, resultSet.getBigDecimal("amount"));
+                assertNull(resultSet.getObject("optional_text"));
+                assertTrue(resultSet.wasNull());
                 assertFalse(resultSet.next());
             }
         }
