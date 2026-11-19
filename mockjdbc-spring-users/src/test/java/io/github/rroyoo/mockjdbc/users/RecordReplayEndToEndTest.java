@@ -141,8 +141,11 @@ class RecordReplayEndToEndTest {
             try (var resultSet = statement.executeQuery()) {
                 assertTrue(resultSet.next());
                 assertEquals(expectedDecimal, resultSet.getBigDecimal("amount"));
+                assertFalse(resultSet.wasNull());
                 assertNull(resultSet.getObject("optional_text"));
                 assertTrue(resultSet.wasNull());
+                assertEquals(expectedDecimal, resultSet.getBigDecimal("amount"));
+                assertFalse(resultSet.wasNull());
                 assertFalse(resultSet.next());
             }
             assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
@@ -157,8 +160,11 @@ class RecordReplayEndToEndTest {
             try (var resultSet = statement.executeQuery()) {
                 assertTrue(resultSet.next());
                 assertEquals(expectedDecimal, resultSet.getBigDecimal("amount"));
+                assertFalse(resultSet.wasNull());
                 assertNull(resultSet.getObject("optional_text"));
                 assertTrue(resultSet.wasNull());
+                assertEquals(expectedDecimal, resultSet.getBigDecimal("amount"));
+                assertFalse(resultSet.wasNull());
                 assertFalse(resultSet.next());
             }
         }
