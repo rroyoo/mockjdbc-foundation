@@ -495,13 +495,15 @@ class CapturingPreparedStatementTest {
         assertThrows(java.sql.BatchUpdateException.class, proxy::executeLargeBatch);
         assertTrue(published.await(2, TimeUnit.SECONDS));
         assertEquals(2, protoEvents.size());
-        assertEquals((long) Integer.MAX_VALUE + 5, protoEvents.get(0).getUpdateCount());
+        assertTrue(protoEvents.stream().allMatch(MockedQuery::hasBatchIndex));
+        var firstEntry = protoEvents.stream().filter(query -> query.getBatchIndex() == 0).findFirst().orElseThrow();
+        var secondEntry = protoEvents.stream().filter(query -> query.getBatchIndex() == 1).findFirst().orElseThrow();
+        assertEquals((long) Integer.MAX_VALUE + 5, firstEntry.getUpdateCount());
         assertEquals(io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus.QUERY_EXECUTION_STATUS_SUCCESS,
-                protoEvents.get(0).getStatus());
-        assertEquals((long) java.sql.Statement.EXECUTE_FAILED, protoEvents.get(1).getUpdateCount());
+                firstEntry.getStatus());
+        assertEquals((long) java.sql.Statement.EXECUTE_FAILED, secondEntry.getUpdateCount());
         assertEquals(io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR,
-                protoEvents.get(1).getStatus());
-        assertEquals(1, protoEvents.get(1).getBatchIndex());
+                secondEntry.getStatus());
         capture.close();
     }
 
