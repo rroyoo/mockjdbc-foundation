@@ -62,7 +62,7 @@ class AsyncMockedQueryEventDispatcherTest {
             awaitReceivedSize(received, 3);
             var deliveredSql = received.stream().map(q -> q.getSimpleStatement().getSql()).toList();
             assertEquals(List.of("first", "third", "fourth"), deliveredSql);
-            assertEquals(1, dispatcher.stats().dropped());
+            awaitStats(dispatcher, new AsyncDispatchStats(4, 3, 1, 0, 0));
         }
     }
 
@@ -92,7 +92,7 @@ class AsyncMockedQueryEventDispatcherTest {
             awaitReceivedSize(received, 3);
             var deliveredSql = received.stream().map(q -> q.getSimpleStatement().getSql()).toList();
             assertEquals(List.of("first", "second", "third"), deliveredSql);
-            assertEquals(1, dispatcher.stats().dropped());
+            awaitStats(dispatcher, new AsyncDispatchStats(4, 3, 1, 0, 0));
         }
     }
 
@@ -137,12 +137,33 @@ class AsyncMockedQueryEventDispatcherTest {
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
             dispatcher.publish(query("SELECT 1"));
 
-            var deadline = System.currentTimeMillis() + 2000;
-            while (dispatcher.stats().failed() < 1 && System.currentTimeMillis() < deadline) {
-                Thread.sleep(5);
-            }
-            assertEquals(1, dispatcher.stats().failed());
-            assertEquals(0, dispatcher.stats().sent());
+            awaitStats(dispatcher, new AsyncDispatchStats(1, 0, 0, 1, 0));
         }
+    }
+
+    @Test
+    @DisplayName("Given a producer that throws during send, when publishing, then the dispatcher counts the failure and stays usable")
+    void shouldCountSynchronousSendFailureAsFailed() throws Exception {
+        var producer = new MockedQueryEventProducer() {
+            @Override public void send(MockedQuery event) { }
+            @Override public java.util.concurrent.CompletionStage<Void> sendAsync(MockedQuery event) {
+                throw new IllegalStateException("producer closed");
+            }
+        };
+        var config = new AsyncDispatchConfig(16, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 256);
+        try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
+            assertTrue(dispatcher.publish(query("SELECT 1")));
+
+            awaitStats(dispatcher, new AsyncDispatchStats(1, 0, 0, 1, 0));
+        }
+    }
+
+    private static void awaitStats(AsyncMockedQueryEventDispatcher dispatcher, AsyncDispatchStats expected)
+            throws InterruptedException {
+        var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (!dispatcher.stats().equals(expected) && System.nanoTime() < deadline) {
+            Thread.sleep(5);
+        }
+        assertEquals(expected, dispatcher.stats());
     }
 }
