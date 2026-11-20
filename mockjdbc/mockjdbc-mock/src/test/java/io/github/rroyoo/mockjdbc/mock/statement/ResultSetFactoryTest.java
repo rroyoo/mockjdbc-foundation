@@ -21,6 +21,8 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.TimeZone;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -123,7 +125,7 @@ class ResultSetFactoryTest {
 
 	static Stream<Arguments> typedValues() {
 		var instant = Instant.parse("2026-03-17T10:15:30Z");
-		var zoned = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
+		var utc = instant.atZone(ZoneOffset.UTC).toLocalDateTime();
 		var protoTimestamp = Timestamp.newBuilder().setSeconds(instant.getEpochSecond()).setNanos(instant.getNano()).build();
 		return Stream.of(
 				Arguments.of(Types.TINYINT, longValue(7), Integer.class, 7),
@@ -138,13 +140,44 @@ class ResultSetFactoryTest {
 				Arguments.of(Types.BIT, longValue(0), Boolean.class, false),
 				Arguments.of(Types.DATE, JdbcValue.newBuilder().setStringVal("2026-03-17").build(), Date.class, Date.valueOf("2026-03-17")),
 				Arguments.of(Types.DATE, JdbcValue.newBuilder().setStringVal("2026-03-17 00:00:00.0").build(), Date.class, Date.valueOf("2026-03-17")),
-				Arguments.of(Types.DATE, JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(), Date.class, Date.valueOf(zoned.toLocalDate())),
+				Arguments.of(Types.DATE, JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(), Date.class, Date.valueOf(utc.toLocalDate())),
 				Arguments.of(Types.TIME, JdbcValue.newBuilder().setStringVal("10:15:30").build(), Time.class, Time.valueOf("10:15:30")),
 				Arguments.of(Types.TIME, JdbcValue.newBuilder().setStringVal("1970-01-01 10:15:30.0").build(), Time.class, Time.valueOf("10:15:30")),
+				Arguments.of(Types.TIME, JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(), Time.class, Time.valueOf(utc.toLocalTime())),
 				Arguments.of(Types.TIMESTAMP, JdbcValue.newBuilder().setStringVal("2026-03-17 10:15:30.5").build(), java.sql.Timestamp.class, java.sql.Timestamp.valueOf("2026-03-17 10:15:30.5")),
 				Arguments.of(Types.TIMESTAMP, JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(), java.sql.Timestamp.class, java.sql.Timestamp.from(instant)),
 				Arguments.of(Types.VARCHAR, JdbcValue.newBuilder().setStringVal("text").build(), String.class, "text")
 		);
+	}
+
+	@Test
+	@DisplayName("Given protobuf timestamps and a non-UTC default zone, when reading DATE and TIME, then UTC values are used")
+	void shouldConvertProtobufDateAndTimeValuesInUtc() throws Exception {
+		var originalTimeZone = TimeZone.getDefault();
+		try {
+			TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Kiritimati"));
+			var instant = Instant.parse("2026-03-17T23:15:30Z");
+			var protoTimestamp = Timestamp.newBuilder()
+					.setSeconds(instant.getEpochSecond())
+					.setNanos(instant.getNano())
+					.build();
+			var serialized = SerializedResultSet.newBuilder()
+					.addMetadata(column("date_value", "date_value", Types.DATE, "DATE"))
+					.addMetadata(column("time_value", "time_value", Types.TIME, "TIME"))
+					.addRows(Row.newBuilder()
+							.addValues(JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build())
+							.addValues(JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build())
+							.build())
+					.build();
+
+			try (var resultSet = ResultSetFactory.create(serialized)) {
+				assertTrue(resultSet.next());
+				assertEquals(Date.valueOf("2026-03-17"), resultSet.getDate(1));
+				assertEquals(Time.valueOf("23:15:30"), resultSet.getTime(2));
+			}
+		} finally {
+			TimeZone.setDefault(originalTimeZone);
+		}
 	}
 
 	@ParameterizedTest(name = "[{index}] sqlType {0}")

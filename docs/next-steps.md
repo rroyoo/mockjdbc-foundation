@@ -1,6 +1,6 @@
 # Next Steps
 
-Hand-off for continuing project improvements. Last updated: 2026-11-04.
+Hand-off for continuing project improvements. Last updated: 2026-11-20.
 
 Read first: `docs/module-status-matrix.md`, `docs/jdbc-supported-surface.md`, `.github/copilot-instructions.md`.
 
@@ -43,7 +43,7 @@ Precision, scale, nullability, table/schema/catalog names and auto-increment do 
 
 ### 3. `ResultSetFactory` follow-ups
 - [ ] Types still passed through by wire kind: `CHAR`/`VARCHAR` variants, `BLOB`/`CLOB`, `ARRAY`, `STRUCT`, `SQLXML`, `NULL`, `OTHER`. Decide per type: coerce, or reject with `SQLFeatureNotSupportedException`.
-- [ ] Time zone semantics for `DATE`/`TIME` derived from protobuf timestamps (currently JVM default zone).
+- [x] `DATE`/`TIME` derived from protobuf timestamps use UTC, independent of the JVM default zone.
 - [ ] `DatabaseMetaData` catalog queries are unsupported; revisit only if a real use case appears.
 
 ### 4. CI and quality
