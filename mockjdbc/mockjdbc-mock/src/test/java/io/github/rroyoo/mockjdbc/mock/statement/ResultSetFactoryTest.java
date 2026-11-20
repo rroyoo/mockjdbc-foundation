@@ -183,8 +183,8 @@ class ResultSetFactoryTest {
 	}
 
 	@Test
-	@DisplayName("Given a protobuf date skipped by the default zone, when creating ResultSet, then SQLDataException is thrown")
-	void shouldRejectProtobufDateSkippedByDefaultTimeZone() {
+	@DisplayName("Given a date skipped by the default zone, when creating ResultSet, then SQLDataException is thrown")
+	void shouldRejectDateSkippedByDefaultTimeZone() {
 		var originalTimeZone = TimeZone.getDefault();
 		try {
 			TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Apia"));
@@ -193,10 +193,13 @@ class ResultSetFactoryTest {
 					.setSeconds(instant.getEpochSecond())
 					.setNanos(instant.getNano())
 					.build();
-			var serialized = singleValue(Types.DATE,
+			var protobufDate = singleValue(Types.DATE,
 					JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build());
+			var stringDate = singleValue(Types.DATE,
+					JdbcValue.newBuilder().setStringVal("2011-12-30").build());
 
-			assertThrows(SQLDataException.class, () -> ResultSetFactory.create(serialized));
+			assertThrows(SQLDataException.class, () -> ResultSetFactory.create(protobufDate));
+			assertThrows(SQLDataException.class, () -> ResultSetFactory.create(stringDate));
 		} finally {
 			TimeZone.setDefault(originalTimeZone);
 		}

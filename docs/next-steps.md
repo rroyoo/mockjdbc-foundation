@@ -43,7 +43,7 @@ Precision, scale, nullability, table/schema/catalog names and auto-increment do 
 
 ### 3. `ResultSetFactory` follow-ups
 - [ ] Types still passed through by wire kind: `CHAR`/`VARCHAR` variants, `BLOB`/`CLOB`, `ARRAY`, `STRUCT`, `SQLXML`, `NULL`, `OTHER`. Decide per type: coerce, or reject with `SQLFeatureNotSupportedException`.
-- [x] `DATE`/`TIME` derived from protobuf timestamps use UTC, independent of the JVM default zone.
+- [x] `DATE`/`TIME` derived from protobuf timestamps use UTC, independent of the JVM default zone; unrepresentable `DATE` values fail with `SQLDataException` instead of normalizing.
 - [ ] `DatabaseMetaData` catalog queries are unsupported; revisit only if a real use case appears.
 
 ### 4. CI and quality
