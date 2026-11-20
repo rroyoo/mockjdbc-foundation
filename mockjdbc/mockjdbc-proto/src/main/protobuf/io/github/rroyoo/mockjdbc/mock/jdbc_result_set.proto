@@ -17,6 +17,14 @@ message ColumnMetadata {
   optional string label = 2;
   int32 sql_type = 3;
   optional string type_name = 4;
+  // Absent values preserve compatibility with older events and use JDBC metadata defaults.
+  optional int32 precision = 5;
+  optional int32 scale = 6;
+  optional int32 nullable = 7;
+  optional string table_name = 8;
+  optional string schema_name = 9;
+  optional string catalog_name = 10;
+  optional bool auto_increment = 11;
 }
 
 /**

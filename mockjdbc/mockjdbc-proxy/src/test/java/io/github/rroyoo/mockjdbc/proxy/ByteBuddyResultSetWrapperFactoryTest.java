@@ -27,6 +27,42 @@ import static org.mockito.Mockito.when;
 class ByteBuddyResultSetWrapperFactoryTest {
 
     @Test
+    @DisplayName("Given JDBC column metadata, when rows are captured, then extended metadata is serialized")
+    void shouldSerializeExtendedColumnMetadata() throws Exception {
+        var metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnType(1)).thenReturn(Types.DECIMAL);
+        when(metadata.getColumnName(1)).thenReturn("amount");
+        when(metadata.getColumnLabel(1)).thenReturn("amount_label");
+        when(metadata.getColumnTypeName(1)).thenReturn("DECIMAL");
+        when(metadata.getPrecision(1)).thenReturn(12);
+        when(metadata.getScale(1)).thenReturn(4);
+        when(metadata.isNullable(1)).thenReturn(ResultSetMetaData.columnNoNulls);
+        when(metadata.getTableName(1)).thenReturn("orders");
+        when(metadata.getSchemaName(1)).thenReturn("public");
+        when(metadata.getCatalogName(1)).thenReturn("sales");
+        when(metadata.isAutoIncrement(1)).thenReturn(true);
+        var delegate = mock(ResultSet.class);
+        when(delegate.getMetaData()).thenReturn(metadata);
+        when(delegate.next()).thenReturn(true, false);
+        var captured = new ArrayList<SerializedResultSet>();
+
+        try (var resultSet = new ByteBuddyResultSetWrapperFactory(10).wrap(delegate, captured::add)) {
+            assertTrue(resultSet.next());
+            assertFalse(resultSet.next());
+        }
+
+        var column = captured.get(0).getMetadata(0);
+        assertEquals(12, column.getPrecision());
+        assertEquals(4, column.getScale());
+        assertEquals(ResultSetMetaData.columnNoNulls, column.getNullable());
+        assertEquals("orders", column.getTableName());
+        assertEquals("public", column.getSchemaName());
+        assertEquals("sales", column.getCatalogName());
+        assertTrue(column.getAutoIncrement());
+    }
+
+    @Test
     @DisplayName("Given JDBC Blob and Clob values, when rows are captured, then their contents are serialized")
     void shouldSerializeBlobAndClobContents() throws Exception {
         var metadata = mock(ResultSetMetaData.class);

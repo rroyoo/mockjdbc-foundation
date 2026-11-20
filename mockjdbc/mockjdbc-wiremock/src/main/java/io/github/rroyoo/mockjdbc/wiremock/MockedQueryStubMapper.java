@@ -275,6 +275,27 @@ final class MockedQueryStubMapper {
                 sb.append("\"label\":").append(jsonString(m.getLabel())).append(',');
             }
             sb.append("\"sqlType\":").append(m.getSqlType());
+            if (m.hasPrecision()) {
+                sb.append(",\"precision\":").append(m.getPrecision());
+            }
+            if (m.hasScale()) {
+                sb.append(",\"scale\":").append(m.getScale());
+            }
+            if (m.hasNullable()) {
+                sb.append(",\"nullable\":").append(m.getNullable());
+            }
+            if (m.hasTableName()) {
+                sb.append(",\"tableName\":").append(jsonString(m.getTableName()));
+            }
+            if (m.hasSchemaName()) {
+                sb.append(",\"schemaName\":").append(jsonString(m.getSchemaName()));
+            }
+            if (m.hasCatalogName()) {
+                sb.append(",\"catalogName\":").append(jsonString(m.getCatalogName()));
+            }
+            if (m.hasAutoIncrement()) {
+                sb.append(",\"autoIncrement\":").append(m.getAutoIncrement());
+            }
             if (m.hasTypeName()) {
                 sb.append(",\"typeName\":").append(jsonString(m.getTypeName()));
             }

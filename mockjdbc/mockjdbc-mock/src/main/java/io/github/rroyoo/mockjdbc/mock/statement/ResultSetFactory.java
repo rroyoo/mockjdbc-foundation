@@ -74,20 +74,22 @@ final class ResultSetFactory {
     }
 
     private static void configureColumn(RowSetMetaDataImpl metadata, int columnIndex, ColumnMetadata column) throws SQLException {
-        metadata.setAutoIncrement(columnIndex, false);
+        metadata.setAutoIncrement(columnIndex, column.hasAutoIncrement() && column.getAutoIncrement());
         metadata.setCaseSensitive(columnIndex, true);
         metadata.setSearchable(columnIndex, true);
         metadata.setCurrency(columnIndex, false);
-        metadata.setNullable(columnIndex, ResultSetMetaDataDefaults.NULLABLE_UNKNOWN);
+        metadata.setNullable(columnIndex, column.hasNullable()
+                ? column.getNullable()
+                : ResultSetMetaDataDefaults.NULLABLE_UNKNOWN);
         metadata.setSigned(columnIndex, isSigned(column.getSqlType()));
         metadata.setColumnDisplaySize(columnIndex, Math.max(column.getLabel().length(), column.getName().length()));
         metadata.setColumnLabel(columnIndex, column.getLabel().isBlank() ? column.getName() : column.getLabel());
         metadata.setColumnName(columnIndex, column.getName().isBlank() ? column.getLabel() : column.getName());
-        metadata.setSchemaName(columnIndex, "");
-        metadata.setPrecision(columnIndex, 0);
-        metadata.setScale(columnIndex, 0);
-        metadata.setTableName(columnIndex, "");
-        metadata.setCatalogName(columnIndex, "");
+        metadata.setSchemaName(columnIndex, column.hasSchemaName() ? column.getSchemaName() : "");
+        metadata.setPrecision(columnIndex, column.hasPrecision() ? column.getPrecision() : 0);
+        metadata.setScale(columnIndex, column.hasScale() ? column.getScale() : 0);
+        metadata.setTableName(columnIndex, column.hasTableName() ? column.getTableName() : "");
+        metadata.setCatalogName(columnIndex, column.hasCatalogName() ? column.getCatalogName() : "");
         metadata.setColumnType(columnIndex, column.getSqlType());
         metadata.setColumnTypeName(columnIndex, column.getTypeName());
     }
