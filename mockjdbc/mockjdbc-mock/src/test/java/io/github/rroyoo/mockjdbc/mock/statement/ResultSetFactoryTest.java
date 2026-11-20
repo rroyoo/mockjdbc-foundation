@@ -14,6 +14,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Date;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLDataException;
@@ -73,6 +75,49 @@ class ResultSetFactoryTest {
 			assertEquals(java.sql.Timestamp.from(instant), resultSet.getTimestamp(7));
 			assertNull(resultSet.getObject(8));
 		}
+	}
+
+	@Test
+	@DisplayName("Given BLOB and CLOB values, when creating ResultSet, then JDBC LOB values and nulls are preserved")
+	void shouldMaterializeBlobAndClobValues() throws Exception {
+		var payload = new byte[]{0, (byte) 0xff, 0x10};
+		var text = "CLOB payload: café";
+		var serialized = SerializedResultSet.newBuilder()
+				.addMetadata(column("blob_value", "blob_value", Types.BLOB, "BLOB"))
+				.addMetadata(column("clob_value", "clob_value", Types.CLOB, "CLOB"))
+				.addMetadata(column("null_blob", "null_blob", Types.BLOB, "BLOB"))
+				.addMetadata(column("null_clob", "null_clob", Types.CLOB, "CLOB"))
+				.addRows(Row.newBuilder()
+						.addValues(JdbcValue.newBuilder().setBytesVal(
+								com.google.protobuf.ByteString.copyFrom(payload)).build())
+						.addValues(JdbcValue.newBuilder().setStringVal(text).build())
+						.addValues(JdbcValue.newBuilder().setIsNull(true).build())
+						.addValues(JdbcValue.newBuilder().setIsNull(true).build())
+						.build())
+				.build();
+
+		try (var resultSet = ResultSetFactory.create(serialized)) {
+			assertTrue(resultSet.next());
+			assertInstanceOf(Blob.class, resultSet.getObject(1));
+			assertArrayEquals(payload, resultSet.getBlob(1).getBytes(1L, payload.length));
+			assertInstanceOf(Clob.class, resultSet.getObject(2));
+			assertEquals(text, resultSet.getClob(2).getSubString(1L, text.length()));
+			assertNull(resultSet.getBlob(3));
+			assertTrue(resultSet.wasNull());
+			assertNull(resultSet.getClob(4));
+			assertTrue(resultSet.wasNull());
+		}
+	}
+
+	@Test
+	@DisplayName("Given a BLOB or CLOB with an incompatible wire value, when creating ResultSet, then SQLDataException is thrown")
+	void shouldRejectIncompatibleBlobAndClobWireValues() {
+		var blobWithText = singleValue(Types.BLOB, JdbcValue.newBuilder().setStringVal("not bytes").build());
+		var clobWithBytes = singleValue(Types.CLOB,
+				JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(new byte[]{1})).build());
+
+		assertThrows(SQLDataException.class, () -> ResultSetFactory.create(blobWithText));
+		assertThrows(SQLDataException.class, () -> ResultSetFactory.create(clobWithBytes));
 	}
 
 	@Test

@@ -8,6 +8,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import javax.sql.rowset.serial.SerialBlob;
+import javax.sql.rowset.serial.SerialClob;
 import java.util.ArrayList;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
@@ -23,6 +25,32 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ByteBuddyResultSetWrapperFactoryTest {
+
+    @Test
+    @DisplayName("Given JDBC Blob and Clob values, when rows are captured, then their contents are serialized")
+    void shouldSerializeBlobAndClobContents() throws Exception {
+        var metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnCount()).thenReturn(2);
+        when(metadata.getColumnType(1)).thenReturn(Types.BLOB);
+        when(metadata.getColumnType(2)).thenReturn(Types.CLOB);
+        var delegate = mock(ResultSet.class);
+        when(delegate.getMetaData()).thenReturn(metadata);
+        when(delegate.next()).thenReturn(true, false);
+        when(delegate.getObject(1)).thenReturn(new SerialBlob(new byte[]{0, (byte) 0xff, 0x10}));
+        when(delegate.getObject(2)).thenReturn(new SerialClob("CLOB payload: café".toCharArray()));
+        var captured = new ArrayList<SerializedResultSet>();
+
+        try (var resultSet = new ByteBuddyResultSetWrapperFactory(10).wrap(delegate, captured::add)) {
+            assertTrue(resultSet.next());
+            assertFalse(resultSet.next());
+        }
+
+        assertEquals(1, captured.size());
+        var row = captured.get(0).getRows(0);
+        assertEquals(com.google.protobuf.ByteString.copyFrom(new byte[]{0, (byte) 0xff, 0x10}),
+                row.getValues(0).getBytesVal());
+        assertEquals("CLOB payload: café", row.getValues(1).getStringVal());
+    }
 
     @Test
     @DisplayName("Given null and empty text metadata, when rows are read, then protobuf preserves presence and JDBC values")
