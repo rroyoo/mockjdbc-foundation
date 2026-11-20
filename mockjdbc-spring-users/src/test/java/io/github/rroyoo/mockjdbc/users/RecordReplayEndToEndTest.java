@@ -17,8 +17,12 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.Date;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Duration;
 import java.util.List;
@@ -171,6 +175,59 @@ class RecordReplayEndToEndTest {
     }
 
     @Test
+    @DisplayName("Given captured temporal values, when replayed, then dates, times, timestamps and nulls are preserved")
+    void shouldReplayDateTimeValues() throws Exception {
+        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
+        var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
+        var sql = "SELECT DATE '2026-03-17' AS captured_date, TIME '10:15:30' AS captured_time, "
+                + "TIMESTAMP '2026-03-17 10:15:30.123456789' AS captured_timestamp, "
+                + "CAST(NULL AS DATE) AS null_date, CAST(NULL AS TIME) AS null_time, "
+                + "CAST(NULL AS TIMESTAMP) AS null_timestamp";
+        var expectedMappingName = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT);
+
+        var dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUrl("jdbc:h2:mem:date-time-replay;DB_CLOSE_DELAY=-1");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+
+        var kafkaProperties = new Properties();
+        kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
+        kafkaProperties.setProperty("acks", "all");
+
+        try (var producer = KafkaMockedQueryEventProducer.create(
+                     kafkaProperties,
+                     TOPIC,
+                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
+             var registration = JdbcAgentRegistry.register(
+                     dataSource,
+                     DATASOURCE_ID,
+                     event -> { },
+                     producer::send,
+                     AsyncDispatchConfig.defaults());
+             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+             var statement = connection.createStatement();
+             var resultSet = statement.executeQuery(sql)) {
+            assertTrue(resultSet.next());
+            assertDateTimeValues(resultSet);
+            assertFalse(resultSet.next());
+            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
+            awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
+        }
+
+        try (var connection = DriverManager.getConnection(
+                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+             var statement = connection.createStatement();
+             var resultSet = statement.executeQuery(sql)) {
+            assertTrue(resultSet.next());
+            assertDateTimeValues(resultSet);
+            assertFalse(resultSet.next());
+        }
+    }
+
+    @Test
     @DisplayName("Given a captured insert with generated keys, when replayed, then update count and generated key match")
     void shouldReplayCapturedInsertWithGeneratedKeys() throws Exception {
         var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
@@ -319,5 +376,18 @@ class RecordReplayEndToEndTest {
 
         throw new AssertionError("Kafka bridge did not register generated stub: " + expectedMappingName
                 + "; current mappings: " + lastMappings);
+    }
+
+    private static void assertDateTimeValues(ResultSet resultSet) throws Exception {
+        assertEquals(Date.valueOf("2026-03-17"), resultSet.getDate("captured_date"));
+        assertEquals(Time.valueOf("10:15:30"), resultSet.getTime("captured_time"));
+        assertEquals(Timestamp.valueOf("2026-03-17 10:15:30.123456789"),
+                resultSet.getTimestamp("captured_timestamp"));
+        assertNull(resultSet.getObject("null_date"));
+        assertTrue(resultSet.wasNull());
+        assertNull(resultSet.getObject("null_time"));
+        assertTrue(resultSet.wasNull());
+        assertNull(resultSet.getObject("null_timestamp"));
+        assertTrue(resultSet.wasNull());
     }
 }

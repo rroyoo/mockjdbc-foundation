@@ -18,6 +18,8 @@ import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Locale;
 
 final class ResultSetFactory {
@@ -205,17 +207,26 @@ final class ResultSetFactory {
         };
     }
 
-    private static Date toDate(JdbcValue value) {
+    private static Date toDate(JdbcValue value) throws SQLDataException {
         return switch (value.getKindCase()) {
-            case TIMESTAMP_VAL -> Date.valueOf(instantOf(value).toLocalDateTime().toLocalDate());
-            case STRING_VAL -> Date.valueOf(LocalDate.parse(datePart(value.getStringVal())));
+            case TIMESTAMP_VAL -> toJdbcDate(instantOf(value).toInstant().atZone(ZoneOffset.UTC).toLocalDate());
+            case STRING_VAL -> toJdbcDate(LocalDate.parse(datePart(value.getStringVal())));
             default -> throw new IllegalArgumentException("unsupported value kind " + value.getKindCase());
         };
     }
 
+    private static Date toJdbcDate(LocalDate date) throws SQLDataException {
+        var jdbcDate = Date.valueOf(date);
+        if (!jdbcDate.toLocalDate().equals(date)) {
+            throw new SQLDataException("SQL DATE " + date + " cannot be represented in default time zone "
+                    + ZoneId.systemDefault().getId());
+        }
+        return jdbcDate;
+    }
+
     private static Time toTime(JdbcValue value) {
         return switch (value.getKindCase()) {
-            case TIMESTAMP_VAL -> Time.valueOf(instantOf(value).toLocalDateTime().toLocalTime().withNano(0));
+            case TIMESTAMP_VAL -> Time.valueOf(instantOf(value).toInstant().atZone(ZoneOffset.UTC).toLocalTime().withNano(0));
             case STRING_VAL -> Time.valueOf(LocalTime.parse(timePart(value.getStringVal())).withNano(0));
             default -> throw new IllegalArgumentException("unsupported value kind " + value.getKindCase());
         };
