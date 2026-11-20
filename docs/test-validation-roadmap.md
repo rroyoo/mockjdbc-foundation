@@ -48,8 +48,8 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 ### M4. Type and metadata fidelity
 - [x] `done` Null and `DECIMAL` values round-trip through H2 capture -> Kafka -> WireMock -> mock driver.
   - Exit criteria: the replay preserves a `DECIMAL` value and scale, returns null for a SQL `NULL` value, and reports `wasNull()`.
-- [x] `done` `DATE`, `TIME`, and nanosecond `TIMESTAMP` values round-trip through H2 capture -> Kafka -> WireMock -> mock driver, including nulls. Protobuf timestamps converted to `DATE`/`TIME` use UTC regardless of the JVM default zone.
-  - Exit criteria: temporal values and null state are asserted end to end; a non-UTC unit test verifies UTC conversion for protobuf-backed `DATE`/`TIME`.
+- [x] `done` `DATE`, `TIME`, and nanosecond `TIMESTAMP` values round-trip through H2 capture -> Kafka -> WireMock -> mock driver, including nulls. Protobuf timestamps converted to `DATE`/`TIME` use UTC regardless of the JVM default zone; dates that cannot be represented in that zone fail instead of normalizing.
+  - Exit criteria: temporal values and null state are asserted end to end; non-UTC unit tests verify UTC conversion and rejection of an unrepresentable protobuf-backed `DATE`.
 - [ ] `open` `BLOB` / `CLOB`.
 - [ ] `blocked` `ResultSetMetaData` precision, scale, nullability. Depends on `docs/next-steps.md` backlog item 1 (`ColumnMetadata` extension).
 

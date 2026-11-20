@@ -21,6 +21,8 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.TimeZone;
 import java.util.stream.Stream;
@@ -172,9 +174,29 @@ class ResultSetFactoryTest {
 
 			try (var resultSet = ResultSetFactory.create(serialized)) {
 				assertTrue(resultSet.next());
-				assertEquals(Date.valueOf("2026-03-17"), resultSet.getDate(1));
-				assertEquals(Time.valueOf("23:15:30"), resultSet.getTime(2));
+				assertEquals(LocalDate.of(2026, 3, 17), resultSet.getDate(1).toLocalDate());
+				assertEquals(LocalTime.of(23, 15, 30), resultSet.getTime(2).toLocalTime());
 			}
+		} finally {
+			TimeZone.setDefault(originalTimeZone);
+		}
+	}
+
+	@Test
+	@DisplayName("Given a protobuf date skipped by the default zone, when creating ResultSet, then SQLDataException is thrown")
+	void shouldRejectProtobufDateSkippedByDefaultTimeZone() {
+		var originalTimeZone = TimeZone.getDefault();
+		try {
+			TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Apia"));
+			var instant = Instant.parse("2011-12-30T12:00:00Z");
+			var protoTimestamp = Timestamp.newBuilder()
+					.setSeconds(instant.getEpochSecond())
+					.setNanos(instant.getNano())
+					.build();
+			var serialized = singleValue(Types.DATE,
+					JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build());
+
+			assertThrows(SQLDataException.class, () -> ResultSetFactory.create(serialized));
 		} finally {
 			TimeZone.setDefault(originalTimeZone);
 		}

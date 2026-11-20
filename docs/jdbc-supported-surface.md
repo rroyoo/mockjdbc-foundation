@@ -123,6 +123,6 @@ Source of truth:
 `ResultSetFactory` converts the gRPC payload to a `CachedRowSet`:
 - Values are coerced to the declared `sqlType` (`TINYINT`/`SMALLINT`/`INTEGER`/`BIGINT`, `REAL`/`FLOAT`/`DOUBLE`, `NUMERIC`/`DECIMAL`, `BOOLEAN`/`BIT`, `DATE`, `TIME`, `TIMESTAMP`); `TINYINT`/`SMALLINT` are returned as `Integer` per the JDBC `getObject` mapping; `TIME_WITH_TIMEZONE`/`TIMESTAMP_WITH_TIMEZONE` are rejected with `SQLFeatureNotSupportedException` because the offset is not transported; other types keep the wire kind (string, bytes, ...).
 - Dates and times accept ISO text (`2026-03-17`, `10:15:30`), JDBC timestamp text (`2026-03-17 10:15:30.0`) or protobuf timestamps. A protobuf timestamp converted to SQL `DATE`/`TIME` is interpreted in UTC; SQL `TIMESTAMP` preserves the protobuf instant.
-- Out-of-range or unparsable values raise `SQLDataException`; nulls are preserved and reported through `wasNull`.
+- Out-of-range, unparsable, or unrepresentable values raise `SQLDataException`; a `DATE` skipped by the JVM default time zone is rejected rather than silently normalized. Nulls are preserved and reported through `wasNull`.
 - Rows shorter than the metadata are padded with nulls; rows longer than the metadata raise `SQLException`.
 - Column metadata keeps name, label, type, type name and signedness. Precision, scale, nullability and table/schema/catalog names are not part of the `ColumnMetadata` contract, so nullability is reported as unknown.
