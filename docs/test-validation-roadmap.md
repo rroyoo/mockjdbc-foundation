@@ -56,8 +56,8 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
   - Exit criteria: metadata values survive end-to-end replay; unit tests verify optional-field presence, including zero/false/empty values, and legacy defaults.
 
 ### M5. Proxy behaviour
-- [ ] `open` Kafka failure or full queue does not break the application; drop policy and statistics asserted.
-- [ ] `open` Distinct `datasourceId` values and datasource-oriented Kafka keys.
+- [x] `done` Kafka delivery failure or full queue does not change JDBC return values; both drop policies and offered/sent/dropped/failed/queued statistics are asserted.
+- [x] `done` Registered DataSources retain distinct `datasourceId` values, and Kafka records use the event datasource ID as the key.
 - [ ] `deferred` Masking of sensitive parameters (feature not implemented yet).
 
 ### M6. Mock robustness
@@ -72,7 +72,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M5 proxy behavior: verify that Kafka failures and full queues follow the configured drop policy without breaking application calls, and assert dispatch statistics; then cover distinct datasource IDs and Kafka keys.
+M6 mock robustness: assert the no-matching-stub behavior returns the documented default empty result.
 
 ## Log
 
@@ -89,3 +89,5 @@ M5 proxy behavior: verify that Kafka failures and full queues follow the configu
 - 2026-11-20: M4 `DATE`, `TIME`, and nanosecond `TIMESTAMP` values verified end to end with null preservation; protobuf-to-`DATE`/`TIME` conversion is now explicitly UTC. The next slice is `BLOB` / `CLOB`.
 - 2026-11-20: M4 `BLOB` / `CLOB` values now round-trip as JDBC LOBs, including arbitrary binary bytes, Unicode CLOB text, and nulls. Protobuf wire-kind mismatches fail with `SQLDataException`; next is the additive `ColumnMetadata` extension tracked in `docs/next-steps.md`.
 - 2026-11-20: M4 extended `ColumnMetadata` with optional JDBC precision, scale, nullability, table/schema/catalog names, and auto-increment. The values now round-trip through the bridge; absent fields from older events retain the former defaults. Next integration slice: M5 proxy failure/drop behavior and dispatch statistics.
+- 2026-11-20: M5 failure/drop behavior verified: asynchronous delivery failures and full queues preserve JDBC `executeUpdate` results; `DROP_OLDEST` and `DROP_NEWEST` delivery behavior is covered, with offered/sent/dropped/failed/queued counters asserted. Next slice: distinct datasource IDs and datasource-oriented Kafka keys.
+- 2026-11-20: M5 datasource identity and Kafka keying verified by the existing two-DataSource registry and producer-key tests. Next integration slice: M6 no-matching-stub behavior.

@@ -1,12 +1,15 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
+import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -27,6 +30,15 @@ class CapturingStatementTest {
                 new Class<?>[]{ Statement.class },
                 new CapturingStatementInvocationHandler(delegate, capture)
         );
+    }
+
+    private static void awaitDispatchStats(JdbcExecutionCapture capture, AsyncDispatchStats expected)
+            throws InterruptedException {
+        var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (!capture.dispatcher.stats().equals(expected) && System.nanoTime() < deadline) {
+            Thread.sleep(5);
+        }
+        assertEquals(expected, capture.dispatcher.stats());
     }
 
     // ── executeUpdate ─────────────────────────────────────────────────────────
@@ -56,6 +68,73 @@ class CapturingStatementTest {
         assertEquals(5L, capturedUpdateCount.get());
 
         capture.close();
+    }
+
+    @Test
+    @DisplayName("Given Kafka delivery fails asynchronously, when executeUpdate is called, then its JDBC result is returned and failure is counted")
+    void shouldReturnUpdateCountWhenKafkaDeliveryFails() throws Exception {
+        var sendStarted = new CountDownLatch(1);
+        var producer = new MockedQueryEventProducer() {
+            @Override
+            public void send(MockedQuery event) {
+            }
+
+            @Override
+            public java.util.concurrent.CompletionStage<Void> sendAsync(MockedQuery event) {
+                sendStarted.countDown();
+                return CompletableFuture.failedFuture(new IllegalStateException("broker down"));
+            }
+        };
+        var capture = new JdbcExecutionCapture("default-datasource", event -> {}, producer,
+                new AsyncDispatchConfig(4, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 64));
+        var delegate = mock(Statement.class);
+        when(delegate.executeUpdate("UPDATE users SET active = true")).thenReturn(5);
+        var statement = capturingProxy(delegate, capture);
+
+        assertEquals(5, statement.executeUpdate("UPDATE users SET active = true"));
+        assertTrue(sendStarted.await(2, TimeUnit.SECONDS));
+        awaitDispatchStats(capture, new AsyncDispatchStats(1, 0, 0, 1, 0));
+        assertEquals(1, capture.events().size());
+
+        capture.close();
+    }
+
+    @Test
+    @DisplayName("Given a full capture queue, when executeUpdate is called, then JDBC results are returned and DROP_NEWEST is counted")
+    void shouldReturnUpdateCountWhenCaptureQueueOverflows() throws Exception {
+        var firstSendStarted = new CountDownLatch(1);
+        var releaseFirstSend = new Semaphore(0);
+        var sendCount = new AtomicLong();
+        var producer = (MockedQueryEventProducer) event -> {
+            if (sendCount.incrementAndGet() == 1) {
+                firstSendStarted.countDown();
+                releaseFirstSend.acquireUninterruptibly();
+            }
+        };
+        var capture = new JdbcExecutionCapture("default-datasource", event -> {}, producer,
+                new AsyncDispatchConfig(2, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 64));
+        var delegate = mock(Statement.class);
+        when(delegate.executeUpdate("first")).thenReturn(7);
+        when(delegate.executeUpdate("second")).thenReturn(7);
+        when(delegate.executeUpdate("third")).thenReturn(7);
+        when(delegate.executeUpdate("fourth")).thenReturn(7);
+        var statement = capturingProxy(delegate, capture);
+
+        try {
+            assertEquals(7, statement.executeUpdate("first"));
+            assertTrue(firstSendStarted.await(2, TimeUnit.SECONDS));
+            assertEquals(7, statement.executeUpdate("second"));
+            assertEquals(7, statement.executeUpdate("third"));
+            assertEquals(7, statement.executeUpdate("fourth"));
+            assertEquals(4, capture.events().size());
+            assertEquals(new AsyncDispatchStats(4, 0, 1, 0, 2), capture.dispatcher.stats());
+
+            releaseFirstSend.release();
+            awaitDispatchStats(capture, new AsyncDispatchStats(4, 3, 1, 0, 0));
+        } finally {
+            releaseFirstSend.release();
+            capture.close();
+        }
     }
 
     @Test
