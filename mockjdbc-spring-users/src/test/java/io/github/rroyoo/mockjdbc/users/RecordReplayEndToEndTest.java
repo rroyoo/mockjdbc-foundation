@@ -228,6 +228,58 @@ class RecordReplayEndToEndTest {
     }
 
     @Test
+    @DisplayName("Given captured BLOB and CLOB values, when replayed, then payloads and nulls are preserved")
+    void shouldReplayBlobAndClobValues() throws Exception {
+        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
+        var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
+        var sql = "SELECT CAST(X'00ff10' AS BLOB) AS captured_blob, "
+                + "CAST('clob payload: café' AS CLOB) AS captured_clob, "
+                + "CAST(NULL AS BLOB) AS null_blob, CAST(NULL AS CLOB) AS null_clob";
+        var expectedMappingName = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT);
+
+        var dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUrl("jdbc:h2:mem:blob-clob-replay;DB_CLOSE_DELAY=-1");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+
+        var kafkaProperties = new Properties();
+        kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
+        kafkaProperties.setProperty("acks", "all");
+
+        try (var producer = KafkaMockedQueryEventProducer.create(
+                     kafkaProperties,
+                     TOPIC,
+                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
+             var registration = JdbcAgentRegistry.register(
+                     dataSource,
+                     DATASOURCE_ID,
+                     event -> { },
+                     producer::send,
+                     AsyncDispatchConfig.defaults());
+             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+             var statement = connection.createStatement();
+             var resultSet = statement.executeQuery(sql)) {
+            assertTrue(resultSet.next());
+            assertBlobClobValues(resultSet);
+            assertFalse(resultSet.next());
+            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
+            awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
+        }
+
+        try (var connection = DriverManager.getConnection(
+                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+             var statement = connection.createStatement();
+             var resultSet = statement.executeQuery(sql)) {
+            assertTrue(resultSet.next());
+            assertBlobClobValues(resultSet);
+            assertFalse(resultSet.next());
+        }
+    }
+
+    @Test
     @DisplayName("Given a captured insert with generated keys, when replayed, then update count and generated key match")
     void shouldReplayCapturedInsertWithGeneratedKeys() throws Exception {
         var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
@@ -388,6 +440,21 @@ class RecordReplayEndToEndTest {
         assertNull(resultSet.getObject("null_time"));
         assertTrue(resultSet.wasNull());
         assertNull(resultSet.getObject("null_timestamp"));
+        assertTrue(resultSet.wasNull());
+    }
+
+    private static void assertBlobClobValues(ResultSet resultSet) throws Exception {
+        var expectedBytes = new byte[]{0, (byte) 0xff, 0x10};
+        var blob = resultSet.getBlob("captured_blob");
+        assertArrayEquals(expectedBytes, blob.getBytes(1L, expectedBytes.length));
+        var expectedText = "clob payload: café";
+        var clob = resultSet.getClob("captured_clob");
+        assertEquals(expectedText, clob.getSubString(1L, expectedText.length()));
+        assertEquals(Types.BLOB, resultSet.getMetaData().getColumnType(1));
+        assertEquals(Types.CLOB, resultSet.getMetaData().getColumnType(2));
+        assertNull(resultSet.getBlob("null_blob"));
+        assertTrue(resultSet.wasNull());
+        assertNull(resultSet.getClob("null_clob"));
         assertTrue(resultSet.wasNull());
     }
 }

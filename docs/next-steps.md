@@ -42,7 +42,8 @@ Precision, scale, nullability, table/schema/catalog names and auto-increment do 
 - Update `docs/jdbc-supported-surface.md` and add targeted tests per group.
 
 ### 3. `ResultSetFactory` follow-ups
-- [ ] Types still passed through by wire kind: `CHAR`/`VARCHAR` variants, `BLOB`/`CLOB`, `ARRAY`, `STRUCT`, `SQLXML`, `NULL`, `OTHER`. Decide per type: coerce, or reject with `SQLFeatureNotSupportedException`.
+- [x] `BLOB` / `CLOB` values are captured as bytes / text and replayed as JDBC `Blob` / `Clob`; incompatible wire kinds fail with `SQLDataException`.
+- [ ] Decide handling for remaining wire-kind pass-through types: `CHAR`/`VARCHAR` variants, `ARRAY`, `STRUCT`, `SQLXML`, `NULL`, `OTHER` (coerce or reject with `SQLFeatureNotSupportedException`).
 - [x] `DATE`/`TIME` derived from protobuf timestamps use UTC, independent of the JVM default zone; unrepresentable `DATE` values fail with `SQLDataException` instead of normalizing.
 - [ ] `DatabaseMetaData` catalog queries are unsupported; revisit only if a real use case appears.
 

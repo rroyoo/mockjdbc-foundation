@@ -7,8 +7,11 @@ import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -127,7 +130,7 @@ final class ByteBuddyResultSetWrapperFactory {
             var rowBuilder = Row.newBuilder();
             for (var index = 1; index <= metadata.size(); index++) {
                 var value = delegate.getObject(index);
-                rowBuilder.addValues(toJdbcValue(value));
+                rowBuilder.addValues(toResultJdbcValue(value));
             }
             rows.add(rowBuilder.build());
 
@@ -196,6 +199,25 @@ final class ByteBuddyResultSetWrapperFactory {
             return builder.build();
         }
 
+    }
+
+    private static JdbcValue toResultJdbcValue(Object value) throws SQLException {
+        if (value instanceof Blob blob) {
+            var length = blob.length();
+            if (length > Integer.MAX_VALUE) {
+                throw new SQLDataException("BLOB value exceeds the maximum supported size");
+            }
+            return JdbcValue.newBuilder().setBytesVal(
+                    com.google.protobuf.ByteString.copyFrom(blob.getBytes(1L, (int) length))).build();
+        }
+        if (value instanceof Clob clob) {
+            var length = clob.length();
+            if (length > Integer.MAX_VALUE) {
+                throw new SQLDataException("CLOB value exceeds the maximum supported size");
+            }
+            return JdbcValue.newBuilder().setStringVal(clob.getSubString(1L, (int) length)).build();
+        }
+        return toJdbcValue(value);
     }
 
     static JdbcValue toJdbcValue(Object value) {

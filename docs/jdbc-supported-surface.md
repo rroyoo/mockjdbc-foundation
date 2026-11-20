@@ -116,13 +116,15 @@ Source of truth:
 - 2026-10-07: Closed the `Connection` gaps (validity/abort, wrappers, metadata, type map, LOB/array/struct factories); documented request/sharding and `createSQLXML` as unsupported. `ResultSetFactory` now coerces values to the declared SQL type. The `java.sql.Driver` service descriptor moved to `META-INF/services` and `MockDriver` self-registers, so `DriverManager` discovers it.
 - 2026-11-05: Added record/replay support for generated-key result sets on `executeUpdate`; update counts and key rows are carried separately in the `MockedQuery` response.
 - 2026-11-20: `DATE`/`TIME` values backed by protobuf timestamps now use UTC rather than the JVM default zone; temporal values and nulls are covered by record/replay tests.
+- 2026-11-20: `BLOB` and `CLOB` columns now preserve their binary/text contents and materialize as JDBC `Blob` / `Clob` during replay, with unit and record/replay coverage.
 
 
 ## 7. Result-set materialization (replay side)
 
 `ResultSetFactory` converts the gRPC payload to a `CachedRowSet`:
-- Values are coerced to the declared `sqlType` (`TINYINT`/`SMALLINT`/`INTEGER`/`BIGINT`, `REAL`/`FLOAT`/`DOUBLE`, `NUMERIC`/`DECIMAL`, `BOOLEAN`/`BIT`, `DATE`, `TIME`, `TIMESTAMP`); `TINYINT`/`SMALLINT` are returned as `Integer` per the JDBC `getObject` mapping; `TIME_WITH_TIMEZONE`/`TIMESTAMP_WITH_TIMEZONE` are rejected with `SQLFeatureNotSupportedException` because the offset is not transported; other types keep the wire kind (string, bytes, ...).
+- Values are coerced to the declared `sqlType` (`TINYINT`/`SMALLINT`/`INTEGER`/`BIGINT`, `REAL`/`FLOAT`/`DOUBLE`, `NUMERIC`/`DECIMAL`, `BOOLEAN`/`BIT`, `DATE`, `TIME`, `TIMESTAMP`); `TINYINT`/`SMALLINT` are returned as `Integer` per the JDBC `getObject` mapping. `BLOB` requires a bytes wire value and is exposed as a JDBC `Blob`; `CLOB` requires a string wire value and is exposed as a JDBC `Clob`. Incompatible wire kinds raise `SQLDataException`. `TIME_WITH_TIMEZONE`/`TIMESTAMP_WITH_TIMEZONE` are rejected with `SQLFeatureNotSupportedException` because the offset is not transported; other types keep the wire kind (string, bytes, ...).
 - Dates and times accept ISO text (`2026-03-17`, `10:15:30`), JDBC timestamp text (`2026-03-17 10:15:30.0`) or protobuf timestamps. A protobuf timestamp converted to SQL `DATE`/`TIME` is interpreted in UTC; SQL `TIMESTAMP` preserves the protobuf instant.
 - Out-of-range, unparsable, or unrepresentable values raise `SQLDataException`; a `DATE` skipped by the JVM default time zone is rejected rather than silently normalized, whether carried as a protobuf timestamp or string. Nulls are preserved and reported through `wasNull`.
 - Rows shorter than the metadata are padded with nulls; rows longer than the metadata raise `SQLException`.
 - Column metadata keeps name, label, type, type name and signedness. Precision, scale, nullability and table/schema/catalog names are not part of the `ColumnMetadata` contract, so nullability is reported as unknown.
+- The proxy serializes JDBC `Blob` contents as protobuf bytes and `Clob` contents as protobuf strings; values larger than the supported `int`-sized LOB API range disable capture for that result set without interrupting JDBC iteration.

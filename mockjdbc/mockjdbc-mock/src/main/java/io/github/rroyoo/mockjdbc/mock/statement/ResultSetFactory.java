@@ -6,7 +6,11 @@ import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 
 import javax.sql.rowset.RowSetMetaDataImpl;
 import javax.sql.rowset.RowSetProvider;
+import javax.sql.rowset.serial.SerialBlob;
+import javax.sql.rowset.serial.SerialClob;
 import java.math.BigDecimal;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLDataException;
@@ -124,6 +128,8 @@ final class ResultSetFactory {
                 case Types.DATE -> toDate(value);
                 case Types.TIME -> toTime(value);
                 case Types.TIMESTAMP -> toTimestamp(value);
+                case Types.BLOB -> toBlob(value);
+                case Types.CLOB -> toClob(value);
                 default -> convertByKind(value);
             };
         } catch (RuntimeException e) {
@@ -238,6 +244,20 @@ final class ResultSetFactory {
             case STRING_VAL -> parseTimestamp(value.getStringVal().trim());
             default -> throw new IllegalArgumentException("unsupported value kind " + value.getKindCase());
         };
+    }
+
+    private static Blob toBlob(JdbcValue value) throws SQLException {
+        if (value.getKindCase() != JdbcValue.KindCase.BYTES_VAL) {
+            throw new IllegalArgumentException("expected bytes but got " + value.getKindCase());
+        }
+        return new SerialBlob(value.getBytesVal().toByteArray());
+    }
+
+    private static Clob toClob(JdbcValue value) throws SQLException {
+        if (value.getKindCase() != JdbcValue.KindCase.STRING_VAL) {
+            throw new IllegalArgumentException("expected string but got " + value.getKindCase());
+        }
+        return new SerialClob(value.getStringVal().toCharArray());
     }
 
     private static Timestamp parseTimestamp(String text) {
