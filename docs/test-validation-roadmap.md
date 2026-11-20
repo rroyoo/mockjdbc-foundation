@@ -52,7 +52,8 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
   - Exit criteria: temporal values and null state are asserted end to end; non-UTC unit tests verify UTC conversion and rejection of unrepresentable protobuf- and string-backed `DATE` values.
 - [x] `done` `BLOB` / `CLOB` values round-trip through H2 capture -> Kafka -> WireMock -> mock driver, including nulls. The proxy serializes JDBC `Blob` / `Clob` contents as bytes / text, and replay exposes typed JDBC LOB values.
   - Exit criteria: binary bytes (including non-text bytes), CLOB text, SQL types, and null state are asserted in unit and end-to-end tests; incompatible wire kinds fail with `SQLDataException`.
-- [ ] `blocked` `ResultSetMetaData` precision, scale, nullability. Depends on `docs/next-steps.md` backlog item 1 (`ColumnMetadata` extension).
+- [x] `done` `ResultSetMetaData` precision, scale, nullability, table/schema/catalog names, and auto-increment round-trip through proxy capture -> protobuf -> WireMock stub -> mock driver. Older events retain the previous defaults.
+  - Exit criteria: metadata values survive end-to-end replay; unit tests verify optional-field presence, including zero/false/empty values, and legacy defaults.
 
 ### M5. Proxy behaviour
 - [ ] `open` Kafka failure or full queue does not break the application; drop policy and statistics asserted.
@@ -71,7 +72,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-Implement the additive `ColumnMetadata` extension from `docs/next-steps.md` backlog item 1 to unblock precision, scale, and nullability fidelity.
+M5 proxy behavior: verify that Kafka failures and full queues follow the configured drop policy without breaking application calls, and assert dispatch statistics; then cover distinct datasource IDs and Kafka keys.
 
 ## Log
 
@@ -87,3 +88,4 @@ Implement the additive `ColumnMetadata` extension from `docs/next-steps.md` back
 - 2026-11-20: M4 null and `DECIMAL` values verified end to end, including decimal scale and `wasNull()` behavior; next slice is date/time fidelity.
 - 2026-11-20: M4 `DATE`, `TIME`, and nanosecond `TIMESTAMP` values verified end to end with null preservation; protobuf-to-`DATE`/`TIME` conversion is now explicitly UTC. The next slice is `BLOB` / `CLOB`.
 - 2026-11-20: M4 `BLOB` / `CLOB` values now round-trip as JDBC LOBs, including arbitrary binary bytes, Unicode CLOB text, and nulls. Protobuf wire-kind mismatches fail with `SQLDataException`; next is the additive `ColumnMetadata` extension tracked in `docs/next-steps.md`.
+- 2026-11-20: M4 extended `ColumnMetadata` with optional JDBC precision, scale, nullability, table/schema/catalog names, and auto-increment. The values now round-trip through the bridge; absent fields from older events retain the former defaults. Next integration slice: M5 proxy failure/drop behavior and dispatch statistics.

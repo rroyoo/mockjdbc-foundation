@@ -187,6 +187,13 @@ final class ByteBuddyResultSetWrapperFactory {
             var name = metaData.getColumnName(columnIndex);
             var label = metaData.getColumnLabel(columnIndex);
             var typeName = metaData.getColumnTypeName(columnIndex);
+            var tableName = metaData.getTableName(columnIndex);
+            var schemaName = metaData.getSchemaName(columnIndex);
+            var catalogName = metaData.getCatalogName(columnIndex);
+            builder.setPrecision(metaData.getPrecision(columnIndex))
+                    .setScale(metaData.getScale(columnIndex))
+                    .setNullable(metaData.isNullable(columnIndex))
+                    .setAutoIncrement(metaData.isAutoIncrement(columnIndex));
             if (name != null) {
                 builder.setName(name);
             }
@@ -195,6 +202,15 @@ final class ByteBuddyResultSetWrapperFactory {
             }
             if (typeName != null) {
                 builder.setTypeName(typeName);
+            }
+            if (tableName != null) {
+                builder.setTableName(tableName);
+            }
+            if (schemaName != null) {
+                builder.setSchemaName(schemaName);
+            }
+            if (catalogName != null) {
+                builder.setCatalogName(catalogName);
             }
             return builder.build();
         }

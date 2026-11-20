@@ -300,7 +300,10 @@ class MockedQueryStubMapperTest {
     void shouldBuildSuccessJsonBodyWithMetadataAndRows() {
         var rs = SerializedResultSet.newBuilder()
                 .addMetadata(ColumnMetadata.newBuilder()
-                        .setName("id").setLabel("id").setSqlType(Types.BIGINT).setTypeName("BIGINT").build())
+                        .setName("id").setLabel("id").setSqlType(Types.BIGINT).setTypeName("BIGINT")
+                        .setPrecision(19).setScale(0).setNullable(0)
+                        .setTableName("accounts").setSchemaName("public").setCatalogName("sales")
+                        .setAutoIncrement(true).build())
                 .addMetadata(ColumnMetadata.newBuilder()
                         .setName("name").setLabel("name").setSqlType(Types.VARCHAR).setTypeName("VARCHAR").build())
                 .addRows(Row.newBuilder()
@@ -315,6 +318,13 @@ class MockedQueryStubMapperTest {
         assertTrue(json.contains("\"name\":\"id\""));
         assertTrue(json.contains("\"sqlType\":-5"));
         assertTrue(json.contains("\"typeName\":\"BIGINT\""));
+        assertTrue(json.contains("\"precision\":19"));
+        assertTrue(json.contains("\"scale\":0"));
+        assertTrue(json.contains("\"nullable\":0"));
+        assertTrue(json.contains("\"tableName\":\"accounts\""));
+        assertTrue(json.contains("\"schemaName\":\"public\""));
+        assertTrue(json.contains("\"catalogName\":\"sales\""));
+        assertTrue(json.contains("\"autoIncrement\":true"));
         assertTrue(json.contains("\"longVal\":\"1\""));   // int64 → quoted string
         assertTrue(json.contains("\"stringVal\":\"Alice\""));
     }
@@ -328,7 +338,14 @@ class MockedQueryStubMapperTest {
                         .setName("")
                         .setLabel("")
                         .setSqlType(Types.VARCHAR)
-                        .setTypeName(""))
+                        .setTypeName("")
+                        .setPrecision(0)
+                        .setScale(3)
+                        .setNullable(1)
+                        .setTableName("")
+                        .setSchemaName("public")
+                        .setCatalogName("sales")
+                        .setAutoIncrement(false))
                 .build();
         var json = MockedQueryStubMapper.buildSuccessJsonBody(rs);
         var replayed = MockedQuery.newBuilder();
@@ -339,6 +356,13 @@ class MockedQueryStubMapperTest {
         assertFalse(absent.hasName());
         assertFalse(absent.hasLabel());
         assertFalse(absent.hasTypeName());
+        assertFalse(absent.hasPrecision());
+        assertFalse(absent.hasScale());
+        assertFalse(absent.hasNullable());
+        assertFalse(absent.hasTableName());
+        assertFalse(absent.hasSchemaName());
+        assertFalse(absent.hasCatalogName());
+        assertFalse(absent.hasAutoIncrement());
         var empty = replayed.getResultSet().getMetadata(1);
         assertTrue(empty.hasName());
         assertEquals("", empty.getName());
@@ -346,6 +370,20 @@ class MockedQueryStubMapperTest {
         assertEquals("", empty.getLabel());
         assertTrue(empty.hasTypeName());
         assertEquals("", empty.getTypeName());
+        assertTrue(empty.hasPrecision());
+        assertEquals(0, empty.getPrecision());
+        assertTrue(empty.hasScale());
+        assertEquals(3, empty.getScale());
+        assertTrue(empty.hasNullable());
+        assertEquals(1, empty.getNullable());
+        assertTrue(empty.hasTableName());
+        assertEquals("", empty.getTableName());
+        assertTrue(empty.hasSchemaName());
+        assertEquals("public", empty.getSchemaName());
+        assertTrue(empty.hasCatalogName());
+        assertEquals("sales", empty.getCatalogName());
+        assertTrue(empty.hasAutoIncrement());
+        assertFalse(empty.getAutoIncrement());
     }
 
     @Test

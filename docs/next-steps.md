@@ -29,10 +29,9 @@ Notes from CI debugging:
 
 ## Backlog (priority order)
 
-### 1. Decide: extend `ColumnMetadata` (cross-module contract)
-Precision, scale, nullability, table/schema/catalog names and auto-increment do not travel in `ColumnMetadata`, so replayed `ResultSetMetaData` reports nullability as unknown and zero precision/scale.
-- Change must touch together: `mockjdbc-proto` schema (additive fields only), proxy capture (`ByteBuddyResultSetWrapperFactory.toColumnMetadata`), WireMock mapper JSON (`MockedQueryStubMapper.buildSuccessJsonBody`), `ResultSetFactory.configureColumn`, and tests in all three.
-- Exit criteria: round trip proxy -> stub -> mock preserves the new fields; old events without them still replay.
+### 1. Extend `ColumnMetadata` (cross-module contract) (`done`)
+- [x] Add optional precision, scale, nullability, table/schema/catalog names, and auto-increment fields to the protobuf contract; capture and replay them through the proxy, WireMock mapper, and mock driver.
+- Exit criteria: proxy -> stub -> mock preserves every JDBC metadata field; old events without these optional fields replay with the previous defaults.
 
 ### 2. Statement family gaps (ADR-0001 section E, ADR-0003)
 - [ ] `unwrap` / `isWrapperFor` on `Statement`, `PreparedStatement`, `CallableStatement`.

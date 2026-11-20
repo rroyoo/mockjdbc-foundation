@@ -368,6 +368,39 @@ class ResultSetFactoryTest {
 			assertTrue(metaData.isSigned(1));
 			assertFalse(metaData.isSigned(2));
 			assertEquals(ResultSetMetaData.columnNullableUnknown, metaData.isNullable(1));
+			assertFalse(metaData.isAutoIncrement(1));
+			assertEquals(0, metaData.getPrecision(1));
+			assertEquals(0, metaData.getScale(1));
+			assertEquals("", metaData.getTableName(1));
+			assertEquals("", metaData.getSchemaName(1));
+			assertEquals("", metaData.getCatalogName(1));
+		}
+	}
+
+	@Test
+	@DisplayName("Given extended serialized column metadata, when creating ResultSet, then JDBC metadata is preserved")
+	void shouldExposeExtendedColumnMetadata() throws Exception {
+		var metadata = column("amount", "amount_label", Types.DECIMAL, "DECIMAL")
+				.toBuilder()
+				.setPrecision(12)
+				.setScale(4)
+				.setNullable(ResultSetMetaData.columnNoNulls)
+				.setTableName("orders")
+				.setSchemaName("public")
+				.setCatalogName("sales")
+				.setAutoIncrement(true)
+				.build();
+		var serialized = SerializedResultSet.newBuilder().addMetadata(metadata).build();
+
+		try (var resultSet = ResultSetFactory.create(serialized)) {
+			var resultMetadata = resultSet.getMetaData();
+			assertEquals(12, resultMetadata.getPrecision(1));
+			assertEquals(4, resultMetadata.getScale(1));
+			assertEquals(ResultSetMetaData.columnNoNulls, resultMetadata.isNullable(1));
+			assertEquals("orders", resultMetadata.getTableName(1));
+			assertEquals("public", resultMetadata.getSchemaName(1));
+			assertEquals("sales", resultMetadata.getCatalogName(1));
+			assertTrue(resultMetadata.isAutoIncrement(1));
 		}
 	}
 
