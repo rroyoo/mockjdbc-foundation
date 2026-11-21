@@ -16,4 +16,3 @@ final class StatementWarningsHandler {
         warnings.set(null);
     }
 }
-

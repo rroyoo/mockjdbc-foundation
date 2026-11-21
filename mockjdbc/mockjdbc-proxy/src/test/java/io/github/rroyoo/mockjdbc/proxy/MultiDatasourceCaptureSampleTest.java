@@ -1,17 +1,16 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
-import io.github.rroyoo.mockjdbc.mock.MockedQuery;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import javax.sql.DataSource;
-import java.sql.PreparedStatement;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import io.github.rroyoo.mockjdbc.mock.MockedQuery;
+import java.sql.PreparedStatement;
+import java.util.concurrent.CopyOnWriteArrayList;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Verifies that two independently registered DataSources emit events with distinct datasource ids.
@@ -19,7 +18,8 @@ import static org.mockito.Mockito.when;
 class MultiDatasourceCaptureSampleTest {
 
     @Test
-    @DisplayName("Given two registered datasources, when each captures a query, then emitted events preserve datasource identity")
+    @DisplayName(
+            "Given two registered datasources, when each captures a query, then emitted events preserve datasource identity")
     void shouldCaptureTwoDatasourcesWithDistinctIds() throws Exception {
         var usersSource = mock(DataSource.class);
         var ordersSource = mock(DataSource.class);
@@ -35,18 +35,22 @@ class MultiDatasourceCaptureSampleTest {
 
         var emittedProtoEvents = new CopyOnWriteArrayList<MockedQuery>();
 
-        try (var usersBinding = JdbcAgentRegistry.register(
-                     usersSource, "users-primary",
-                     event -> {},
-                     MockedQueryEventProducer.fromConsumer(emittedProtoEvents::add),
-                     AsyncDispatchConfig.defaults());
-             var ordersBinding = JdbcAgentRegistry.register(
-                     ordersSource, "orders-replica",
-                     event -> {},
-                     MockedQueryEventProducer.fromConsumer(emittedProtoEvents::add),
-                     AsyncDispatchConfig.defaults())) {
+        try (var usersBinding =
+                        JdbcAgentRegistry.register(
+                                usersSource,
+                                "users-primary",
+                                event -> {},
+                                MockedQueryEventProducer.fromConsumer(emittedProtoEvents::add),
+                                AsyncDispatchConfig.defaults());
+                var ordersBinding =
+                        JdbcAgentRegistry.register(
+                                ordersSource,
+                                "orders-replica",
+                                event -> {},
+                                MockedQueryEventProducer.fromConsumer(emittedProtoEvents::add),
+                                AsyncDispatchConfig.defaults())) {
 
-            var wrappedUsers  = JdbcAgentRegistry.wrapIfRegistered(usersSource, usersConn);
+            var wrappedUsers = JdbcAgentRegistry.wrapIfRegistered(usersSource, usersConn);
             var wrappedOrders = JdbcAgentRegistry.wrapIfRegistered(ordersSource, ordersConn);
 
             wrappedUsers.prepareStatement("UPDATE users SET active = true").executeUpdate();
@@ -58,8 +62,12 @@ class MultiDatasourceCaptureSampleTest {
             }
 
             assertEquals(2, emittedProtoEvents.size());
-            assertTrue(emittedProtoEvents.stream().anyMatch(e -> "users-primary".equals(e.getDatasourceId())));
-            assertTrue(emittedProtoEvents.stream().anyMatch(e -> "orders-replica".equals(e.getDatasourceId())));
+            assertTrue(
+                    emittedProtoEvents.stream()
+                            .anyMatch(e -> "users-primary".equals(e.getDatasourceId())));
+            assertTrue(
+                    emittedProtoEvents.stream()
+                            .anyMatch(e -> "orders-replica".equals(e.getDatasourceId())));
 
         } finally {
             JdbcAgentRegistry.unregister(usersSource);

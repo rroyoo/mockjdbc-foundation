@@ -10,15 +10,19 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 
 /**
- * JDK proxy {@link InvocationHandler} for {@link Connection} that wraps every statement it
- * creates with a capturing proxy.
+ * JDK proxy {@link InvocationHandler} for {@link Connection} that wraps every statement it creates
+ * with a capturing proxy.
  *
  * <p>Intercepts:
+ *
  * <ul>
- *   <li>{@code createStatement(...)} — returns a {@link CapturingStatementInvocationHandler} proxy</li>
- *   <li>{@code prepareStatement(sql, ...)} — returns a {@link CapturingPreparedStatementInvocationHandler} proxy</li>
- *   <li>{@code prepareCall(sql, ...)} — returns a {@link CapturingPreparedStatementInvocationHandler} proxy (CallableStatement)</li>
+ *   <li>{@code createStatement(...)} — returns a {@link CapturingStatementInvocationHandler} proxy
+ *   <li>{@code prepareStatement(sql, ...)} — returns a {@link
+ *       CapturingPreparedStatementInvocationHandler} proxy
+ *   <li>{@code prepareCall(sql, ...)} — returns a {@link
+ *       CapturingPreparedStatementInvocationHandler} proxy (CallableStatement)
  * </ul>
+ *
  * All other Connection methods are forwarded to the delegate.
  */
 final class CapturingConnectionInvocationHandler implements InvocationHandler {
@@ -26,7 +30,8 @@ final class CapturingConnectionInvocationHandler implements InvocationHandler {
     private final Connection delegate;
     private final JdbcExecutionCapture capture;
 
-    private CapturingConnectionInvocationHandler(Connection delegate, JdbcExecutionCapture capture) {
+    private CapturingConnectionInvocationHandler(
+            Connection delegate, JdbcExecutionCapture capture) {
         this.delegate = delegate;
         this.capture = capture;
     }
@@ -38,11 +43,12 @@ final class CapturingConnectionInvocationHandler implements InvocationHandler {
     static Connection wrap(Connection delegate, JdbcCaptureRegistration registration) {
         try {
             ClassLoader cl = resolveClassLoader(delegate);
-            return (Connection) Proxy.newProxyInstance(
-                    cl,
-                    new Class<?>[] { Connection.class },
-                    new CapturingConnectionInvocationHandler(delegate, registration.capture())
-            );
+            return (Connection)
+                    Proxy.newProxyInstance(
+                            cl,
+                            new Class<?>[] {Connection.class},
+                            new CapturingConnectionInvocationHandler(
+                                    delegate, registration.capture()));
         } catch (Exception ignored) {
             return delegate;
         }
@@ -52,63 +58,71 @@ final class CapturingConnectionInvocationHandler implements InvocationHandler {
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         var name = method.getName();
 
-        if ("equals".equals(name))   return proxy == (args != null ? args[0] : null);
+        if ("equals".equals(name)) return proxy == (args != null ? args[0] : null);
         if ("hashCode".equals(name)) return System.identityHashCode(proxy);
         if ("toString".equals(name)) return "CapturingConnection{" + delegate + "}";
 
         try {
-            if ("createStatement".equals(name)) {
-                var stmt = (Statement) method.invoke(delegate, args);
-                return wrapStatement(stmt);
-            }
-
-            if ("prepareStatement".equals(name) && args != null && args.length >= 1
-                    && args[0] instanceof String sql) {
-                var stmt = (PreparedStatement) method.invoke(delegate, args);
-                return wrapPreparedStatement(stmt, sql,
-                        CapturingStatementInvocationHandler.requestsGeneratedKeys(args));
-            }
-
-            if ("prepareCall".equals(name) && args != null && args.length >= 1
-                    && args[0] instanceof String sql) {
-                var stmt = (CallableStatement) method.invoke(delegate, args);
-                return wrapCallableStatement(stmt, sql);
-            }
-
-            return method.invoke(delegate, args);
-
+            return invokeConnectionMethod(name, method, args);
         } catch (InvocationTargetException e) {
             throw e.getTargetException();
         }
     }
 
-    private Statement wrapStatement(Statement delegate) {
-        ClassLoader cl = resolveClassLoader(delegate);
-        return (Statement) Proxy.newProxyInstance(
-                cl,
-                new Class<?>[] { Statement.class },
-                new CapturingStatementInvocationHandler(delegate, capture)
-        );
+    private Object invokeConnectionMethod(String name, Method method, Object[] args)
+            throws Throwable {
+        if ("createStatement".equals(name)) {
+            var stmt = (Statement) method.invoke(delegate, args);
+            return wrapStatement(stmt);
+        }
+
+        if ("prepareStatement".equals(name) && hasSqlArgument(args)) {
+            var stmt = (PreparedStatement) method.invoke(delegate, args);
+            return wrapPreparedStatement(
+                    stmt,
+                    (String) args[0],
+                    CapturingStatementInvocationHandler.requestsGeneratedKeys(args));
+        }
+
+        if ("prepareCall".equals(name) && hasSqlArgument(args)) {
+            var stmt = (CallableStatement) method.invoke(delegate, args);
+            return wrapCallableStatement(stmt, (String) args[0]);
+        }
+
+        return method.invoke(delegate, args);
     }
 
-    private PreparedStatement wrapPreparedStatement(PreparedStatement delegate,
-                                                    String sql,
-                                                    boolean returnGeneratedKeys) {
+    private static boolean hasSqlArgument(Object[] args) {
+        return args != null && args.length >= 1 && args[0] instanceof String;
+    }
+
+    private Statement wrapStatement(Statement delegate) {
         ClassLoader cl = resolveClassLoader(delegate);
-        return (PreparedStatement) Proxy.newProxyInstance(
-                cl,
-                new Class<?>[] { PreparedStatement.class },
-                new CapturingPreparedStatementInvocationHandler(delegate, sql, capture, returnGeneratedKeys)
-        );
+        return (Statement)
+                Proxy.newProxyInstance(
+                        cl,
+                        new Class<?>[] {Statement.class},
+                        new CapturingStatementInvocationHandler(delegate, capture));
+    }
+
+    private PreparedStatement wrapPreparedStatement(
+            PreparedStatement delegate, String sql, boolean returnGeneratedKeys) {
+        ClassLoader cl = resolveClassLoader(delegate);
+        return (PreparedStatement)
+                Proxy.newProxyInstance(
+                        cl,
+                        new Class<?>[] {PreparedStatement.class},
+                        new CapturingPreparedStatementInvocationHandler(
+                                delegate, sql, capture, returnGeneratedKeys));
     }
 
     private CallableStatement wrapCallableStatement(CallableStatement delegate, String sql) {
         ClassLoader cl = resolveClassLoader(delegate);
-        return (CallableStatement) Proxy.newProxyInstance(
-                cl,
-                new Class<?>[] { CallableStatement.class },
-                new CapturingPreparedStatementInvocationHandler(delegate, sql, capture)
-        );
+        return (CallableStatement)
+                Proxy.newProxyInstance(
+                        cl,
+                        new Class<?>[] {CallableStatement.class},
+                        new CapturingPreparedStatementInvocationHandler(delegate, sql, capture));
     }
 
     private static ClassLoader resolveClassLoader(Object obj) {

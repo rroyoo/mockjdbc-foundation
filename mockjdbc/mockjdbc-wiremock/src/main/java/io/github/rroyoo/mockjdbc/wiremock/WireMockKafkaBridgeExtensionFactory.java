@@ -3,13 +3,13 @@ package io.github.rroyoo.mockjdbc.wiremock;
 import com.github.tomakehurst.wiremock.extension.Extension;
 import com.github.tomakehurst.wiremock.extension.ExtensionFactory;
 import com.github.tomakehurst.wiremock.extension.WireMockServices;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 /**
- * WireMock {@link ExtensionFactory} that bootstraps the Kafka bridge extension from environment variables.
+ * WireMock {@link ExtensionFactory} that bootstraps the Kafka bridge extension from environment
+ * variables.
  *
  * <p>Activated when {@value #ENV_BOOTSTRAP_SERVERS} is set. All other variables are optional.
  *
@@ -55,15 +55,15 @@ public final class WireMockKafkaBridgeExtensionFactory implements ExtensionFacto
         List<String> datasourceAllowlist = csvToList(env.get(ENV_DATASOURCE_ALLOWLIST));
         List<String> sqlDenyPrefixes = csvToList(env.get(ENV_SQL_DENY_PREFIXES));
 
-        var config = new KafkaMappingConsumerConfig(
-                bootstrapServers,
-                topic,
-                groupId,
-                services.getAdmin(),
-                datasourceAllowlist,
-                sqlDenyPrefixes,
-                Duration.ofMillis(pollTimeoutMs)
-        );
+        var config =
+                new KafkaMappingConsumerConfig(
+                        bootstrapServers,
+                        topic,
+                        groupId,
+                        services.getAdmin(),
+                        datasourceAllowlist,
+                        sqlDenyPrefixes,
+                        Duration.ofMillis(pollTimeoutMs));
 
         return List.of(new WireMockKafkaBridgeExtension(config));
     }
@@ -78,4 +78,3 @@ public final class WireMockKafkaBridgeExtensionFactory implements ExtensionFacto
                 .toList();
     }
 }
-

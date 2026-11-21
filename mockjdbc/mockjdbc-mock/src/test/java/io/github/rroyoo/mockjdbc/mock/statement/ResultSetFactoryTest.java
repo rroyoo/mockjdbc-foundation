@@ -1,18 +1,18 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.protobuf.Timestamp;
 import io.github.rroyoo.mockjdbc.mock.ColumnMetadata;
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.Row;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-
 import java.math.BigDecimal;
 import java.sql.Blob;
 import java.sql.Clob;
@@ -28,399 +28,558 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.TimeZone;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ResultSetFactoryTest {
 
-	@Test
-	@DisplayName("Given a serialized result set, when creating ResultSet, then values are converted to JDBC-friendly Java types")
-	void shouldConvertSerializedValuesToJdbcTypes() throws Exception {
-		var instant = Instant.parse("2026-03-17T10:15:30Z");
-		var serialized = SerializedResultSet.newBuilder()
-				.addMetadata(column("text_col", "text_col", Types.VARCHAR, "VARCHAR"))
-				.addMetadata(column("long_col", "long_col", Types.BIGINT, "BIGINT"))
-				.addMetadata(column("double_col", "double_col", Types.DOUBLE, "DOUBLE"))
-				.addMetadata(column("bool_col", "bool_col", Types.BOOLEAN, "BOOLEAN"))
-				.addMetadata(column("bytes_col", "bytes_col", Types.BINARY, "BINARY"))
-				.addMetadata(column("decimal_col", "decimal_col", Types.DECIMAL, "DECIMAL"))
-				.addMetadata(column("ts_col", "ts_col", Types.TIMESTAMP, "TIMESTAMP"))
-				.addMetadata(column("null_col", "null_col", Types.VARCHAR, "VARCHAR"))
-				.addRows(Row.newBuilder()
-						.addValues(JdbcValue.newBuilder().setStringVal("hello").build())
-						.addValues(JdbcValue.newBuilder().setLongVal(42L).build())
-						.addValues(JdbcValue.newBuilder().setDoubleVal(3.14d).build())
-						.addValues(JdbcValue.newBuilder().setBoolVal(true).build())
-						.addValues(JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(new byte[]{1, 2, 3})).build())
-						.addValues(JdbcValue.newBuilder().setDecimalVal("123.45").build())
-						.addValues(JdbcValue.newBuilder().setTimestampVal(Timestamp.newBuilder().setSeconds(instant.getEpochSecond()).setNanos(instant.getNano()).build()).build())
-						.addValues(JdbcValue.newBuilder().setIsNull(true).build())
-						.build())
-				.build();
+    @Test
+    @DisplayName(
+            "Given a serialized result set, when creating ResultSet, then values are converted to JDBC-friendly Java types")
+    void shouldConvertSerializedValuesToJdbcTypes() throws Exception {
+        var instant = Instant.parse("2026-03-17T10:15:30Z");
+        var serialized =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(column("text_col", "text_col", Types.VARCHAR, "VARCHAR"))
+                        .addMetadata(column("long_col", "long_col", Types.BIGINT, "BIGINT"))
+                        .addMetadata(column("double_col", "double_col", Types.DOUBLE, "DOUBLE"))
+                        .addMetadata(column("bool_col", "bool_col", Types.BOOLEAN, "BOOLEAN"))
+                        .addMetadata(column("bytes_col", "bytes_col", Types.BINARY, "BINARY"))
+                        .addMetadata(column("decimal_col", "decimal_col", Types.DECIMAL, "DECIMAL"))
+                        .addMetadata(column("ts_col", "ts_col", Types.TIMESTAMP, "TIMESTAMP"))
+                        .addMetadata(column("null_col", "null_col", Types.VARCHAR, "VARCHAR"))
+                        .addRows(
+                                Row.newBuilder()
+                                        .addValues(
+                                                JdbcValue.newBuilder()
+                                                        .setStringVal("hello")
+                                                        .build())
+                                        .addValues(JdbcValue.newBuilder().setLongVal(42L).build())
+                                        .addValues(
+                                                JdbcValue.newBuilder().setDoubleVal(3.14d).build())
+                                        .addValues(JdbcValue.newBuilder().setBoolVal(true).build())
+                                        .addValues(
+                                                JdbcValue.newBuilder()
+                                                        .setBytesVal(
+                                                                com.google.protobuf.ByteString
+                                                                        .copyFrom(
+                                                                                new byte[] {
+                                                                                    1, 2, 3
+                                                                                }))
+                                                        .build())
+                                        .addValues(
+                                                JdbcValue.newBuilder()
+                                                        .setDecimalVal("123.45")
+                                                        .build())
+                                        .addValues(
+                                                JdbcValue.newBuilder()
+                                                        .setTimestampVal(
+                                                                Timestamp.newBuilder()
+                                                                        .setSeconds(
+                                                                                instant
+                                                                                        .getEpochSecond())
+                                                                        .setNanos(instant.getNano())
+                                                                        .build())
+                                                        .build())
+                                        .addValues(JdbcValue.newBuilder().setIsNull(true).build())
+                                        .build())
+                        .build();
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			assertTrue(resultSet.next());
-			assertEquals("hello", resultSet.getString(1));
-			assertEquals(42L, resultSet.getLong(2));
-			assertEquals(3.14d, resultSet.getDouble(3), 0.0001d);
-			assertTrue(resultSet.getBoolean(4));
-			assertArrayEquals(new byte[]{1, 2, 3}, resultSet.getBytes(5));
-			assertEquals(new BigDecimal("123.45"), resultSet.getBigDecimal(6));
-			assertEquals(java.sql.Timestamp.from(instant), resultSet.getTimestamp(7));
-			assertNull(resultSet.getObject(8));
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            assertTrue(resultSet.next());
+            assertEquals("hello", resultSet.getString(1));
+            assertEquals(42L, resultSet.getLong(2));
+            assertEquals(3.14d, resultSet.getDouble(3), 0.0001d);
+            assertTrue(resultSet.getBoolean(4));
+            assertArrayEquals(new byte[] {1, 2, 3}, resultSet.getBytes(5));
+            assertEquals(new BigDecimal("123.45"), resultSet.getBigDecimal(6));
+            assertEquals(java.sql.Timestamp.from(instant), resultSet.getTimestamp(7));
+            assertNull(resultSet.getObject(8));
+        }
+    }
 
-	@Test
-	@DisplayName("Given BLOB and CLOB values, when creating ResultSet, then JDBC LOB values and nulls are preserved")
-	void shouldMaterializeBlobAndClobValues() throws Exception {
-		var payload = new byte[]{0, (byte) 0xff, 0x10};
-		var text = "CLOB payload: café";
-		var serialized = SerializedResultSet.newBuilder()
-				.addMetadata(column("blob_value", "blob_value", Types.BLOB, "BLOB"))
-				.addMetadata(column("clob_value", "clob_value", Types.CLOB, "CLOB"))
-				.addMetadata(column("null_blob", "null_blob", Types.BLOB, "BLOB"))
-				.addMetadata(column("null_clob", "null_clob", Types.CLOB, "CLOB"))
-				.addRows(Row.newBuilder()
-						.addValues(JdbcValue.newBuilder().setBytesVal(
-								com.google.protobuf.ByteString.copyFrom(payload)).build())
-						.addValues(JdbcValue.newBuilder().setStringVal(text).build())
-						.addValues(JdbcValue.newBuilder().setIsNull(true).build())
-						.addValues(JdbcValue.newBuilder().setIsNull(true).build())
-						.build())
-				.build();
+    @Test
+    @DisplayName(
+            "Given BLOB and CLOB values, when creating ResultSet, then JDBC LOB values and nulls are preserved")
+    void shouldMaterializeBlobAndClobValues() throws Exception {
+        var payload = new byte[] {0, (byte) 0xff, 0x10};
+        var text = "CLOB payload: café";
+        var serialized =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(column("blob_value", "blob_value", Types.BLOB, "BLOB"))
+                        .addMetadata(column("clob_value", "clob_value", Types.CLOB, "CLOB"))
+                        .addMetadata(column("null_blob", "null_blob", Types.BLOB, "BLOB"))
+                        .addMetadata(column("null_clob", "null_clob", Types.CLOB, "CLOB"))
+                        .addRows(
+                                Row.newBuilder()
+                                        .addValues(
+                                                JdbcValue.newBuilder()
+                                                        .setBytesVal(
+                                                                com.google.protobuf.ByteString
+                                                                        .copyFrom(payload))
+                                                        .build())
+                                        .addValues(
+                                                JdbcValue.newBuilder().setStringVal(text).build())
+                                        .addValues(JdbcValue.newBuilder().setIsNull(true).build())
+                                        .addValues(JdbcValue.newBuilder().setIsNull(true).build())
+                                        .build())
+                        .build();
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			assertTrue(resultSet.next());
-			assertInstanceOf(Blob.class, resultSet.getObject(1));
-			assertArrayEquals(payload, resultSet.getBlob(1).getBytes(1L, payload.length));
-			assertInstanceOf(Clob.class, resultSet.getObject(2));
-			assertEquals(text, resultSet.getClob(2).getSubString(1L, text.length()));
-			assertNull(resultSet.getBlob(3));
-			assertTrue(resultSet.wasNull());
-			assertNull(resultSet.getClob(4));
-			assertTrue(resultSet.wasNull());
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            assertTrue(resultSet.next());
+            assertInstanceOf(Blob.class, resultSet.getObject(1));
+            assertArrayEquals(payload, resultSet.getBlob(1).getBytes(1L, payload.length));
+            assertInstanceOf(Clob.class, resultSet.getObject(2));
+            assertEquals(text, resultSet.getClob(2).getSubString(1L, text.length()));
+            assertNull(resultSet.getBlob(3));
+            assertTrue(resultSet.wasNull());
+            assertNull(resultSet.getClob(4));
+            assertTrue(resultSet.wasNull());
+        }
+    }
 
-	@Test
-	@DisplayName("Given a BLOB or CLOB with an incompatible wire value, when creating ResultSet, then SQLDataException is thrown")
-	void shouldRejectIncompatibleBlobAndClobWireValues() {
-		var blobWithText = singleValue(Types.BLOB, JdbcValue.newBuilder().setStringVal("not bytes").build());
-		var clobWithBytes = singleValue(Types.CLOB,
-				JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(new byte[]{1})).build());
+    @Test
+    @DisplayName(
+            "Given a BLOB or CLOB with an incompatible wire value, when creating ResultSet, then SQLDataException is thrown")
+    void shouldRejectIncompatibleBlobAndClobWireValues() {
+        var blobWithText =
+                singleValue(Types.BLOB, JdbcValue.newBuilder().setStringVal("not bytes").build());
+        var clobWithBytes =
+                singleValue(
+                        Types.CLOB,
+                        JdbcValue.newBuilder()
+                                .setBytesVal(
+                                        com.google.protobuf.ByteString.copyFrom(new byte[] {1}))
+                                .build());
 
-		assertThrows(SQLDataException.class, () -> ResultSetFactory.create(blobWithText));
-		assertThrows(SQLDataException.class, () -> ResultSetFactory.create(clobWithBytes));
-	}
+        assertThrows(SQLDataException.class, () -> ResultSetFactory.create(blobWithText));
+        assertThrows(SQLDataException.class, () -> ResultSetFactory.create(clobWithBytes));
+    }
 
-	@Test
-	@DisplayName("Given blank label or name in metadata, when creating ResultSet, then metadata falls back to the non-blank value")
-	void shouldApplyColumnNameAndLabelFallbacks() throws Exception {
-		var serialized = SerializedResultSet.newBuilder()
-				.addMetadata(column("name_from_column", "", Types.VARCHAR, "VARCHAR"))
-				.addMetadata(column("", "label_from_column", Types.VARCHAR, "VARCHAR"))
-				.addRows(Row.newBuilder()
-						.addValues(JdbcValue.newBuilder().setStringVal("a").build())
-						.addValues(JdbcValue.newBuilder().setStringVal("b").build())
-						.build())
-				.build();
+    @Test
+    @DisplayName(
+            "Given blank label or name in metadata, when creating ResultSet, then metadata falls back to the non-blank value")
+    void shouldApplyColumnNameAndLabelFallbacks() throws Exception {
+        var serialized =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(column("name_from_column", "", Types.VARCHAR, "VARCHAR"))
+                        .addMetadata(column("", "label_from_column", Types.VARCHAR, "VARCHAR"))
+                        .addRows(
+                                Row.newBuilder()
+                                        .addValues(JdbcValue.newBuilder().setStringVal("a").build())
+                                        .addValues(JdbcValue.newBuilder().setStringVal("b").build())
+                                        .build())
+                        .build();
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			var metaData = resultSet.getMetaData();
-			assertEquals("name_from_column", metaData.getColumnLabel(1));
-			assertEquals("name_from_column", metaData.getColumnName(1));
-			assertEquals("label_from_column", metaData.getColumnLabel(2));
-			assertEquals("label_from_column", metaData.getColumnName(2));
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            var metaData = resultSet.getMetaData();
+            assertEquals("name_from_column", metaData.getColumnLabel(1));
+            assertEquals("name_from_column", metaData.getColumnName(1));
+            assertEquals("label_from_column", metaData.getColumnLabel(2));
+            assertEquals("label_from_column", metaData.getColumnName(2));
+        }
+    }
 
-	@Test
-	@DisplayName("Given absent or empty type names, when creating ResultSet, then metadata uses empty strings")
-	void shouldUseEmptyTypeNamesForAbsentMetadata() throws Exception {
-		var serialized = SerializedResultSet.newBuilder()
-				.addMetadata(ColumnMetadata.newBuilder().setName("a").setLabel("a").setSqlType(Types.VARCHAR))
-				.addMetadata(column("b", "b", Types.VARCHAR, ""))
-				.build();
+    @Test
+    @DisplayName(
+            "Given absent or empty type names, when creating ResultSet, then metadata uses empty strings")
+    void shouldUseEmptyTypeNamesForAbsentMetadata() throws Exception {
+        var serialized =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(
+                                ColumnMetadata.newBuilder()
+                                        .setName("a")
+                                        .setLabel("a")
+                                        .setSqlType(Types.VARCHAR))
+                        .addMetadata(column("b", "b", Types.VARCHAR, ""))
+                        .build();
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			assertEquals("", resultSet.getMetaData().getColumnTypeName(1));
-			assertEquals("", resultSet.getMetaData().getColumnTypeName(2));
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            assertEquals("", resultSet.getMetaData().getColumnTypeName(1));
+            assertEquals("", resultSet.getMetaData().getColumnTypeName(2));
+        }
+    }
 
-	@ParameterizedTest(name = "[{index}] {1} -> {3}")
-	@MethodSource("typedValues")
-	@DisplayName("Given a declared SQL type, when creating ResultSet, then getObject returns the matching Java type")
-	void shouldCoerceValuesToDeclaredSqlType(int sqlType, JdbcValue value, Class<?> expectedClass, Object expected) throws Exception {
-		var serialized = singleValue(sqlType, value);
+    @ParameterizedTest(name = "[{index}] {1} -> {3}")
+    @MethodSource("typedValues")
+    @DisplayName(
+            "Given a declared SQL type, when creating ResultSet, then getObject returns the matching Java type")
+    void shouldCoerceValuesToDeclaredSqlType(
+            int sqlType, JdbcValue value, Class<?> expectedClass, Object expected)
+            throws Exception {
+        var serialized = singleValue(sqlType, value);
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			assertTrue(resultSet.next());
-			var actual = resultSet.getObject(1);
-			assertInstanceOf(expectedClass, actual);
-			assertEquals(expected, actual);
-			assertFalse(resultSet.wasNull());
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            assertTrue(resultSet.next());
+            var actual = resultSet.getObject(1);
+            assertInstanceOf(expectedClass, actual);
+            assertEquals(expected, actual);
+            assertFalse(resultSet.wasNull());
+        }
+    }
 
-	static Stream<Arguments> typedValues() {
-		var instant = Instant.parse("2026-03-17T10:15:30Z");
-		var utc = instant.atZone(ZoneOffset.UTC).toLocalDateTime();
-		var protoTimestamp = Timestamp.newBuilder().setSeconds(instant.getEpochSecond()).setNanos(instant.getNano()).build();
-		return Stream.of(
-				Arguments.of(Types.TINYINT, longValue(7), Integer.class, 7),
-				Arguments.of(Types.SMALLINT, longValue(300), Integer.class, 300),
-				Arguments.of(Types.INTEGER, longValue(42), Integer.class, 42),
-				Arguments.of(Types.BIGINT, longValue(42), Long.class, 42L),
-				Arguments.of(Types.REAL, JdbcValue.newBuilder().setDoubleVal(1.5d).build(), Float.class, 1.5f),
-				Arguments.of(Types.DOUBLE, JdbcValue.newBuilder().setDoubleVal(2.5d).build(), Double.class, 2.5d),
-				Arguments.of(Types.DECIMAL, longValue(10), BigDecimal.class, BigDecimal.valueOf(10)),
-				Arguments.of(Types.NUMERIC, JdbcValue.newBuilder().setDecimalVal("12.340").build(), BigDecimal.class, new BigDecimal("12.340")),
-				Arguments.of(Types.BOOLEAN, JdbcValue.newBuilder().setBoolVal(true).build(), Boolean.class, true),
-				Arguments.of(Types.BIT, longValue(0), Boolean.class, false),
-				Arguments.of(Types.DATE, JdbcValue.newBuilder().setStringVal("2026-03-17").build(), Date.class, Date.valueOf("2026-03-17")),
-				Arguments.of(Types.DATE, JdbcValue.newBuilder().setStringVal("2026-03-17 00:00:00.0").build(), Date.class, Date.valueOf("2026-03-17")),
-				Arguments.of(Types.DATE, JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(), Date.class, Date.valueOf(utc.toLocalDate())),
-				Arguments.of(Types.TIME, JdbcValue.newBuilder().setStringVal("10:15:30").build(), Time.class, Time.valueOf("10:15:30")),
-				Arguments.of(Types.TIME, JdbcValue.newBuilder().setStringVal("1970-01-01 10:15:30.0").build(), Time.class, Time.valueOf("10:15:30")),
-				Arguments.of(Types.TIME, JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(), Time.class, Time.valueOf(utc.toLocalTime())),
-				Arguments.of(Types.TIMESTAMP, JdbcValue.newBuilder().setStringVal("2026-03-17 10:15:30.5").build(), java.sql.Timestamp.class, java.sql.Timestamp.valueOf("2026-03-17 10:15:30.5")),
-				Arguments.of(Types.TIMESTAMP, JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(), java.sql.Timestamp.class, java.sql.Timestamp.from(instant)),
-				Arguments.of(Types.VARCHAR, JdbcValue.newBuilder().setStringVal("text").build(), String.class, "text")
-		);
-	}
+    static Stream<Arguments> typedValues() {
+        var instant = Instant.parse("2026-03-17T10:15:30Z");
+        var utc = instant.atZone(ZoneOffset.UTC).toLocalDateTime();
+        var protoTimestamp =
+                Timestamp.newBuilder()
+                        .setSeconds(instant.getEpochSecond())
+                        .setNanos(instant.getNano())
+                        .build();
+        return Stream.of(
+                Arguments.of(Types.TINYINT, longValue(7), Integer.class, 7),
+                Arguments.of(Types.SMALLINT, longValue(300), Integer.class, 300),
+                Arguments.of(Types.INTEGER, longValue(42), Integer.class, 42),
+                Arguments.of(Types.BIGINT, longValue(42), Long.class, 42L),
+                Arguments.of(
+                        Types.REAL,
+                        JdbcValue.newBuilder().setDoubleVal(1.5d).build(),
+                        Float.class,
+                        1.5f),
+                Arguments.of(
+                        Types.DOUBLE,
+                        JdbcValue.newBuilder().setDoubleVal(2.5d).build(),
+                        Double.class,
+                        2.5d),
+                Arguments.of(
+                        Types.DECIMAL, longValue(10), BigDecimal.class, BigDecimal.valueOf(10)),
+                Arguments.of(
+                        Types.NUMERIC,
+                        JdbcValue.newBuilder().setDecimalVal("12.340").build(),
+                        BigDecimal.class,
+                        new BigDecimal("12.340")),
+                Arguments.of(
+                        Types.BOOLEAN,
+                        JdbcValue.newBuilder().setBoolVal(true).build(),
+                        Boolean.class,
+                        true),
+                Arguments.of(Types.BIT, longValue(0), Boolean.class, false),
+                Arguments.of(
+                        Types.DATE,
+                        JdbcValue.newBuilder().setStringVal("2026-03-17").build(),
+                        Date.class,
+                        Date.valueOf("2026-03-17")),
+                Arguments.of(
+                        Types.DATE,
+                        JdbcValue.newBuilder().setStringVal("2026-03-17 00:00:00.0").build(),
+                        Date.class,
+                        Date.valueOf("2026-03-17")),
+                Arguments.of(
+                        Types.DATE,
+                        JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(),
+                        Date.class,
+                        Date.valueOf(utc.toLocalDate())),
+                Arguments.of(
+                        Types.TIME,
+                        JdbcValue.newBuilder().setStringVal("10:15:30").build(),
+                        Time.class,
+                        Time.valueOf("10:15:30")),
+                Arguments.of(
+                        Types.TIME,
+                        JdbcValue.newBuilder().setStringVal("1970-01-01 10:15:30.0").build(),
+                        Time.class,
+                        Time.valueOf("10:15:30")),
+                Arguments.of(
+                        Types.TIME,
+                        JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(),
+                        Time.class,
+                        Time.valueOf(utc.toLocalTime())),
+                Arguments.of(
+                        Types.TIMESTAMP,
+                        JdbcValue.newBuilder().setStringVal("2026-03-17 10:15:30.5").build(),
+                        java.sql.Timestamp.class,
+                        java.sql.Timestamp.valueOf("2026-03-17 10:15:30.5")),
+                Arguments.of(
+                        Types.TIMESTAMP,
+                        JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build(),
+                        java.sql.Timestamp.class,
+                        java.sql.Timestamp.from(instant)),
+                Arguments.of(
+                        Types.VARCHAR,
+                        JdbcValue.newBuilder().setStringVal("text").build(),
+                        String.class,
+                        "text"));
+    }
 
-	@Test
-	@DisplayName("Given protobuf timestamps and a non-UTC default zone, when reading DATE and TIME, then UTC values are used")
-	void shouldConvertProtobufDateAndTimeValuesInUtc() throws Exception {
-		var originalTimeZone = TimeZone.getDefault();
-		try {
-			TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Kiritimati"));
-			var instant = Instant.parse("2026-03-17T23:15:30Z");
-			var protoTimestamp = Timestamp.newBuilder()
-					.setSeconds(instant.getEpochSecond())
-					.setNanos(instant.getNano())
-					.build();
-			var serialized = SerializedResultSet.newBuilder()
-					.addMetadata(column("date_value", "date_value", Types.DATE, "DATE"))
-					.addMetadata(column("time_value", "time_value", Types.TIME, "TIME"))
-					.addRows(Row.newBuilder()
-							.addValues(JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build())
-							.addValues(JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build())
-							.build())
-					.build();
+    @Test
+    @DisplayName(
+            "Given protobuf timestamps and a non-UTC default zone, when reading DATE and TIME, then UTC values are used")
+    void shouldConvertProtobufDateAndTimeValuesInUtc() throws Exception {
+        var originalTimeZone = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Kiritimati"));
+            var instant = Instant.parse("2026-03-17T23:15:30Z");
+            var protoTimestamp =
+                    Timestamp.newBuilder()
+                            .setSeconds(instant.getEpochSecond())
+                            .setNanos(instant.getNano())
+                            .build();
+            var serialized =
+                    SerializedResultSet.newBuilder()
+                            .addMetadata(column("date_value", "date_value", Types.DATE, "DATE"))
+                            .addMetadata(column("time_value", "time_value", Types.TIME, "TIME"))
+                            .addRows(
+                                    Row.newBuilder()
+                                            .addValues(
+                                                    JdbcValue.newBuilder()
+                                                            .setTimestampVal(protoTimestamp)
+                                                            .build())
+                                            .addValues(
+                                                    JdbcValue.newBuilder()
+                                                            .setTimestampVal(protoTimestamp)
+                                                            .build())
+                                            .build())
+                            .build();
 
-			try (var resultSet = ResultSetFactory.create(serialized)) {
-				assertTrue(resultSet.next());
-				assertEquals(LocalDate.of(2026, 3, 17), resultSet.getDate(1).toLocalDate());
-				assertEquals(LocalTime.of(23, 15, 30), resultSet.getTime(2).toLocalTime());
-			}
-		} finally {
-			TimeZone.setDefault(originalTimeZone);
-		}
-	}
+            try (var resultSet = ResultSetFactory.create(serialized)) {
+                assertTrue(resultSet.next());
+                assertEquals(LocalDate.of(2026, 3, 17), resultSet.getDate(1).toLocalDate());
+                assertEquals(LocalTime.of(23, 15, 30), resultSet.getTime(2).toLocalTime());
+            }
+        } finally {
+            TimeZone.setDefault(originalTimeZone);
+        }
+    }
 
-	@Test
-	@DisplayName("Given a date skipped by the default zone, when creating ResultSet, then SQLDataException is thrown")
-	void shouldRejectDateSkippedByDefaultTimeZone() {
-		var originalTimeZone = TimeZone.getDefault();
-		try {
-			TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Apia"));
-			var instant = Instant.parse("2011-12-30T12:00:00Z");
-			var protoTimestamp = Timestamp.newBuilder()
-					.setSeconds(instant.getEpochSecond())
-					.setNanos(instant.getNano())
-					.build();
-			var protobufDate = singleValue(Types.DATE,
-					JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build());
-			var stringDate = singleValue(Types.DATE,
-					JdbcValue.newBuilder().setStringVal("2011-12-30").build());
+    @Test
+    @DisplayName(
+            "Given a date skipped by the default zone, when creating ResultSet, then SQLDataException is thrown")
+    void shouldRejectDateSkippedByDefaultTimeZone() {
+        var originalTimeZone = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Apia"));
+            var instant = Instant.parse("2011-12-30T12:00:00Z");
+            var protoTimestamp =
+                    Timestamp.newBuilder()
+                            .setSeconds(instant.getEpochSecond())
+                            .setNanos(instant.getNano())
+                            .build();
+            var protobufDate =
+                    singleValue(
+                            Types.DATE,
+                            JdbcValue.newBuilder().setTimestampVal(protoTimestamp).build());
+            var stringDate =
+                    singleValue(
+                            Types.DATE, JdbcValue.newBuilder().setStringVal("2011-12-30").build());
 
-			assertThrows(SQLDataException.class, () -> ResultSetFactory.create(protobufDate));
-			assertThrows(SQLDataException.class, () -> ResultSetFactory.create(stringDate));
-		} finally {
-			TimeZone.setDefault(originalTimeZone);
-		}
-	}
+            assertThrows(SQLDataException.class, () -> ResultSetFactory.create(protobufDate));
+            assertThrows(SQLDataException.class, () -> ResultSetFactory.create(stringDate));
+        } finally {
+            TimeZone.setDefault(originalTimeZone);
+        }
+    }
 
-	@ParameterizedTest(name = "[{index}] sqlType {0}")
-	@MethodSource("sqlTypes")
-	@DisplayName("Given a null value, when creating ResultSet, then getObject returns null and wasNull is true")
-	void shouldReturnNullAndFlagWasNullForEverySqlType(int sqlType) throws Exception {
-		var serialized = singleValue(sqlType, JdbcValue.newBuilder().setIsNull(true).build());
+    @ParameterizedTest(name = "[{index}] sqlType {0}")
+    @MethodSource("sqlTypes")
+    @DisplayName(
+            "Given a null value, when creating ResultSet, then getObject returns null and wasNull is true")
+    void shouldReturnNullAndFlagWasNullForEverySqlType(int sqlType) throws Exception {
+        var serialized = singleValue(sqlType, JdbcValue.newBuilder().setIsNull(true).build());
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			assertTrue(resultSet.next());
-			assertNull(resultSet.getObject(1));
-			assertTrue(resultSet.wasNull());
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            assertTrue(resultSet.next());
+            assertNull(resultSet.getObject(1));
+            assertTrue(resultSet.wasNull());
+        }
+    }
 
-	static Stream<Integer> sqlTypes() {
-		return Stream.of(Types.TINYINT, Types.SMALLINT, Types.INTEGER, Types.BIGINT, Types.REAL, Types.DOUBLE,
-				Types.DECIMAL, Types.BOOLEAN, Types.DATE, Types.TIME, Types.TIMESTAMP, Types.VARCHAR, Types.BINARY);
-	}
+    static Stream<Integer> sqlTypes() {
+        return Stream.of(
+                Types.TINYINT,
+                Types.SMALLINT,
+                Types.INTEGER,
+                Types.BIGINT,
+                Types.REAL,
+                Types.DOUBLE,
+                Types.DECIMAL,
+                Types.BOOLEAN,
+                Types.DATE,
+                Types.TIME,
+                Types.TIMESTAMP,
+                Types.VARCHAR,
+                Types.BINARY);
+    }
 
-	@Test
-	@DisplayName("Given a null primitive column, when reading with getInt, then zero is returned and wasNull is true")
-	void shouldReturnZeroForNullPrimitiveAccessors() throws Exception {
-		var serialized = singleValue(Types.INTEGER, JdbcValue.newBuilder().setIsNull(true).build());
+    @Test
+    @DisplayName(
+            "Given a null primitive column, when reading with getInt, then zero is returned and wasNull is true")
+    void shouldReturnZeroForNullPrimitiveAccessors() throws Exception {
+        var serialized = singleValue(Types.INTEGER, JdbcValue.newBuilder().setIsNull(true).build());
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			assertTrue(resultSet.next());
-			assertEquals(0, resultSet.getInt(1));
-			assertTrue(resultSet.wasNull());
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            assertTrue(resultSet.next());
+            assertEquals(0, resultSet.getInt(1));
+            assertTrue(resultSet.wasNull());
+        }
+    }
 
-	@Test
-	@DisplayName("Given a value out of range for the declared type, when creating ResultSet, then SQLDataException is thrown")
-	void shouldFailWhenValueOverflowsDeclaredType() {
-		var serialized = singleValue(Types.TINYINT, longValue(300));
+    @Test
+    @DisplayName(
+            "Given a value out of range for the declared type, when creating ResultSet, then SQLDataException is thrown")
+    void shouldFailWhenValueOverflowsDeclaredType() {
+        var serialized = singleValue(Types.TINYINT, longValue(300));
 
-		assertThrows(SQLDataException.class, () -> ResultSetFactory.create(serialized));
-	}
+        assertThrows(SQLDataException.class, () -> ResultSetFactory.create(serialized));
+    }
 
-	@ParameterizedTest
-	@ValueSource(ints = {Types.TIME_WITH_TIMEZONE, Types.TIMESTAMP_WITH_TIMEZONE})
-	@DisplayName("Given a time zone aware column, when creating ResultSet, then SQLFeatureNotSupportedException is thrown")
-	void shouldRejectTimeZoneAwareColumns(int sqlType) {
-		var serialized = singleValue(sqlType, JdbcValue.newBuilder().setStringVal("2024-01-01T00:00:00+01:00").build());
+    @ParameterizedTest
+    @ValueSource(ints = {Types.TIME_WITH_TIMEZONE, Types.TIMESTAMP_WITH_TIMEZONE})
+    @DisplayName(
+            "Given a time zone aware column, when creating ResultSet, then SQLFeatureNotSupportedException is thrown")
+    void shouldRejectTimeZoneAwareColumns(int sqlType) {
+        var serialized =
+                singleValue(
+                        sqlType,
+                        JdbcValue.newBuilder().setStringVal("2024-01-01T00:00:00+01:00").build());
 
-		assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> ResultSetFactory.create(serialized));
-	}
+        assertThrows(
+                java.sql.SQLFeatureNotSupportedException.class,
+                () -> ResultSetFactory.create(serialized));
+    }
 
-	@Test
-	@DisplayName("Given an unparsable value for the declared type, when creating ResultSet, then SQLDataException is thrown")
-	void shouldFailWhenValueCannotBeConvertedToDeclaredType() {
-		var serialized = singleValue(Types.DATE, JdbcValue.newBuilder().setStringVal("not-a-date").build());
+    @Test
+    @DisplayName(
+            "Given an unparsable value for the declared type, when creating ResultSet, then SQLDataException is thrown")
+    void shouldFailWhenValueCannotBeConvertedToDeclaredType() {
+        var serialized =
+                singleValue(Types.DATE, JdbcValue.newBuilder().setStringVal("not-a-date").build());
 
-		assertThrows(SQLDataException.class, () -> ResultSetFactory.create(serialized));
-	}
+        assertThrows(SQLDataException.class, () -> ResultSetFactory.create(serialized));
+    }
 
-	@Test
-	@DisplayName("Given a row shorter than the metadata, when creating ResultSet, then missing columns are null")
-	void shouldPadShortRowsWithNulls() throws Exception {
-		var serialized = SerializedResultSet.newBuilder()
-				.addMetadata(column("a", "a", Types.VARCHAR, "VARCHAR"))
-				.addMetadata(column("b", "b", Types.VARCHAR, "VARCHAR"))
-				.addRows(Row.newBuilder().addValues(JdbcValue.newBuilder().setStringVal("x").build()).build())
-				.build();
+    @Test
+    @DisplayName(
+            "Given a row shorter than the metadata, when creating ResultSet, then missing columns are null")
+    void shouldPadShortRowsWithNulls() throws Exception {
+        var serialized =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(column("a", "a", Types.VARCHAR, "VARCHAR"))
+                        .addMetadata(column("b", "b", Types.VARCHAR, "VARCHAR"))
+                        .addRows(
+                                Row.newBuilder()
+                                        .addValues(JdbcValue.newBuilder().setStringVal("x").build())
+                                        .build())
+                        .build();
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			assertTrue(resultSet.next());
-			assertEquals("x", resultSet.getString(1));
-			assertNull(resultSet.getString(2));
-			assertTrue(resultSet.wasNull());
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            assertTrue(resultSet.next());
+            assertEquals("x", resultSet.getString(1));
+            assertNull(resultSet.getString(2));
+            assertTrue(resultSet.wasNull());
+        }
+    }
 
-	@Test
-	@DisplayName("Given a row longer than the metadata, when creating ResultSet, then SQLException is thrown")
-	void shouldRejectRowsWithMoreValuesThanColumns() {
-		var serialized = SerializedResultSet.newBuilder()
-				.addMetadata(column("a", "a", Types.VARCHAR, "VARCHAR"))
-				.addRows(Row.newBuilder()
-						.addValues(JdbcValue.newBuilder().setStringVal("x").build())
-						.addValues(JdbcValue.newBuilder().setStringVal("y").build())
-						.build())
-				.build();
+    @Test
+    @DisplayName(
+            "Given a row longer than the metadata, when creating ResultSet, then SQLException is thrown")
+    void shouldRejectRowsWithMoreValuesThanColumns() {
+        var serialized =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(column("a", "a", Types.VARCHAR, "VARCHAR"))
+                        .addRows(
+                                Row.newBuilder()
+                                        .addValues(JdbcValue.newBuilder().setStringVal("x").build())
+                                        .addValues(JdbcValue.newBuilder().setStringVal("y").build())
+                                        .build())
+                        .build();
 
-		assertThrows(SQLException.class, () -> ResultSetFactory.create(serialized));
-	}
+        assertThrows(SQLException.class, () -> ResultSetFactory.create(serialized));
+    }
 
-	@Test
-	@DisplayName("Given metadata without rows, when creating ResultSet, then it is empty but keeps column metadata")
-	void shouldExposeMetadataForEmptyResultSet() throws Exception {
-		var serialized = SerializedResultSet.newBuilder()
-				.addMetadata(column("id", "ID", Types.BIGINT, "BIGINT"))
-				.addMetadata(column("amount", "AMOUNT", Types.DECIMAL, "DECIMAL"))
-				.build();
+    @Test
+    @DisplayName(
+            "Given metadata without rows, when creating ResultSet, then it is empty but keeps column metadata")
+    void shouldExposeMetadataForEmptyResultSet() throws Exception {
+        var serialized =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(column("id", "ID", Types.BIGINT, "BIGINT"))
+                        .addMetadata(column("amount", "AMOUNT", Types.DECIMAL, "DECIMAL"))
+                        .build();
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			assertFalse(resultSet.next());
-			var metaData = resultSet.getMetaData();
-			assertEquals(2, metaData.getColumnCount());
-			assertEquals("ID", metaData.getColumnLabel(1));
-			assertEquals("id", metaData.getColumnName(1));
-			assertEquals(Types.DECIMAL, metaData.getColumnType(2));
-			assertEquals("DECIMAL", metaData.getColumnTypeName(2));
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            assertFalse(resultSet.next());
+            var metaData = resultSet.getMetaData();
+            assertEquals(2, metaData.getColumnCount());
+            assertEquals("ID", metaData.getColumnLabel(1));
+            assertEquals("id", metaData.getColumnName(1));
+            assertEquals(Types.DECIMAL, metaData.getColumnType(2));
+            assertEquals("DECIMAL", metaData.getColumnTypeName(2));
+        }
+    }
 
-	@Test
-	@DisplayName("Given typed columns, when reading metadata, then signedness follows the declared type and nullability is unknown")
-	void shouldDeriveSignednessAndNullabilityFromMetadata() throws Exception {
-		var serialized = SerializedResultSet.newBuilder()
-				.addMetadata(column("n", "n", Types.INTEGER, "INTEGER"))
-				.addMetadata(column("s", "s", Types.VARCHAR, "VARCHAR"))
-				.build();
+    @Test
+    @DisplayName(
+            "Given typed columns, when reading metadata, then signedness follows the declared type and nullability is unknown")
+    void shouldDeriveSignednessAndNullabilityFromMetadata() throws Exception {
+        var serialized =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(column("n", "n", Types.INTEGER, "INTEGER"))
+                        .addMetadata(column("s", "s", Types.VARCHAR, "VARCHAR"))
+                        .build();
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			var metaData = resultSet.getMetaData();
-			assertTrue(metaData.isSigned(1));
-			assertFalse(metaData.isSigned(2));
-			assertEquals(ResultSetMetaData.columnNullableUnknown, metaData.isNullable(1));
-			assertFalse(metaData.isAutoIncrement(1));
-			assertEquals(0, metaData.getPrecision(1));
-			assertEquals(0, metaData.getScale(1));
-			assertEquals("", metaData.getTableName(1));
-			assertEquals("", metaData.getSchemaName(1));
-			assertEquals("", metaData.getCatalogName(1));
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            var metaData = resultSet.getMetaData();
+            assertTrue(metaData.isSigned(1));
+            assertFalse(metaData.isSigned(2));
+            assertEquals(ResultSetMetaData.columnNullableUnknown, metaData.isNullable(1));
+            assertFalse(metaData.isAutoIncrement(1));
+            assertEquals(0, metaData.getPrecision(1));
+            assertEquals(0, metaData.getScale(1));
+            assertEquals("", metaData.getTableName(1));
+            assertEquals("", metaData.getSchemaName(1));
+            assertEquals("", metaData.getCatalogName(1));
+        }
+    }
 
-	@Test
-	@DisplayName("Given extended serialized column metadata, when creating ResultSet, then JDBC metadata is preserved")
-	void shouldExposeExtendedColumnMetadata() throws Exception {
-		var metadata = column("amount", "amount_label", Types.DECIMAL, "DECIMAL")
-				.toBuilder()
-				.setPrecision(12)
-				.setScale(4)
-				.setNullable(ResultSetMetaData.columnNoNulls)
-				.setTableName("orders")
-				.setSchemaName("public")
-				.setCatalogName("sales")
-				.setAutoIncrement(true)
-				.build();
-		var serialized = SerializedResultSet.newBuilder().addMetadata(metadata).build();
+    @Test
+    @DisplayName(
+            "Given extended serialized column metadata, when creating ResultSet, then JDBC metadata is preserved")
+    void shouldExposeExtendedColumnMetadata() throws Exception {
+        var metadata =
+                column("amount", "amount_label", Types.DECIMAL, "DECIMAL").toBuilder()
+                        .setPrecision(12)
+                        .setScale(4)
+                        .setNullable(ResultSetMetaData.columnNoNulls)
+                        .setTableName("orders")
+                        .setSchemaName("public")
+                        .setCatalogName("sales")
+                        .setAutoIncrement(true)
+                        .build();
+        var serialized = SerializedResultSet.newBuilder().addMetadata(metadata).build();
 
-		try (var resultSet = ResultSetFactory.create(serialized)) {
-			var resultMetadata = resultSet.getMetaData();
-			assertEquals(12, resultMetadata.getPrecision(1));
-			assertEquals(4, resultMetadata.getScale(1));
-			assertEquals(ResultSetMetaData.columnNoNulls, resultMetadata.isNullable(1));
-			assertEquals("orders", resultMetadata.getTableName(1));
-			assertEquals("public", resultMetadata.getSchemaName(1));
-			assertEquals("sales", resultMetadata.getCatalogName(1));
-			assertTrue(resultMetadata.isAutoIncrement(1));
-		}
-	}
+        try (var resultSet = ResultSetFactory.create(serialized)) {
+            var resultMetadata = resultSet.getMetaData();
+            assertEquals(12, resultMetadata.getPrecision(1));
+            assertEquals(4, resultMetadata.getScale(1));
+            assertEquals(ResultSetMetaData.columnNoNulls, resultMetadata.isNullable(1));
+            assertEquals("orders", resultMetadata.getTableName(1));
+            assertEquals("public", resultMetadata.getSchemaName(1));
+            assertEquals("sales", resultMetadata.getCatalogName(1));
+            assertTrue(resultMetadata.isAutoIncrement(1));
+        }
+    }
 
-	private static SerializedResultSet singleValue(int sqlType, JdbcValue value) {
-		return SerializedResultSet.newBuilder()
-				.addMetadata(column("c", "c", sqlType, "T"))
-				.addRows(Row.newBuilder().addValues(value).build())
-				.build();
-	}
+    private static SerializedResultSet singleValue(int sqlType, JdbcValue value) {
+        return SerializedResultSet.newBuilder()
+                .addMetadata(column("c", "c", sqlType, "T"))
+                .addRows(Row.newBuilder().addValues(value).build())
+                .build();
+    }
 
-	private static JdbcValue longValue(long number) {
-		return JdbcValue.newBuilder().setLongVal(number).build();
-	}
+    private static JdbcValue longValue(long number) {
+        return JdbcValue.newBuilder().setLongVal(number).build();
+    }
 
-	private static ColumnMetadata column(String name, String label, int sqlType, String typeName) {
-		return ColumnMetadata.newBuilder()
-				.setName(name)
-				.setLabel(label)
-				.setSqlType(sqlType)
-				.setTypeName(typeName)
-				.build();
-	}
+    private static ColumnMetadata column(String name, String label, int sqlType, String typeName) {
+        return ColumnMetadata.newBuilder()
+                .setName(name)
+                .setLabel(label)
+                .setSqlType(sqlType)
+                .setTypeName(typeName)
+                .build();
+    }
 }

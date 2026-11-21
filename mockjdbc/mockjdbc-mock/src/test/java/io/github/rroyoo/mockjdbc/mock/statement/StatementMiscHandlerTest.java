@@ -1,22 +1,22 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
-import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.sql.SQLException;
-import java.util.Properties;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
+import java.sql.SQLException;
+import java.util.Properties;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 class StatementMiscHandlerTest {
 
     @Test
-    @DisplayName("Given a new statement misc handler, when isPoolable is called, then it returns true by default")
+    @DisplayName(
+            "Given a new statement misc handler, when isPoolable is called, then it returns true by default")
     void shouldReturnPoolableTrueByDefault() throws Exception {
         var handler = new StatementMiscHandler(mockConfig(), new StatementLifecycleHandler());
 
@@ -24,7 +24,8 @@ class StatementMiscHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a statement misc handler, when poolable is toggled, then isPoolable returns the new value")
+    @DisplayName(
+            "Given a statement misc handler, when poolable is toggled, then isPoolable returns the new value")
     void shouldStorePoolableFlag() throws Exception {
         var handler = new StatementMiscHandler(mockConfig(), new StatementLifecycleHandler());
 
@@ -36,7 +37,8 @@ class StatementMiscHandlerTest {
     }
 
     @Test
-    @DisplayName("Given an open statement misc handler, when no-op methods are called, then they do not throw")
+    @DisplayName(
+            "Given an open statement misc handler, when no-op methods are called, then they do not throw")
     void shouldAllowNoOpMethodsWhenOpen() {
         var handler = new StatementMiscHandler(mockConfig(), new StatementLifecycleHandler());
 
@@ -46,7 +48,8 @@ class StatementMiscHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a statement misc handler, when getConnection is called, then it returns a non-null open connection")
+    @DisplayName(
+            "Given a statement misc handler, when getConnection is called, then it returns a non-null open connection")
     void shouldCreateConnection() throws Exception {
         var handler = new StatementMiscHandler(mockConfig(), new StatementLifecycleHandler());
 
@@ -57,7 +60,8 @@ class StatementMiscHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a closed lifecycle, when guarded methods are called, then they throw SQLException")
+    @DisplayName(
+            "Given a closed lifecycle, when guarded methods are called, then they throw SQLException")
     void shouldFailOnGuardedMethodsWhenStatementIsClosed() throws Exception {
         var lifecycle = new StatementLifecycleHandler();
         lifecycle.close();
@@ -74,4 +78,3 @@ class StatementMiscHandlerTest {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", 50051), new Properties());
     }
 }
-

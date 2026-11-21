@@ -1,7 +1,5 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
-import io.github.rroyoo.mockjdbc.mock.MockedQuery;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -9,8 +7,8 @@ import java.util.function.Consumer;
 /**
  * Per-datasource capture binding.
  *
- * <p>Holds the {@link JdbcExecutionCapture} and exposes the public observability API:
- * captured event list, datasource identifier, and lifecycle management.
+ * <p>Holds the {@link JdbcExecutionCapture} and exposes the public observability API: captured
+ * event list, datasource identifier, and lifecycle management.
  *
  * <p>Obtain instances via {@link JdbcAgentRegistry#register}.
  */
@@ -20,7 +18,10 @@ public final class JdbcCaptureRegistration implements AutoCloseable {
     private final JdbcExecutionCapture capture;
     private volatile java.lang.ref.WeakReference<javax.sql.DataSource> owner;
 
-    /** Package-private: records the DataSource this registration belongs to, so close() can unregister it. */
+    /**
+     * Package-private: records the DataSource this registration belongs to, so close() can
+     * unregister it.
+     */
     void bindOwner(javax.sql.DataSource dataSource) {
         this.owner = new java.lang.ref.WeakReference<>(dataSource);
     }
@@ -50,10 +51,11 @@ public final class JdbcCaptureRegistration implements AutoCloseable {
      * producer and dispatch config — convenience for production wiring without needing a DataSource
      * instance at registration time.
      */
-    public static JdbcCaptureRegistration standalone(String datasourceId,
-                                                     Consumer<JdbcQueryInterceptedEvent> localConsumer,
-                                                     MockedQueryEventProducer producer,
-                                                     AsyncDispatchConfig config) {
+    public static JdbcCaptureRegistration standalone(
+            String datasourceId,
+            Consumer<JdbcQueryInterceptedEvent> localConsumer,
+            MockedQueryEventProducer producer,
+            AsyncDispatchConfig config) {
         var capture = new JdbcExecutionCapture(datasourceId, localConsumer, producer, config);
         return new JdbcCaptureRegistration(datasourceId, capture);
     }

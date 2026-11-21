@@ -8,15 +8,21 @@ final class WarningsHandler {
 
     private final AtomicReference<SQLWarning> warnings = new AtomicReference<>(null);
 
-    public SQLWarning getWarnings() throws SQLException { return warnings.get(); }
+    public SQLWarning getWarnings() throws SQLException {
+        return warnings.get();
+    }
 
-    public void clearWarnings() throws SQLException { warnings.set(null); }
+    public void clearWarnings() throws SQLException {
+        warnings.set(null);
+    }
 
     public void addWarning(SQLWarning warning) {
-        warnings.accumulateAndGet(warning, (existing, next) -> {
-            if (existing == null) return next;
-            existing.setNextWarning(next);
-            return existing;
-        });
+        warnings.accumulateAndGet(
+                warning,
+                (existing, next) -> {
+                    if (existing == null) return next;
+                    existing.setNextWarning(next);
+                    return existing;
+                });
     }
 }

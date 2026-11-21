@@ -1,20 +1,20 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 class ConfigHandlerTest {
 
     @Test
-    @DisplayName("Given a new handler, when reading defaults, then JDBC-like default config values are returned")
+    @DisplayName(
+            "Given a new handler, when reading defaults, then JDBC-like default config values are returned")
     void shouldReturnJdbcDefaults() throws Exception {
         var handler = new ConfigHandler();
 
@@ -27,7 +27,8 @@ class ConfigHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a handler, when values are configured, then getters return the configured values")
+    @DisplayName(
+            "Given a handler, when values are configured, then getters return the configured values")
     void shouldStoreAndReturnConfiguredValues() throws Exception {
         var handler = new ConfigHandler();
 
@@ -46,4 +47,3 @@ class ConfigHandlerTest {
         assertEquals(5000, handler.getNetworkTimeout());
     }
 }
-

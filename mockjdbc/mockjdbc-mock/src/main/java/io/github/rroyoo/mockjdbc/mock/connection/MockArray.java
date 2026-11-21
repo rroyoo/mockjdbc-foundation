@@ -11,6 +11,22 @@ import java.util.Map;
 
 final class MockArray implements Array {
 
+    private static final Map<String, Integer> BASE_TYPES =
+            Map.ofEntries(
+                    Map.entry("VARCHAR", Types.VARCHAR),
+                    Map.entry("CHAR", Types.CHAR),
+                    Map.entry("INTEGER", Types.INTEGER),
+                    Map.entry("INT", Types.INTEGER),
+                    Map.entry("BIGINT", Types.BIGINT),
+                    Map.entry("SMALLINT", Types.SMALLINT),
+                    Map.entry("BOOLEAN", Types.BOOLEAN),
+                    Map.entry("DOUBLE", Types.DOUBLE),
+                    Map.entry("DECIMAL", Types.DECIMAL),
+                    Map.entry("NUMERIC", Types.NUMERIC),
+                    Map.entry("DATE", Types.DATE),
+                    Map.entry("TIME", Types.TIME),
+                    Map.entry("TIMESTAMP", Types.TIMESTAMP));
+
     private final String baseTypeName;
     private final Object[] elements;
     private boolean freed;
@@ -29,21 +45,7 @@ final class MockArray implements Array {
     @Override
     public int getBaseType() throws SQLException {
         ensureValid();
-        return switch (baseTypeName.toUpperCase(Locale.ROOT)) {
-            case "VARCHAR" -> Types.VARCHAR;
-            case "CHAR" -> Types.CHAR;
-            case "INTEGER", "INT" -> Types.INTEGER;
-            case "BIGINT" -> Types.BIGINT;
-            case "SMALLINT" -> Types.SMALLINT;
-            case "BOOLEAN" -> Types.BOOLEAN;
-            case "DOUBLE" -> Types.DOUBLE;
-            case "DECIMAL" -> Types.DECIMAL;
-            case "NUMERIC" -> Types.NUMERIC;
-            case "DATE" -> Types.DATE;
-            case "TIME" -> Types.TIME;
-            case "TIMESTAMP" -> Types.TIMESTAMP;
-            default -> Types.OTHER;
-        };
+        return BASE_TYPES.getOrDefault(baseTypeName.toUpperCase(Locale.ROOT), Types.OTHER);
     }
 
     @Override
@@ -60,7 +62,10 @@ final class MockArray implements Array {
     @Override
     public Object getArray(long index, int count) throws SQLException {
         ensureValid();
-        if (index < 1 || count < 0 || index > elements.length || count > elements.length - (index - 1)) {
+        if (index < 1
+                || count < 0
+                || index > elements.length
+                || count > elements.length - (index - 1)) {
             throw new SQLException("Invalid array slice: index=" + index + ", count=" + count);
         }
         return Arrays.copyOfRange(elements, (int) index - 1, (int) index - 1 + count);
@@ -74,7 +79,8 @@ final class MockArray implements Array {
     @Override
     public ResultSet getResultSet() throws SQLException {
         ensureValid();
-        throw new SQLFeatureNotSupportedException("Array.getResultSet is not supported by MockJDBC");
+        throw new SQLFeatureNotSupportedException(
+                "Array.getResultSet is not supported by MockJDBC");
     }
 
     @Override
@@ -88,7 +94,8 @@ final class MockArray implements Array {
     }
 
     @Override
-    public ResultSet getResultSet(long index, int count, Map<String, Class<?>> map) throws SQLException {
+    public ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
+            throws SQLException {
         return getResultSet();
     }
 

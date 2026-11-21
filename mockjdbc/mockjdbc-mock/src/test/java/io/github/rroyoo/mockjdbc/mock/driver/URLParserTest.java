@@ -1,19 +1,19 @@
 package io.github.rroyoo.mockjdbc.mock.driver;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.net.MalformedURLException;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.net.MalformedURLException;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 class URLParserTest {
 
     @Test
-    @DisplayName("Given a URL string, when parsing, then it returns a MockConfig with correctly parsed values")
+    @DisplayName(
+            "Given a URL string, when parsing, then it returns a MockConfig with correctly parsed values")
     void shouldParseUrlStringIntoMockConfig() {
         // Arrange
         var url = "jdbc:mock://localhost:50051/?keepAliveTime=60&keepAliveTimeUnit=SECONDS";
@@ -31,7 +31,8 @@ class URLParserTest {
     }
 
     @Test
-    @DisplayName("Given a valid URL without query params, when parsing, then it returns a MockConfig")
+    @DisplayName(
+            "Given a valid URL without query params, when parsing, then it returns a MockConfig")
     void shouldParseUrlWithoutQueryParamsIntoMockConfig() {
         // Arrange
         var url = "jdbc:mock://localhost:50051";
@@ -59,7 +60,8 @@ class URLParserTest {
     }
 
     @Test
-    @DisplayName("Given external properties and same key in query params, when parsing, then query value overrides external value")
+    @DisplayName(
+            "Given external properties and same key in query params, when parsing, then query value overrides external value")
     void shouldOverrideExternalPropertyWithQueryParamValue() {
         // Arrange
         var url = "jdbc:mock://localhost:50051/?keepAliveTime=60&keepAliveTimeUnit=SECONDS";

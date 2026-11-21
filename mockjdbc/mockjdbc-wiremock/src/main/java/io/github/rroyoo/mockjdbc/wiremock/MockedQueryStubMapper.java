@@ -4,13 +4,14 @@ import com.github.tomakehurst.wiremock.client.MappingBuilder;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.matching.StringValuePattern;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
+import io.github.rroyoo.mockjdbc.mock.ColumnMetadata;
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.QueryExecutionStatus;
+import io.github.rroyoo.mockjdbc.mock.Row;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import io.github.rroyoo.mockjdbc.mock.SqlNormalizer;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.ParameterMetaData;
@@ -26,8 +27,8 @@ import java.util.UUID;
 final class MockedQueryStubMapper {
 
     /**
-     * Full gRPC method path as used by the WireMock gRPC extension for URL matching.
-     * Format: /{package}.{ServiceName}/{MethodName}
+     * Full gRPC method path as used by the WireMock gRPC extension for URL matching. Format:
+     * /{package}.{ServiceName}/{MethodName}
      */
     static final String GRPC_METHOD_URL =
             "/io.github.rroyoo.mockjdbc.mock.MockQueryService/FindMock";
@@ -37,7 +38,8 @@ final class MockedQueryStubMapper {
 
     MockedQueryStubMapper(List<String> datasourceAllowlist, List<String> sqlDenyPrefixes) {
         // HashSet for O(1) allowlist lookup instead of O(n) stream scan.
-        this.datasourceAllowlist = datasourceAllowlist == null ? Set.of() : new HashSet<>(datasourceAllowlist);
+        this.datasourceAllowlist =
+                datasourceAllowlist == null ? Set.of() : new HashSet<>(datasourceAllowlist);
         this.sqlDenyPrefixes = sqlDenyPrefixes == null ? List.of() : List.copyOf(sqlDenyPrefixes);
     }
 
@@ -58,72 +60,100 @@ final class MockedQueryStubMapper {
         }
 
         var params = requestParameters(event);
+        var mappingBuilder = mappingBuilder(event, normalizedSql, params);
+        var stubKey = stubKey(datasourceId, normalizedSql, paramKeySegment(params), event);
+        var mapping = mappingBuilder.build();
+        mapping.setId(UUID.nameUUIDFromBytes(mappingIdInput(stubKey, event)));
+        mapping.setName(stubKey);
+        return Optional.of(mapping);
+    }
 
+    private static MappingBuilder mappingBuilder(
+            MockedQuery event, String normalizedSql, List<ParameterMetadata> params) {
         // WireMock-gRPC intercepts calls at the gRPC method path and converts the binary
         // protobuf request body to JSON before applying stub matchers.
-        // QueryLookupRequest has no datasource_id field — filter on SQL, parameters, and batch index.
-        var mappingBuilder = WireMock.post(WireMock.urlPathEqualTo(GRPC_METHOD_URL))
-                .withRequestBody(WireMock.matchingJsonPath("$.sql", exact(normalizedSql)));
+        // QueryLookupRequest has no datasource_id field — filter on SQL, parameters, and batch
+        // index.
+        var mappingBuilder =
+                WireMock.post(WireMock.urlPathEqualTo(GRPC_METHOD_URL))
+                        .withRequestBody(WireMock.matchingJsonPath("$.sql", exact(normalizedSql)));
 
         addParameterMatchers(mappingBuilder, params);
-        if (event.hasBatchIndex()) {
-            mappingBuilder.withRequestBody(WireMock.matchingJsonPath(
-                    "$.batchIndex", exact(Integer.toString(event.getBatchIndex()))));
-        } else {
-            mappingBuilder.withRequestBody(WireMock.matchingJsonPath("$.batchIndex", WireMock.absent()));
-        }
+        addBatchIndexMatcher(mappingBuilder, event);
+        addResponse(mappingBuilder, event);
+        return mappingBuilder;
+    }
 
+    private static void addBatchIndexMatcher(MappingBuilder mappingBuilder, MockedQuery event) {
+        var batchIndexPattern =
+                event.hasBatchIndex()
+                        ? exact(Integer.toString(event.getBatchIndex()))
+                        : WireMock.absent();
+        mappingBuilder.withRequestBody(
+                WireMock.matchingJsonPath("$.batchIndex", batchIndexPattern));
+    }
+
+    private static void addResponse(MappingBuilder mappingBuilder, MockedQuery event) {
         if (event.getStatus() == QueryExecutionStatus.QUERY_EXECUTION_STATUS_ERROR) {
             // Return a MockedQuery JSON with the error field; the mock driver checks hasError().
-            mappingBuilder.willReturn(WireMock.aResponse()
-                    .withStatus(200)
-                    .withHeader("Content-Type", "application/json")
-                    .withHeader("grpc-status-name", "OK")
-                    .withBody(buildErrorJsonBody(event)));
+            mappingBuilder.willReturn(
+                    WireMock.aResponse()
+                            .withStatus(200)
+                            .withHeader("Content-Type", "application/json")
+                            .withHeader("grpc-status-name", "OK")
+                            .withBody(buildErrorJsonBody(event)));
         } else {
             // Return a MockedQuery JSON with the resultSet field.
             // WireMock-gRPC converts this JSON back to binary MockedQuery protobuf
             // using the mounted .dsc descriptor file before sending the gRPC response.
-            mappingBuilder.willReturn(WireMock.aResponse()
-                    .withStatus(200)
-                    .withHeader("Content-Type", "application/json")
-                    .withHeader("grpc-status-name", "OK")
-                    .withBody(buildSuccessJsonBody(event.getResultSet(), outParameters(event),
-                            event.hasGeneratedKeys() ? event.getGeneratedKeys() : null, event.getUpdateCount())));
+            mappingBuilder.willReturn(
+                    WireMock.aResponse()
+                            .withStatus(200)
+                            .withHeader("Content-Type", "application/json")
+                            .withHeader("grpc-status-name", "OK")
+                            .withBody(
+                                    buildSuccessJsonBody(
+                                            event.getResultSet(),
+                                            outParameters(event),
+                                            event.hasGeneratedKeys()
+                                                    ? event.getGeneratedKeys()
+                                                    : null,
+                                            event.getUpdateCount())));
         }
+    }
 
-        // Key includes batch index because identical commands may produce different results in one batch.
-        var paramKey = paramKeySegment(params);
-        var stubKey  = stubKey(datasourceId, normalizedSql, paramKey);
-        if (event.hasBatchIndex()) {
-            stubKey += "::batch=" + event.getBatchIndex();
-        }
-        var mapping  = mappingBuilder.build();
+    private static String stubKey(
+            String datasourceId, String normalizedSql, String paramKey, MockedQuery event) {
+        // Key includes batch index because identical commands may produce different results in one
+        // batch.
+        return stubKey(datasourceId, normalizedSql, paramKey)
+                + (event.hasBatchIndex() ? "::batch=" + event.getBatchIndex() : "");
+    }
+
+    private static byte[] mappingIdInput(String stubKey, MockedQuery event) {
         var idInput = stubKey.getBytes(StandardCharsets.UTF_8);
-        if (event.hasBatchIndex()) {
-            idInput = ByteBuffer.allocate(Byte.BYTES + Integer.BYTES + idInput.length)
-                    .put((byte) 0xFF)
-                    .putInt(event.getBatchIndex())
-                    .put(idInput)
-                    .array();
+        if (!event.hasBatchIndex()) {
+            return idInput;
         }
-        mapping.setId(UUID.nameUUIDFromBytes(idInput));
-        mapping.setName(stubKey);
-        return Optional.of(mapping);
+        return ByteBuffer.allocate(Byte.BYTES + Integer.BYTES + idInput.length)
+                .put((byte) 0xFF)
+                .putInt(event.getBatchIndex())
+                .put(idInput)
+                .array();
     }
 
     // ── Parameter matching ────────────────────────────────────────────────────
 
     /**
-     * Adds one {@code matchesJsonPath} body pattern per captured parameter.
-     * WireMock-gRPC converts the binary {@code QueryLookupRequest} to JSON before
-     * matching, using standard protobuf JSON encoding (int64 → quoted string).
+     * Adds one {@code matchesJsonPath} body pattern per captured parameter. WireMock-gRPC converts
+     * the binary {@code QueryLookupRequest} to JSON before matching, using standard protobuf JSON
+     * encoding (int64 → quoted string).
      */
-    private static void addParameterMatchers(MappingBuilder builder,
-                                             List<ParameterMetadata> params) {
+    private static void addParameterMatchers(
+            MappingBuilder builder, List<ParameterMetadata> params) {
         for (int i = 0; i < params.size(); i++) {
             var value = params.get(i).getValue();
-            var path  = paramJsonPath(i, value);
+            var path = paramJsonPath(i, value);
             var expected = paramExpectedValue(value);
             if (path != null && expected != null) {
                 builder.withRequestBody(WireMock.matchingJsonPath(path, exact(expected)));
@@ -132,18 +162,19 @@ final class MockedQueryStubMapper {
     }
 
     /**
-     * Returns the JSONPath expression for the given parameter's value field,
-     * or {@code null} for kinds that are not suitable for exact matching (e.g. NULL, bytes).
+     * Returns the JSONPath expression for the given parameter's value field, or {@code null} for
+     * kinds that are not suitable for exact matching (e.g. NULL, bytes).
      */
     static String paramJsonPath(int zeroBasedIndex, JdbcValue value) {
-        var field = switch (value.getKindCase()) {
-            case LONG_VAL    -> "longVal";
-            case STRING_VAL  -> "stringVal";
-            case BOOL_VAL    -> "boolVal";
-            case DOUBLE_VAL  -> "doubleVal";
-            case DECIMAL_VAL -> "decimalVal";
-            default -> null;  // IS_NULL, BYTES_VAL, TIMESTAMP_VAL — skip exact match
-        };
+        var field =
+                switch (value.getKindCase()) {
+                    case LONG_VAL -> "longVal";
+                    case STRING_VAL -> "stringVal";
+                    case BOOL_VAL -> "boolVal";
+                    case DOUBLE_VAL -> "doubleVal";
+                    case DECIMAL_VAL -> "decimalVal";
+                    default -> null; // IS_NULL, BYTES_VAL, TIMESTAMP_VAL — skip exact match
+                };
         if (field == null) return null;
         return "$.parameters[" + zeroBasedIndex + "].value." + field;
     }
@@ -154,10 +185,10 @@ final class MockedQueryStubMapper {
      */
     static String paramExpectedValue(JdbcValue value) {
         return switch (value.getKindCase()) {
-            case LONG_VAL    -> String.valueOf(value.getLongVal());
-            case STRING_VAL  -> value.getStringVal();
-            case BOOL_VAL    -> String.valueOf(value.getBoolVal());
-            case DOUBLE_VAL  -> String.valueOf(value.getDoubleVal());
+            case LONG_VAL -> String.valueOf(value.getLongVal());
+            case STRING_VAL -> value.getStringVal();
+            case BOOL_VAL -> String.valueOf(value.getBoolVal());
+            case DOUBLE_VAL -> String.valueOf(value.getDoubleVal());
             case DECIMAL_VAL -> value.getDecimalVal();
             default -> null;
         };
@@ -175,18 +206,21 @@ final class MockedQueryStubMapper {
     }
 
     /**
-     * Parameters the mock driver sends in the lookup request. For callable statements the driver only
-     * sends IN values, so OUT/INOUT entries (whose captured value is the OUT result) are not matched.
+     * Parameters the mock driver sends in the lookup request. For callable statements the driver
+     * only sends IN values, so OUT/INOUT entries (whose captured value is the OUT result) are not
+     * matched.
      */
     private static List<ParameterMetadata> requestParameters(MockedQuery event) {
-        return extractParameters(event).stream()
-                .filter(p -> !isOut(p))
-                .toList();
+        return extractParameters(event).stream().filter(p -> !isOut(p)).toList();
     }
 
-    /** OUT/INOUT parameters captured for a callable statement, returned to the driver in the response. */
+    /**
+     * OUT/INOUT parameters captured for a callable statement, returned to the driver in the
+     * response.
+     */
     private static List<ParameterMetadata> outParameters(MockedQuery event) {
-        if (event.getStatementDefinitionCase() != MockedQuery.StatementDefinitionCase.CALLABLE_STATEMENT) {
+        if (event.getStatementDefinitionCase()
+                != MockedQuery.StatementDefinitionCase.CALLABLE_STATEMENT) {
             return List.of();
         }
         return event.getCallableStatement().getParametersList().stream()
@@ -210,31 +244,35 @@ final class MockedQueryStubMapper {
     // ── JSON body builders ────────────────────────────────────────────────────
 
     /**
-     * Builds a MockedQuery JSON body with the resultSet field populated.
-     * Follows the protobuf JSON encoding conventions (int64 as string, camelCase field names).
+     * Builds a MockedQuery JSON body with the resultSet field populated. Follows the protobuf JSON
+     * encoding conventions (int64 as string, camelCase field names).
      */
     static String buildSuccessJsonBody(SerializedResultSet rs) {
         return buildSuccessJsonBody(rs, List.of());
     }
 
     /**
-     * Same as {@link #buildSuccessJsonBody(SerializedResultSet)} and, when {@code outParameters} is not
-     * empty, adds {@code callableStatement.parameters} so the driver can expose OUT/INOUT values.
+     * Same as {@link #buildSuccessJsonBody(SerializedResultSet)} and, when {@code outParameters} is
+     * not empty, adds {@code callableStatement.parameters} so the driver can expose OUT/INOUT
+     * values.
      */
-    static String buildSuccessJsonBody(SerializedResultSet rs, List<ParameterMetadata> outParameters) {
+    static String buildSuccessJsonBody(
+            SerializedResultSet rs, List<ParameterMetadata> outParameters) {
         return buildSuccessJsonBody(rs, outParameters, null);
     }
 
-    static String buildSuccessJsonBody(SerializedResultSet rs,
-                                       List<ParameterMetadata> outParameters,
-                                       SerializedResultSet generatedKeys) {
+    static String buildSuccessJsonBody(
+            SerializedResultSet rs,
+            List<ParameterMetadata> outParameters,
+            SerializedResultSet generatedKeys) {
         return buildSuccessJsonBody(rs, outParameters, generatedKeys, null);
     }
 
-    static String buildSuccessJsonBody(SerializedResultSet rs,
-                                       List<ParameterMetadata> outParameters,
-                                       SerializedResultSet generatedKeys,
-                                       Long updateCount) {
+    static String buildSuccessJsonBody(
+            SerializedResultSet rs,
+            List<ParameterMetadata> outParameters,
+            SerializedResultSet generatedKeys,
+            Long updateCount) {
         var sb = new StringBuilder("{\"resultSet\":");
         appendResultSetJson(sb, rs);
         if (updateCount != null) {
@@ -245,12 +283,17 @@ final class MockedQueryStubMapper {
             for (int i = 0; i < outParameters.size(); i++) {
                 if (i > 0) sb.append(',');
                 var p = outParameters.get(i);
-                sb.append("{\"index\":").append(p.getIndex())
-                  .append(",\"sqlType\":").append(p.getSqlType())
-                  .append(",\"typeName\":").append(jsonString(p.getTypeName()))
-                  .append(",\"mode\":").append(p.getMode())
-                  .append(",\"value\":").append(jdbcValueJson(p.getValue()))
-                  .append('}');
+                sb.append("{\"index\":")
+                        .append(p.getIndex())
+                        .append(",\"sqlType\":")
+                        .append(p.getSqlType())
+                        .append(",\"typeName\":")
+                        .append(jsonString(p.getTypeName()))
+                        .append(",\"mode\":")
+                        .append(p.getMode())
+                        .append(",\"value\":")
+                        .append(jdbcValueJson(p.getValue()))
+                        .append('}');
             }
             sb.append("]}");
         }
@@ -264,86 +307,128 @@ final class MockedQueryStubMapper {
 
     private static void appendResultSetJson(StringBuilder sb, SerializedResultSet rs) {
         sb.append("{\"metadata\":[");
+        appendMetadataJson(sb, rs);
+        sb.append("],\"rows\":[");
+        appendRowsJson(sb, rs);
+        sb.append("]}");
+    }
+
+    private static void appendMetadataJson(StringBuilder sb, SerializedResultSet rs) {
         for (int i = 0; i < rs.getMetadataCount(); i++) {
             if (i > 0) sb.append(',');
-            var m = rs.getMetadata(i);
-            sb.append('{');
-            if (m.hasName()) {
-                sb.append("\"name\":").append(jsonString(m.getName())).append(',');
-            }
-            if (m.hasLabel()) {
-                sb.append("\"label\":").append(jsonString(m.getLabel())).append(',');
-            }
-            sb.append("\"sqlType\":").append(m.getSqlType());
-            if (m.hasPrecision()) {
-                sb.append(",\"precision\":").append(m.getPrecision());
-            }
-            if (m.hasScale()) {
-                sb.append(",\"scale\":").append(m.getScale());
-            }
-            if (m.hasNullable()) {
-                sb.append(",\"nullable\":").append(m.getNullable());
-            }
-            if (m.hasTableName()) {
-                sb.append(",\"tableName\":").append(jsonString(m.getTableName()));
-            }
-            if (m.hasSchemaName()) {
-                sb.append(",\"schemaName\":").append(jsonString(m.getSchemaName()));
-            }
-            if (m.hasCatalogName()) {
-                sb.append(",\"catalogName\":").append(jsonString(m.getCatalogName()));
-            }
-            if (m.hasAutoIncrement()) {
-                sb.append(",\"autoIncrement\":").append(m.getAutoIncrement());
-            }
-            if (m.hasTypeName()) {
-                sb.append(",\"typeName\":").append(jsonString(m.getTypeName()));
-            }
-            sb.append('}');
+            appendColumnMetadataJson(sb, rs.getMetadata(i));
         }
-        sb.append("],\"rows\":[");
+    }
+
+    private static void appendColumnMetadataJson(StringBuilder sb, ColumnMetadata metadata) {
+        sb.append('{');
+        appendColumnNamesJson(sb, metadata);
+        sb.append("\"sqlType\":").append(metadata.getSqlType());
+        appendColumnDimensionsJson(sb, metadata);
+        appendColumnSourceJson(sb, metadata);
+        appendColumnFlagsJson(sb, metadata);
+        sb.append('}');
+    }
+
+    private static void appendColumnNamesJson(StringBuilder sb, ColumnMetadata metadata) {
+        if (metadata.hasName()) {
+            sb.append("\"name\":").append(jsonString(metadata.getName())).append(',');
+        }
+        if (metadata.hasLabel()) {
+            sb.append("\"label\":").append(jsonString(metadata.getLabel())).append(',');
+        }
+    }
+
+    private static void appendColumnDimensionsJson(StringBuilder sb, ColumnMetadata metadata) {
+        if (metadata.hasPrecision()) {
+            sb.append(",\"precision\":").append(metadata.getPrecision());
+        }
+        if (metadata.hasScale()) {
+            sb.append(",\"scale\":").append(metadata.getScale());
+        }
+        if (metadata.hasNullable()) {
+            sb.append(",\"nullable\":").append(metadata.getNullable());
+        }
+    }
+
+    private static void appendColumnSourceJson(StringBuilder sb, ColumnMetadata metadata) {
+        if (metadata.hasTableName()) {
+            sb.append(",\"tableName\":").append(jsonString(metadata.getTableName()));
+        }
+        if (metadata.hasSchemaName()) {
+            sb.append(",\"schemaName\":").append(jsonString(metadata.getSchemaName()));
+        }
+        if (metadata.hasCatalogName()) {
+            sb.append(",\"catalogName\":").append(jsonString(metadata.getCatalogName()));
+        }
+    }
+
+    private static void appendColumnFlagsJson(StringBuilder sb, ColumnMetadata metadata) {
+        if (metadata.hasAutoIncrement()) {
+            sb.append(",\"autoIncrement\":").append(metadata.getAutoIncrement());
+        }
+        if (metadata.hasTypeName()) {
+            sb.append(",\"typeName\":").append(jsonString(metadata.getTypeName()));
+        }
+    }
+
+    private static void appendRowsJson(StringBuilder sb, SerializedResultSet rs) {
         for (int i = 0; i < rs.getRowsCount(); i++) {
             if (i > 0) sb.append(',');
-            var row = rs.getRows(i);
-            sb.append("{\"values\":[");
-            for (int j = 0; j < row.getValuesCount(); j++) {
-                if (j > 0) sb.append(',');
-                sb.append(jdbcValueJson(row.getValues(j)));
-            }
-            sb.append("]}");
+            appendRowJson(sb, rs.getRows(i));
+        }
+    }
+
+    private static void appendRowJson(StringBuilder sb, Row row) {
+        sb.append("{\"values\":[");
+        for (int j = 0; j < row.getValuesCount(); j++) {
+            if (j > 0) sb.append(',');
+            sb.append(jdbcValueJson(row.getValues(j)));
         }
         sb.append("]}");
     }
 
     /**
-     * Builds a MockedQuery JSON body with the error field populated.
-     * The mock driver checks {@code response.hasError()} and throws the right SQLException.
+     * Builds a MockedQuery JSON body with the error field populated. The mock driver checks {@code
+     * response.hasError()} and throws the right SQLException.
      */
     static String buildErrorJsonBody(MockedQuery event) {
         var type = event.hasError() ? event.getError().getType() : "";
         var message = event.hasError() ? event.getError().getMessage() : "";
-        return "{\"error\":{\"type\":" + jsonString(type) + ",\"message\":" + jsonString(message) + "}}";
+        return "{\"error\":{\"type\":"
+                + jsonString(type)
+                + ",\"message\":"
+                + jsonString(message)
+                + "}}";
     }
 
     /**
-     * Converts a {@link JdbcValue} to its protobuf JSON representation.
-     * int64 values are encoded as strings per the protobuf JSON spec.
+     * Converts a {@link JdbcValue} to its protobuf JSON representation. int64 values are encoded as
+     * strings per the protobuf JSON spec.
      */
     static String jdbcValueJson(JdbcValue v) {
         return switch (v.getKindCase()) {
-            case STRING_VAL  -> "{\"stringVal\":"  + jsonString(v.getStringVal()) + "}";
-            case LONG_VAL    -> "{\"longVal\":\""  + v.getLongVal()  + "\"}";  // int64 → quoted string
-            case DOUBLE_VAL  -> "{\"doubleVal\":"  + v.getDoubleVal() + "}";
-            case BOOL_VAL    -> "{\"boolVal\":"    + v.getBoolVal()  + "}";
-            case BYTES_VAL   -> "{\"bytesVal\":"   + jsonString(Base64.getEncoder()
-                                    .encodeToString(v.getBytesVal().toByteArray())) + "}";
+            case STRING_VAL -> "{\"stringVal\":" + jsonString(v.getStringVal()) + "}";
+            case LONG_VAL -> "{\"longVal\":\"" + v.getLongVal() + "\"}"; // int64 → quoted string
+            case DOUBLE_VAL -> "{\"doubleVal\":" + v.getDoubleVal() + "}";
+            case BOOL_VAL -> "{\"boolVal\":" + v.getBoolVal() + "}";
+            case BYTES_VAL ->
+                    "{\"bytesVal\":"
+                            + jsonString(
+                                    Base64.getEncoder()
+                                            .encodeToString(v.getBytesVal().toByteArray()))
+                            + "}";
             case DECIMAL_VAL -> "{\"decimalVal\":" + jsonString(v.getDecimalVal()) + "}";
-            case TIMESTAMP_VAL -> "{\"timestampVal\":" + jsonString(
+            case TIMESTAMP_VAL ->
+                    "{\"timestampVal\":"
+                            + jsonString(
                                     Instant.ofEpochSecond(
-                                        v.getTimestampVal().getSeconds(),
-                                        v.getTimestampVal().getNanos()).toString()) + "}";
-            case IS_NULL     -> "{\"isNull\":true}";
-            default          -> "{}";
+                                                    v.getTimestampVal().getSeconds(),
+                                                    v.getTimestampVal().getNanos())
+                                            .toString())
+                            + "}";
+            case IS_NULL -> "{\"isNull\":true}";
+            default -> "{}";
         };
     }
 
@@ -376,7 +461,9 @@ final class MockedQueryStubMapper {
 
     private boolean denied(String normalizedSql) {
         for (var prefix : sqlDenyPrefixes) {
-            if (prefix != null && !prefix.isBlank() && normalizedSql.startsWith(prefix.toLowerCase(Locale.ROOT))) {
+            if (prefix != null
+                    && !prefix.isBlank()
+                    && normalizedSql.startsWith(prefix.toLowerCase(Locale.ROOT))) {
                 return true;
             }
         }

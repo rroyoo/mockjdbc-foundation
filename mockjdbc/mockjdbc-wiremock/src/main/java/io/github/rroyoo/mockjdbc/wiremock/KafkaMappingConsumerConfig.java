@@ -1,7 +1,6 @@
 package io.github.rroyoo.mockjdbc.wiremock;
 
 import com.github.tomakehurst.wiremock.core.Admin;
-
 import java.time.Duration;
 import java.util.List;
 
@@ -12,8 +11,7 @@ public record KafkaMappingConsumerConfig(
         Admin admin,
         List<String> datasourceAllowlist,
         List<String> sqlDenyPrefixes,
-        Duration pollTimeout
-) {
+        Duration pollTimeout) {
 
     public KafkaMappingConsumerConfig {
         if (isBlank(bootstrapServers)) {
@@ -29,7 +27,8 @@ public record KafkaMappingConsumerConfig(
             throw new IllegalArgumentException("admin is required");
         }
 
-        datasourceAllowlist = datasourceAllowlist == null ? List.of() : List.copyOf(datasourceAllowlist);
+        datasourceAllowlist =
+                datasourceAllowlist == null ? List.of() : List.copyOf(datasourceAllowlist);
         sqlDenyPrefixes = sqlDenyPrefixes == null ? List.of() : List.copyOf(sqlDenyPrefixes);
         pollTimeout = pollTimeout == null ? Duration.ofMillis(250) : pollTimeout;
 
@@ -38,10 +37,8 @@ public record KafkaMappingConsumerConfig(
         }
     }
 
-    public static KafkaMappingConsumerConfig defaults(String bootstrapServers,
-                                                      String topic,
-                                                      String groupId,
-                                                      Admin admin) {
+    public static KafkaMappingConsumerConfig defaults(
+            String bootstrapServers, String topic, String groupId, Admin admin) {
         return new KafkaMappingConsumerConfig(
                 bootstrapServers,
                 topic,
@@ -49,12 +46,10 @@ public record KafkaMappingConsumerConfig(
                 admin,
                 List.of(),
                 List.of(),
-                Duration.ofMillis(250)
-        );
+                Duration.ofMillis(250));
     }
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
 }
-

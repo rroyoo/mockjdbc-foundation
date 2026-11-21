@@ -1,7 +1,6 @@
 package io.github.rroyoo.mockjdbc.mock.driver;
 
 import io.github.rroyoo.mockjdbc.mock.connection.ConnectionFactory;
-
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;

@@ -1,7 +1,6 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
-
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -30,7 +29,8 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
         this.producer = Objects.requireNonNull(producer, "producer is required");
         this.ringBuffer = new MockedQueryRingBuffer(config.ringBufferCapacity());
         this.overflowStrategy = config.overflowStrategy();
-        this.senderPool = Executors.newFixedThreadPool(config.senderThreads(), senderThreadFactory());
+        this.senderPool =
+                Executors.newFixedThreadPool(config.senderThreads(), senderThreadFactory());
 
         for (var i = 0; i < config.senderThreads(); i++) {
             senderPool.submit(this::sendLoop);
@@ -64,8 +64,7 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
                 sentCount.get(),
                 droppedCount.get(),
                 failedSendCount.get(),
-                ringBuffer.size()
-        );
+                ringBuffer.size());
     }
 
     @Override
@@ -95,13 +94,15 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
             }
 
             try {
-                producer.sendAsync(event).whenComplete((ignored, failure) -> {
-                    if (failure == null) {
-                        sentCount.incrementAndGet();
-                    } else {
-                        failedSendCount.incrementAndGet();
-                    }
-                });
+                producer.sendAsync(event)
+                        .whenComplete(
+                                (ignored, failure) -> {
+                                    if (failure == null) {
+                                        sentCount.incrementAndGet();
+                                    } else {
+                                        failedSendCount.incrementAndGet();
+                                    }
+                                });
             } catch (RuntimeException ignored) {
                 failedSendCount.incrementAndGet();
                 // Keep sender loop alive; failed events are intentionally dropped.
@@ -118,4 +119,3 @@ final class AsyncMockedQueryEventDispatcher implements AutoCloseable {
         };
     }
 }
-

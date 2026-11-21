@@ -8,9 +8,13 @@ final class LifecycleHandler {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public void close() throws SQLException { closed.set(true); }
+    public void close() throws SQLException {
+        closed.set(true);
+    }
 
-    public boolean isClosed() throws SQLException { return closed.get(); }
+    public boolean isClosed() throws SQLException {
+        return closed.get();
+    }
 
     public boolean isValid(int timeoutSeconds) throws SQLException {
         if (timeoutSeconds < 0) {
@@ -21,7 +25,8 @@ final class LifecycleHandler {
 
     /**
      * Marks the connection as closed and runs the release action on the supplied executor, as
-     * required by {@link java.sql.Connection#abort(Executor)}. Aborting a closed connection is a no-op.
+     * required by {@link java.sql.Connection#abort(Executor)}. Aborting a closed connection is a
+     * no-op.
      */
     public void abort(Executor executor, Runnable release) throws SQLException {
         if (executor == null) {

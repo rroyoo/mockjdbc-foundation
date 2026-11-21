@@ -1,9 +1,7 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
-
 import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -14,7 +12,8 @@ import java.util.function.Supplier;
 
 /**
  * Builds a {@link DatabaseMetaData} that answers product, driver and URL questions and rejects
- * everything else with {@link SQLFeatureNotSupportedException}; the mock backend has no catalog to describe.
+ * everything else with {@link SQLFeatureNotSupportedException}; the mock backend has no catalog to
+ * describe.
  */
 final class ConnectionMetaDataHandler {
 
@@ -29,35 +28,43 @@ final class ConnectionMetaDataHandler {
     }
 
     public DatabaseMetaData create(Connection connection) {
-        var url = "jdbc:mock://" + mockConfig.mockServer().host() + ":" + mockConfig.mockServer().port();
+        var url =
+                "jdbc:mock://"
+                        + mockConfig.mockServer().host()
+                        + ":"
+                        + mockConfig.mockServer().port();
         var supported = supportedAnswers(connection, url);
 
-        InvocationHandler handler = (proxy, method, args) -> {
-            if (method.getDeclaringClass() == Object.class) {
-                return switch (method.getName()) {
-                    case "equals" -> proxy == args[0];
-                    case "hashCode" -> System.identityHashCode(proxy);
-                    default -> "MockDatabaseMetaData";
+        InvocationHandler handler =
+                (proxy, method, args) -> {
+                    if (method.getDeclaringClass() == Object.class) {
+                        return switch (method.getName()) {
+                            case "equals" -> proxy == args[0];
+                            case "hashCode" -> System.identityHashCode(proxy);
+                            default -> "MockDatabaseMetaData";
+                        };
+                    }
+                    if ("unwrap".equals(method.getName())) {
+                        return unwrapMetaData((Class<?>) args[0], proxy);
+                    }
+                    if ("isWrapperFor".equals(method.getName())) {
+                        return ((Class<?>) args[0]).isInstance(proxy);
+                    }
+                    var answer = supported.get(method.getName());
+                    if (answer != null && method.getParameterCount() == 0) {
+                        return answer.get();
+                    }
+                    throw new SQLFeatureNotSupportedException(
+                            "DatabaseMetaData."
+                                    + method.getName()
+                                    + " is not supported by MockJDBC");
                 };
-            }
-            if ("unwrap".equals(method.getName())) {
-                return unwrapMetaData((Class<?>) args[0], proxy);
-            }
-            if ("isWrapperFor".equals(method.getName())) {
-                return ((Class<?>) args[0]).isInstance(proxy);
-            }
-            var answer = supported.get(method.getName());
-            if (answer != null && method.getParameterCount() == 0) {
-                return answer.get();
-            }
-            throw new SQLFeatureNotSupportedException(
-                    "DatabaseMetaData." + method.getName() + " is not supported by MockJDBC");
-        };
 
-        return (DatabaseMetaData) Proxy.newProxyInstance(
-                ConnectionMetaDataHandler.class.getClassLoader(),
-                new Class<?>[]{ DatabaseMetaData.class },
-                handler);
+        return (DatabaseMetaData)
+                Proxy.newProxyInstance(
+                        ConnectionMetaDataHandler.class.getClassLoader(),
+                        new Class<?>[] {DatabaseMetaData.class},
+                        handler);
     }
 
     private static Object unwrapMetaData(Class<?> iface, Object proxy) throws SQLException {
@@ -67,7 +74,8 @@ final class ConnectionMetaDataHandler {
         throw new SQLException("Not a wrapper for " + iface);
     }
 
-    private static Map<String, Supplier<Object>> supportedAnswers(Connection connection, String url) {
+    private static Map<String, Supplier<Object>> supportedAnswers(
+            Connection connection, String url) {
         return Map.ofEntries(
                 Map.entry("getURL", () -> url),
                 Map.entry("getUserName", () -> ""),
@@ -83,7 +91,6 @@ final class ConnectionMetaDataHandler {
                 Map.entry("getJDBCMinorVersion", () -> 3),
                 Map.entry("getConnection", () -> connection),
                 Map.entry("supportsBatchUpdates", () -> true),
-                Map.entry("supportsGetGeneratedKeys", () -> true)
-        );
+                Map.entry("supportsGetGeneratedKeys", () -> true));
     }
 }

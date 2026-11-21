@@ -1,12 +1,9 @@
 package io.github.rroyoo.mockjdbc.wiremock;
 
 import com.github.tomakehurst.wiremock.extension.Extension;
-
 import java.util.Objects;
 
-/**
- * WireMock extension wrapper that manages the Kafka bridge lifecycle.
- */
+/** WireMock extension wrapper that manages the Kafka bridge lifecycle. */
 public final class WireMockKafkaBridgeExtension implements Extension {
 
     private final String name;
@@ -40,4 +37,3 @@ public final class WireMockKafkaBridgeExtension implements Extension {
         consumer.close();
     }
 }
-

@@ -142,6 +142,15 @@ Runs all unit tests across modules. All tests follow JUnit5 conventions:
 - `@ParameterizedTest` for multiple scenarios
 - No unused imports, variables, or commented code
 
+Static checks run during `validate` on every Maven build: Spotless checks Java formatting
+with Google Java Format (AOSP style), and PMD fails on cyclomatic complexity of 10 or more
+in production and test methods/constructors. The formatter requires Java 21 or newer to run;
+compiled MockJDBC artifacts remain Java 17 compatible. To apply formatting before rebuilding:
+
+```bash
+mvn spotless:apply
+```
+
 ### Full Verification
 
 ```bash

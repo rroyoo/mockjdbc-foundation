@@ -65,4 +65,3 @@ final class StatementConfigHandler {
         return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 }
-

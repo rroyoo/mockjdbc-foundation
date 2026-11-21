@@ -1,16 +1,16 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.sql.ResultSet;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class StatementConfigHandlerTest {
 
     @Test
-    @DisplayName("Given a new statement config handler, when reading defaults, then JDBC-like defaults are returned")
+    @DisplayName(
+            "Given a new statement config handler, when reading defaults, then JDBC-like defaults are returned")
     void shouldReturnJdbcDefaults() throws Exception {
         var handler = new StatementConfigHandler();
 
@@ -25,7 +25,8 @@ class StatementConfigHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a statement config handler, when values are set, then getters return the configured values")
+    @DisplayName(
+            "Given a statement config handler, when values are set, then getters return the configured values")
     void shouldStoreConfiguredValues() throws Exception {
         var handler = new StatementConfigHandler();
 
@@ -42,4 +43,3 @@ class StatementConfigHandlerTest {
         assertEquals(ResultSet.FETCH_REVERSE, handler.getFetchDirection());
     }
 }
-

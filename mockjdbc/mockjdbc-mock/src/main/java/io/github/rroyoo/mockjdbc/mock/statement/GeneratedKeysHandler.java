@@ -2,7 +2,6 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.ColumnMetadata;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -31,12 +30,13 @@ final class GeneratedKeysHandler {
 
     private static SerializedResultSet emptyGeneratedKeysResultSet() {
         return SerializedResultSet.newBuilder()
-                .addMetadata(ColumnMetadata.newBuilder()
-                        .setName("GENERATED_KEY")
-                        .setLabel("GENERATED_KEY")
-                        .setSqlType(Types.BIGINT)
-                        .setTypeName("BIGINT")
-                        .build())
+                .addMetadata(
+                        ColumnMetadata.newBuilder()
+                                .setName("GENERATED_KEY")
+                                .setLabel("GENERATED_KEY")
+                                .setSqlType(Types.BIGINT)
+                                .setTypeName("BIGINT")
+                                .build())
                 .build();
     }
 
@@ -51,4 +51,3 @@ final class GeneratedKeysHandler {
         }
     }
 }
-

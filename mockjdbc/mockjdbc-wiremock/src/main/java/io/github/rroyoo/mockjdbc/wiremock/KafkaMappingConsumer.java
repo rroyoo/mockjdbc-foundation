@@ -2,9 +2,17 @@ package io.github.rroyoo.mockjdbc.wiremock;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -12,16 +20,10 @@ import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 public final class KafkaMappingConsumer implements AutoCloseable {
 
-    private static final System.Logger LOGGER = System.getLogger(KafkaMappingConsumer.class.getName());
+    private static final System.Logger LOGGER =
+            System.getLogger(KafkaMappingConsumer.class.getName());
 
     private final Consumer<String, byte[]> consumer;
     private final WireMockMappingRegistrar registrar;
@@ -33,17 +35,19 @@ public final class KafkaMappingConsumer implements AutoCloseable {
     public KafkaMappingConsumer(KafkaMappingConsumerConfig config) {
         Objects.requireNonNull(config, "config is required");
 
-        var mapper = new MockedQueryStubMapper(config.datasourceAllowlist(), config.sqlDenyPrefixes());
+        var mapper =
+                new MockedQueryStubMapper(config.datasourceAllowlist(), config.sqlDenyPrefixes());
         this.registrar = new WireMockMappingRegistrar(config.admin(), mapper);
         this.consumer = new KafkaConsumer<>(consumerProperties(config));
         this.topic = config.topic();
         this.pollTimeout = config.pollTimeout();
     }
 
-    KafkaMappingConsumer(Consumer<String, byte[]> consumer,
-                         WireMockMappingRegistrar registrar,
-                         String topic,
-                         Duration pollTimeout) {
+    KafkaMappingConsumer(
+            Consumer<String, byte[]> consumer,
+            WireMockMappingRegistrar registrar,
+            String topic,
+            Duration pollTimeout) {
         this.consumer = Objects.requireNonNull(consumer, "consumer is required");
         this.registrar = Objects.requireNonNull(registrar, "registrar is required");
         this.topic = Objects.requireNonNull(topic, "topic is required");
@@ -73,22 +77,7 @@ public final class KafkaMappingConsumer implements AutoCloseable {
             while (running.get()) {
                 var records = consumer.poll(pollTimeout);
                 var toCommit = new HashMap<TopicPartition, OffsetAndMetadata>();
-                var failed = false;
-                for (TopicPartition partition : records.partitions()) {
-                    for (ConsumerRecord<String, byte[]> record : records.records(partition)) {
-                        try {
-                            process(record);
-                            toCommit.put(partition, new OffsetAndMetadata(record.offset() + 1));
-                        } catch (RuntimeException registrationFailure) {
-                            LOGGER.log(System.Logger.Level.ERROR,
-                                    "Registration failed at " + partition + "@" + record.offset() + "; will retry",
-                                    registrationFailure);
-                            consumer.seek(partition, record.offset());
-                            failed = true;
-                            break;
-                        }
-                    }
-                }
+                var failed = processRecords(records, toCommit);
                 if (!toCommit.isEmpty()) {
                     consumer.commitSync(toCommit);
                 }
@@ -105,14 +94,56 @@ public final class KafkaMappingConsumer implements AutoCloseable {
         }
     }
 
+    private boolean processRecords(
+            ConsumerRecords<String, byte[]> records,
+            Map<TopicPartition, OffsetAndMetadata> toCommit) {
+        var failed = false;
+        for (TopicPartition partition : records.partitions()) {
+            if (processPartition(partition, records.records(partition), toCommit)) {
+                failed = true;
+            }
+        }
+        return failed;
+    }
+
+    private boolean processPartition(
+            TopicPartition partition,
+            Iterable<ConsumerRecord<String, byte[]>> records,
+            Map<TopicPartition, OffsetAndMetadata> toCommit) {
+        for (var record : records) {
+            try {
+                process(record);
+                toCommit.put(partition, new OffsetAndMetadata(record.offset() + 1));
+            } catch (RuntimeException registrationFailure) {
+                LOGGER.log(
+                        System.Logger.Level.ERROR,
+                        "Registration failed at "
+                                + partition
+                                + "@"
+                                + record.offset()
+                                + "; will retry",
+                        registrationFailure);
+                consumer.seek(partition, record.offset());
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void process(ConsumerRecord<String, byte[]> record) {
         MockedQuery event;
         try {
             event = MockedQuery.parseFrom(record.value());
         } catch (InvalidProtocolBufferException malformed) {
             // Poison pill: retrying can never succeed, so log and skip it (it is then committed).
-            LOGGER.log(System.Logger.Level.WARNING,
-                    "Skipping malformed record " + record.topic() + "-" + record.partition() + "@" + record.offset(),
+            LOGGER.log(
+                    System.Logger.Level.WARNING,
+                    "Skipping malformed record "
+                            + record.topic()
+                            + "-"
+                            + record.partition()
+                            + "@"
+                            + record.offset(),
                     malformed);
             return;
         }
@@ -155,8 +186,11 @@ public final class KafkaMappingConsumer implements AutoCloseable {
         properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "500");
         properties.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, "65536");
         properties.setProperty(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, "500");
-        properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        properties.setProperty(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        properties.setProperty(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
         return properties;
     }
 }

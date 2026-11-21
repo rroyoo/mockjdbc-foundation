@@ -5,7 +5,6 @@ import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
-
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
@@ -59,7 +58,8 @@ final class GrpcMockQueryClient implements AutoCloseable {
         }
     }
 
-    SerializedResultSet findResultSet(String sql, List<ParameterMetadata> parameters) throws SQLException {
+    SerializedResultSet findResultSet(String sql, List<ParameterMetadata> parameters)
+            throws SQLException {
         return findMock(sql, parameters).getResultSet();
     }
 
@@ -83,15 +83,13 @@ final class GrpcMockQueryClient implements AutoCloseable {
     }
 
     static SerializedResultSet generatedKeys(MockedQuery response) {
-        return response.hasGeneratedKeys()
-                ? response.getGeneratedKeys()
-                : response.getResultSet();
+        return response.hasGeneratedKeys() ? response.getGeneratedKeys() : response.getResultSet();
     }
 
     static boolean hasGeneratedKeys(MockedQuery response) {
         return response.hasGeneratedKeys()
                 || (response.getResultSet().getMetadataCount() > 0
-                && !isUpdateCountResultSet(response.getResultSet()));
+                        && !isUpdateCountResultSet(response.getResultSet()));
     }
 
     private static boolean isUpdateCountResultSet(SerializedResultSet resultSet) {
@@ -103,7 +101,8 @@ final class GrpcMockQueryClient implements AutoCloseable {
         if (resultSet.getRowsCount() == 0
                 || resultSet.getRows(0).getValuesCount() == 0
                 || resultSet.getRows(0).getValues(0).getKindCase() != JdbcValue.KindCase.LONG_VAL) {
-            throw new SQLException("Mock update-count result is missing its numeric update_count value");
+            throw new SQLException(
+                    "Mock update-count result is missing its numeric update_count value");
         }
         return resultSet.getRows(0).getValues(0).getLongVal();
     }
@@ -112,17 +111,21 @@ final class GrpcMockQueryClient implements AutoCloseable {
         return findMock(sql, parameters, null);
     }
 
-    MockedQuery findMock(String sql, List<ParameterMetadata> parameters, Integer batchIndex) throws SQLException {
+    MockedQuery findMock(String sql, List<ParameterMetadata> parameters, Integer batchIndex)
+            throws SQLException {
         var activeChannel = acquireChannel();
         try {
-            var requestBuilder = QueryLookupRequest.newBuilder()
-                    .setSql(SqlNormalizer.normalize(sql))
-                    .addAllParameters(parameters);
+            var requestBuilder =
+                    QueryLookupRequest.newBuilder()
+                            .setSql(SqlNormalizer.normalize(sql))
+                            .addAllParameters(parameters);
             if (batchIndex != null) {
                 requestBuilder.setBatchIndex(batchIndex);
             }
 
-            var response = MockQueryServiceGrpc.newBlockingStub(activeChannel).findMock(requestBuilder.build());
+            var response =
+                    MockQueryServiceGrpc.newBlockingStub(activeChannel)
+                            .findMock(requestBuilder.build());
             if (response.hasError()) {
                 throw toSqlException(response.getError());
             }
@@ -144,11 +147,16 @@ final class GrpcMockQueryClient implements AutoCloseable {
 
     private ManagedChannel retain() {
         synchronized (CHANNELS) {
-            var shared = CHANNELS.computeIfAbsent(channelKey, k -> new SharedChannel(
-                    ManagedChannelBuilder
-                            .forAddress(mockConfig.mockServer().host(), mockConfig.mockServer().port())
-                            .usePlaintext()
-                            .build()));
+            var shared =
+                    CHANNELS.computeIfAbsent(
+                            channelKey,
+                            k ->
+                                    new SharedChannel(
+                                            ManagedChannelBuilder.forAddress(
+                                                            mockConfig.mockServer().host(),
+                                                            mockConfig.mockServer().port())
+                                                    .usePlaintext()
+                                                    .build()));
             shared.references++;
             return shared.channel;
         }
@@ -185,37 +193,43 @@ final class GrpcMockQueryClient implements AutoCloseable {
     private static SQLException toSqlException(QueryError error) {
         var type = error.getType();
         var message = error.getMessage();
-        var hasMessage = message != null && !message.isBlank();
-
         if (type == null || type.isBlank()) {
-            return hasMessage ? new SQLException(message) : new SQLException();
+            return fallbackSqlException(message);
         }
 
         try {
             var clazz = Class.forName(type);
             if (!SQLException.class.isAssignableFrom(clazz)) {
-                return hasMessage ? new SQLException(message) : new SQLException();
+                return fallbackSqlException(message);
             }
 
             @SuppressWarnings("unchecked")
             var sqlExceptionClass = (Class<? extends SQLException>) clazz;
-
-            if (!hasMessage) {
-                try {
-                    return sqlExceptionClass.getDeclaredConstructor().newInstance();
-                } catch (ReflectiveOperationException ignored) {
-                    return new SQLException();
-                }
-            }
-
-            try {
-                return sqlExceptionClass.getDeclaredConstructor(String.class).newInstance(message);
-            } catch (ReflectiveOperationException ignored) {
-                return new SQLException(message);
-            }
+            return instantiateSqlException(sqlExceptionClass, message);
         } catch (ClassNotFoundException e) {
-            return hasMessage ? new SQLException(message) : new SQLException();
+            return fallbackSqlException(message);
         }
     }
 
+    private static SQLException instantiateSqlException(
+            Class<? extends SQLException> exceptionClass, String message) {
+        if (message == null || message.isBlank()) {
+            try {
+                return exceptionClass.getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException ignored) {
+                return new SQLException();
+            }
+        }
+        try {
+            return exceptionClass.getDeclaredConstructor(String.class).newInstance(message);
+        } catch (ReflectiveOperationException ignored) {
+            return new SQLException(message);
+        }
+    }
+
+    private static SQLException fallbackSqlException(String message) {
+        return message == null || message.isBlank()
+                ? new SQLException()
+                : new SQLException(message);
+    }
 }

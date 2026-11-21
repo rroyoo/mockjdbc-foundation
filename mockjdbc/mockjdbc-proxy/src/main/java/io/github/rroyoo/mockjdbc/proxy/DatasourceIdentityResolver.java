@@ -1,10 +1,10 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
-import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Connection;
 import java.util.HexFormat;
+import javax.sql.DataSource;
 
 final class DatasourceIdentityResolver {
 
@@ -33,12 +33,15 @@ final class DatasourceIdentityResolver {
                 return UNKNOWN;
             }
 
-            var basis = safe(metaData.getURL())
-                    + "|"
-                    + safe(metaData.getUserName())
-                    + "|"
-                    + safe(metaData.getDriverName());
-            var digest = MessageDigest.getInstance("SHA-256").digest(basis.getBytes(StandardCharsets.UTF_8));
+            var basis =
+                    safe(metaData.getURL())
+                            + "|"
+                            + safe(metaData.getUserName())
+                            + "|"
+                            + safe(metaData.getDriverName());
+            var digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(basis.getBytes(StandardCharsets.UTF_8));
             return "ds-" + HexFormat.of().formatHex(digest, 0, 8);
         } catch (Exception ignored) {
             return UNKNOWN;
@@ -53,4 +56,3 @@ final class DatasourceIdentityResolver {
         return value == null ? "" : value;
     }
 }
-
