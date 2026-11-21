@@ -20,36 +20,38 @@ final class URLParser {
         return parse(url, null);
     }
 
-    static MockConfig parse(String url, Properties externalProperties) throws MalformedURLException {
+    static MockConfig parse(String url, Properties externalProperties)
+            throws MalformedURLException {
         var matcher = URL_PATTERN.matcher(url);
 
-        if(matcher.matches()) {
+        if (matcher.matches()) {
             var host = matcher.group("host");
             var port = Integer.parseInt(matcher.group("port"));
             var params = matcher.group("params");
 
             var properties = new Properties();
 
-            if(externalProperties != null) {
+            if (externalProperties != null) {
                 properties.putAll(externalProperties);
             }
 
-            if(params != null) {
+            if (params != null) {
                 properties.putAll(parseProperties(params));
             }
 
             return new MockConfig(new MockConfig.MockServer(host, port), properties);
         } else {
-            throw new MalformedURLException(String.format("URL does not match expected format: %s", url));
+            throw new MalformedURLException(
+                    String.format("URL does not match expected format: %s", url));
         }
     }
 
     private static Properties parseProperties(String parameters) {
         var properties = new Properties();
 
-        for(var param : parameters.split("&")) {
+        for (var param : parameters.split("&")) {
             var keyValue = param.split("=", 2);
-            if(keyValue.length == 2) {
+            if (keyValue.length == 2) {
                 properties.setProperty(keyValue[0], keyValue[1]);
             }
         }

@@ -1,10 +1,12 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.PlainStatement;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -12,31 +14,32 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
- * Deterministic single-threaded correctness tests plus a concurrent stress test for the
- * lock-free MPMC {@link MockedQueryRingBuffer}.
+ * Deterministic single-threaded correctness tests plus a concurrent stress test for the lock-free
+ * MPMC {@link MockedQueryRingBuffer}.
  */
 class MockedQueryRingBufferTest {
 
     private static MockedQuery query(String sql) {
-        return MockedQuery.newBuilder().setSimpleStatement(PlainStatement.newBuilder().setSql(sql).build()).build();
+        return MockedQuery.newBuilder()
+                .setSimpleStatement(PlainStatement.newBuilder().setSql(sql).build())
+                .build();
     }
 
     @Test
-    @DisplayName("Given a requested capacity of 1, when constructed, then the effective capacity is rounded up to 2")
+    @DisplayName(
+            "Given a requested capacity of 1, when constructed, then the effective capacity is rounded up to 2")
     void shouldRoundUpCapacityToAtLeastTwo() {
         var ringBuffer = new MockedQueryRingBuffer(1);
         assertEquals(2, ringBuffer.capacity());
     }
 
     @Test
-    @DisplayName("Given a requested capacity of 5, when constructed, then the effective capacity is rounded up to the next power of two")
+    @DisplayName(
+            "Given a requested capacity of 5, when constructed, then the effective capacity is rounded up to the next power of two")
     void shouldRoundUpNonPowerOfTwoCapacity() {
         var ringBuffer = new MockedQueryRingBuffer(5);
         assertEquals(8, ringBuffer.capacity());
@@ -50,7 +53,8 @@ class MockedQueryRingBufferTest {
     }
 
     @Test
-    @DisplayName("Given a ring buffer at capacity, when offering one more event, then it is rejected")
+    @DisplayName(
+            "Given a ring buffer at capacity, when offering one more event, then it is rejected")
     void shouldRejectOfferWhenFull() {
         var ringBuffer = new MockedQueryRingBuffer(2);
         assertTrue(ringBuffer.tryOffer(query("a")));
@@ -74,7 +78,8 @@ class MockedQueryRingBufferTest {
     }
 
     @Test
-    @DisplayName("Given a slot freed by a poll, when offering again, then the buffer reuses the slot correctly across many wraparounds")
+    @DisplayName(
+            "Given a slot freed by a poll, when offering again, then the buffer reuses the slot correctly across many wraparounds")
     void shouldReuseSlotsAcrossManyWraparounds() {
         var ringBuffer = new MockedQueryRingBuffer(2);
         for (var i = 0; i < 10_000; i++) {
@@ -86,7 +91,8 @@ class MockedQueryRingBufferTest {
     }
 
     @Test
-    @DisplayName("Given multiple producer threads publishing concurrently, when a single consumer drains, then every published event is delivered exactly once without loss or duplication")
+    @DisplayName(
+            "Given multiple producer threads publishing concurrently, when a single consumer drains, then every published event is delivered exactly once without loss or duplication")
     void shouldNotLoseOrDuplicateEventsUnderConcurrentProducers() throws Exception {
         var ringBuffer = new MockedQueryRingBuffer(64);
         var producerCount = 8;
@@ -100,37 +106,41 @@ class MockedQueryRingBufferTest {
         ExecutorService pool = Executors.newFixedThreadPool(producerCount + 1);
         var consumerDone = new CountDownLatch(1);
 
-        pool.submit(() -> {
-            while (!stopConsumer.get() || ringBuffer.size() > 0) {
-                var event = ringBuffer.tryPoll();
-                if (event != null) {
-                    received.add(event.getSimpleStatement().getSql());
-                    consumedCount.incrementAndGet();
-                }
-            }
-            consumerDone.countDown();
-        });
+        pool.submit(
+                () -> {
+                    while (!stopConsumer.get() || ringBuffer.size() > 0) {
+                        var event = ringBuffer.tryPoll();
+                        if (event != null) {
+                            received.add(event.getSimpleStatement().getSql());
+                            consumedCount.incrementAndGet();
+                        }
+                    }
+                    consumerDone.countDown();
+                });
 
         var startLatch = new CountDownLatch(1);
         var producersDone = new CountDownLatch(producerCount);
         for (var p = 0; p < producerCount; p++) {
             var producerId = p;
-            pool.submit(() -> {
-                try {
-                    startLatch.await();
-                    for (var i = 0; i < eventsPerProducer; i++) {
-                        // Retry on transient contention; the buffer is generously sized relative
-                        // to the producer/consumer speed ratio so offers should rarely fail.
-                        while (!ringBuffer.tryOffer(query("p" + producerId + "-e" + i))) {
-                            Thread.onSpinWait();
+            pool.submit(
+                    () -> {
+                        try {
+                            startLatch.await();
+                            for (var i = 0; i < eventsPerProducer; i++) {
+                                // Retry on transient contention; the buffer is generously sized
+                                // relative
+                                // to the producer/consumer speed ratio so offers should rarely
+                                // fail.
+                                while (!ringBuffer.tryOffer(query("p" + producerId + "-e" + i))) {
+                                    Thread.onSpinWait();
+                                }
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            producersDone.countDown();
                         }
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } finally {
-                    producersDone.countDown();
-                }
-            });
+                    });
         }
 
         startLatch.countDown();

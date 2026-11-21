@@ -1,14 +1,13 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
-import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
+import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
-
-import java.math.BigDecimal;
 import java.io.InputStream;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.Array;
 import java.sql.BatchUpdateException;
@@ -43,23 +42,31 @@ final class PreparedStatementQueryHandler {
     private final boolean returnGeneratedKeys;
     private final Map<Integer, ParameterMetadata> parameters = new TreeMap<>();
     private final List<List<ParameterMetadata>> parameterBatches = new ArrayList<>();
-    private Consumer<List<ParameterMetadata>> outParametersListener = outParameters -> { };
+    private Consumer<List<ParameterMetadata>> outParametersListener = outParameters -> {};
 
-    PreparedStatementQueryHandler(MockConfig mockConfig,
-                                  StatementLifecycleHandler lifecycle,
-                                  StatementExecutionStateHandler executionState,
-                                  GeneratedKeysHandler generatedKeys,
-                                  boolean returnGeneratedKeys,
-                                  String sql) {
-        this(new GrpcMockQueryClient(mockConfig), lifecycle, executionState, generatedKeys, returnGeneratedKeys, sql);
+    PreparedStatementQueryHandler(
+            MockConfig mockConfig,
+            StatementLifecycleHandler lifecycle,
+            StatementExecutionStateHandler executionState,
+            GeneratedKeysHandler generatedKeys,
+            boolean returnGeneratedKeys,
+            String sql) {
+        this(
+                new GrpcMockQueryClient(mockConfig),
+                lifecycle,
+                executionState,
+                generatedKeys,
+                returnGeneratedKeys,
+                sql);
     }
 
-    PreparedStatementQueryHandler(GrpcMockQueryClient client,
-                                  StatementLifecycleHandler lifecycle,
-                                  StatementExecutionStateHandler executionState,
-                                  GeneratedKeysHandler generatedKeys,
-                                  boolean returnGeneratedKeys,
-                                  String sql) {
+    PreparedStatementQueryHandler(
+            GrpcMockQueryClient client,
+            StatementLifecycleHandler lifecycle,
+            StatementExecutionStateHandler executionState,
+            GeneratedKeysHandler generatedKeys,
+            boolean returnGeneratedKeys,
+            String sql) {
         this.lifecycle = lifecycle;
         this.executionState = executionState;
         this.generatedKeys = generatedKeys;
@@ -68,18 +75,22 @@ final class PreparedStatementQueryHandler {
         this.sql = sql;
     }
 
-    /** Receives the OUT/INOUT parameters returned by the mock backend after each callable execution. */
+    /**
+     * Receives the OUT/INOUT parameters returned by the mock backend after each callable execution.
+     */
     void onOutParameters(Consumer<List<ParameterMetadata>> listener) {
         this.outParametersListener = listener;
     }
 
-    private MockedQuery executeResponse(List<ParameterMetadata> requestParameters) throws SQLException {
+    private MockedQuery executeResponse(List<ParameterMetadata> requestParameters)
+            throws SQLException {
         var response = client.findMock(sql, requestParameters);
         outParametersListener.accept(response.getCallableStatement().getParametersList());
         return response;
     }
 
-    private SerializedResultSet execute(List<ParameterMetadata> requestParameters) throws SQLException {
+    private SerializedResultSet execute(List<ParameterMetadata> requestParameters)
+            throws SQLException {
         return executeResponse(requestParameters).getResultSet();
     }
 
@@ -88,39 +99,88 @@ final class PreparedStatementQueryHandler {
     }
 
     public void setInt(int index, int value) throws SQLException {
-        parameters.put(index, parameter(index, Types.INTEGER, "INTEGER", JdbcValue.newBuilder().setLongVal(value).build()));
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        Types.INTEGER,
+                        "INTEGER",
+                        JdbcValue.newBuilder().setLongVal(value).build()));
     }
 
     public void setLong(int index, long value) throws SQLException {
-        parameters.put(index, parameter(index, Types.BIGINT, "BIGINT", JdbcValue.newBuilder().setLongVal(value).build()));
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        Types.BIGINT,
+                        "BIGINT",
+                        JdbcValue.newBuilder().setLongVal(value).build()));
     }
 
     public void setBoolean(int index, boolean value) throws SQLException {
-        parameters.put(index, parameter(index, Types.BOOLEAN, "BOOLEAN", JdbcValue.newBuilder().setBoolVal(value).build()));
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        Types.BOOLEAN,
+                        "BOOLEAN",
+                        JdbcValue.newBuilder().setBoolVal(value).build()));
     }
 
     public void setDouble(int index, double value) throws SQLException {
-        parameters.put(index, parameter(index, Types.DOUBLE, "DOUBLE", JdbcValue.newBuilder().setDoubleVal(value).build()));
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        Types.DOUBLE,
+                        "DOUBLE",
+                        JdbcValue.newBuilder().setDoubleVal(value).build()));
     }
 
     public void setFloat(int index, float value) throws SQLException {
-        parameters.put(index, parameter(index, Types.FLOAT, "FLOAT", JdbcValue.newBuilder().setDoubleVal(value).build()));
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        Types.FLOAT,
+                        "FLOAT",
+                        JdbcValue.newBuilder().setDoubleVal(value).build()));
     }
 
     public void setShort(int index, short value) throws SQLException {
-        parameters.put(index, parameter(index, Types.SMALLINT, "SMALLINT", JdbcValue.newBuilder().setLongVal(value).build()));
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        Types.SMALLINT,
+                        "SMALLINT",
+                        JdbcValue.newBuilder().setLongVal(value).build()));
     }
 
     public void setByte(int index, byte value) throws SQLException {
-        parameters.put(index, parameter(index, Types.TINYINT, "TINYINT", JdbcValue.newBuilder().setLongVal(value).build()));
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        Types.TINYINT,
+                        "TINYINT",
+                        JdbcValue.newBuilder().setLongVal(value).build()));
     }
 
     public void setBytes(int index, byte[] value) throws SQLException {
         if (value == null) {
             setNull(index, Types.BINARY);
         } else {
-            parameters.put(index, parameter(index, Types.BINARY, "BINARY",
-                    JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(value)).build()));
+            parameters.put(
+                    index,
+                    parameter(
+                            index,
+                            Types.BINARY,
+                            "BINARY",
+                            JdbcValue.newBuilder()
+                                    .setBytesVal(com.google.protobuf.ByteString.copyFrom(value))
+                                    .build()));
         }
     }
 
@@ -128,8 +188,13 @@ final class PreparedStatementQueryHandler {
         if (value == null) {
             setNull(index, Types.DECIMAL);
         } else {
-            parameters.put(index, parameter(index, Types.DECIMAL, "DECIMAL",
-                    JdbcValue.newBuilder().setDecimalVal(value.toPlainString()).build()));
+            parameters.put(
+                    index,
+                    parameter(
+                            index,
+                            Types.DECIMAL,
+                            "DECIMAL",
+                            JdbcValue.newBuilder().setDecimalVal(value.toPlainString()).build()));
         }
     }
 
@@ -137,8 +202,13 @@ final class PreparedStatementQueryHandler {
         if (value == null) {
             setNull(index, Types.DATE);
         } else {
-            parameters.put(index, parameter(index, Types.DATE, "DATE",
-                    JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+            parameters.put(
+                    index,
+                    parameter(
+                            index,
+                            Types.DATE,
+                            "DATE",
+                            JdbcValue.newBuilder().setStringVal(value.toString()).build()));
         }
     }
 
@@ -146,8 +216,13 @@ final class PreparedStatementQueryHandler {
         if (value == null) {
             setNull(index, Types.TIME);
         } else {
-            parameters.put(index, parameter(index, Types.TIME, "TIME",
-                    JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+            parameters.put(
+                    index,
+                    parameter(
+                            index,
+                            Types.TIME,
+                            "TIME",
+                            JdbcValue.newBuilder().setStringVal(value.toString()).build()));
         }
     }
 
@@ -155,54 +230,66 @@ final class PreparedStatementQueryHandler {
         if (value == null) {
             setNull(index, Types.TIMESTAMP);
         } else {
-            parameters.put(index, parameter(index, Types.TIMESTAMP, "TIMESTAMP",
-                    JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+            parameters.put(
+                    index,
+                    parameter(
+                            index,
+                            Types.TIMESTAMP,
+                            "TIMESTAMP",
+                            JdbcValue.newBuilder().setStringVal(value.toString()).build()));
         }
     }
 
     public void setObject(int index, Object value) throws SQLException {
         if (value == null) {
             setNull(index, Types.NULL);
-        } else if (value instanceof String stringValue) {
-            setString(index, stringValue);
-        } else if (value instanceof Integer integerValue) {
-            setInt(index, integerValue);
-        } else if (value instanceof Long longValue) {
-            setLong(index, longValue);
-        } else if (value instanceof Boolean booleanValue) {
-            setBoolean(index, booleanValue);
-        } else if (value instanceof Double doubleValue) {
-            setDouble(index, doubleValue);
-        } else if (value instanceof Float floatValue) {
-            setFloat(index, floatValue);
-        } else if (value instanceof Short shortValue) {
-            setShort(index, shortValue);
-        } else if (value instanceof Byte byteValue) {
-            setByte(index, byteValue);
-        } else if (value instanceof byte[] bytesValue) {
-            setBytes(index, bytesValue);
-        } else if (value instanceof BigDecimal decimalValue) {
-            setBigDecimal(index, decimalValue);
-        } else if (value instanceof Date dateValue) {
-            setDate(index, dateValue);
-        } else if (value instanceof Time timeValue) {
-            setTime(index, timeValue);
-        } else if (value instanceof Timestamp timestampValue) {
-            setTimestamp(index, timestampValue);
-        } else if (value instanceof URL urlValue) {
-            setURL(index, urlValue);
-        } else {
-            parameters.put(index, parameter(index, Types.JAVA_OBJECT, value.getClass().getSimpleName(), jdbcValue(value.toString())));
+            return;
         }
+        if (value instanceof String stringValue) {
+            setString(index, stringValue);
+            return;
+        }
+        if (setNumericOrBooleanObject(index, value)) {
+            return;
+        }
+        if (value instanceof byte[] bytesValue) {
+            setBytes(index, bytesValue);
+            return;
+        }
+        if (value instanceof BigDecimal decimalValue) {
+            setBigDecimal(index, decimalValue);
+            return;
+        }
+        if (setTemporalObject(index, value)) {
+            return;
+        }
+        if (value instanceof URL urlValue) {
+            setURL(index, urlValue);
+            return;
+        }
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        Types.JAVA_OBJECT,
+                        value.getClass().getSimpleName(),
+                        jdbcValue(value.toString())));
     }
 
     public void setNull(int index, int sqlType) throws SQLException {
-        parameters.put(index, parameter(index, sqlType, "NULL", JdbcValue.newBuilder().setIsNull(true).build()));
+        parameters.put(
+                index,
+                parameter(index, sqlType, "NULL", JdbcValue.newBuilder().setIsNull(true).build()));
     }
 
     public void setNull(int index, int sqlType, String typeName) throws SQLException {
-        parameters.put(index, parameter(index, sqlType, typeName != null ? typeName : "NULL",
-                JdbcValue.newBuilder().setIsNull(true).build()));
+        parameters.put(
+                index,
+                parameter(
+                        index,
+                        sqlType,
+                        typeName != null ? typeName : "NULL",
+                        JdbcValue.newBuilder().setIsNull(true).build()));
     }
 
     public void setObject(int index, Object value, int targetSqlType) throws SQLException {
@@ -210,39 +297,166 @@ final class PreparedStatementQueryHandler {
             setNull(index, targetSqlType);
             return;
         }
-
-        switch (targetSqlType) {
-            case Types.VARCHAR, Types.CHAR, Types.LONGVARCHAR, Types.NVARCHAR, Types.NCHAR, Types.LONGNVARCHAR ->
-                    parameters.put(index, parameter(index, targetSqlType, "VARCHAR", jdbcValue(String.valueOf(value))));
-            case Types.INTEGER ->
-                    parameters.put(index, parameter(index, Types.INTEGER, "INTEGER", JdbcValue.newBuilder().setLongVal(((Number) value).intValue()).build()));
-            case Types.BIGINT ->
-                    parameters.put(index, parameter(index, Types.BIGINT, "BIGINT", JdbcValue.newBuilder().setLongVal(((Number) value).longValue()).build()));
-            case Types.SMALLINT ->
-                    parameters.put(index, parameter(index, Types.SMALLINT, "SMALLINT", JdbcValue.newBuilder().setLongVal(((Number) value).shortValue()).build()));
-            case Types.TINYINT ->
-                    parameters.put(index, parameter(index, Types.TINYINT, "TINYINT", JdbcValue.newBuilder().setLongVal(((Number) value).byteValue()).build()));
-            case Types.FLOAT, Types.REAL, Types.DOUBLE ->
-                    parameters.put(index, parameter(index, targetSqlType, "DOUBLE", JdbcValue.newBuilder().setDoubleVal(((Number) value).doubleValue()).build()));
-            case Types.DECIMAL, Types.NUMERIC ->
-                    parameters.put(index, parameter(index, targetSqlType, "DECIMAL", JdbcValue.newBuilder().setDecimalVal(String.valueOf(value)).build()));
-            case Types.BOOLEAN, Types.BIT ->
-                    parameters.put(index, parameter(index, targetSqlType, "BOOLEAN", JdbcValue.newBuilder().setBoolVal((Boolean) value).build()));
-            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> {
-                if (value instanceof byte[] bytesValue) {
-                    parameters.put(index, parameter(index, targetSqlType, "BINARY", JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(bytesValue)).build()));
-                } else {
-                    parameters.put(index, parameter(index, targetSqlType, "BINARY", JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(String.valueOf(value).getBytes())).build()));
-                }
-            }
-            case Types.DATE -> parameters.put(index, parameter(index, Types.DATE, "DATE", JdbcValue.newBuilder().setStringVal(String.valueOf(value)).build()));
-            case Types.TIME -> parameters.put(index, parameter(index, Types.TIME, "TIME", JdbcValue.newBuilder().setStringVal(String.valueOf(value)).build()));
-            case Types.TIMESTAMP -> parameters.put(index, parameter(index, Types.TIMESTAMP, "TIMESTAMP", JdbcValue.newBuilder().setStringVal(String.valueOf(value)).build()));
-            default -> setObject(index, value);
+        if (!setObjectBySqlType(index, value, targetSqlType)) {
+            setObject(index, value);
         }
     }
 
-    public void setObject(int index, Object value, int targetSqlType, int scaleOrLength) throws SQLException {
+    private boolean setNumericOrBooleanObject(int index, Object value) throws SQLException {
+        if (value instanceof Integer integerValue) setInt(index, integerValue);
+        else if (value instanceof Long longValue) setLong(index, longValue);
+        else if (value instanceof Boolean booleanValue) setBoolean(index, booleanValue);
+        else if (value instanceof Double doubleValue) setDouble(index, doubleValue);
+        else if (value instanceof Float floatValue) setFloat(index, floatValue);
+        else if (value instanceof Short shortValue) setShort(index, shortValue);
+        else if (value instanceof Byte byteValue) setByte(index, byteValue);
+        else return false;
+        return true;
+    }
+
+    private boolean setTemporalObject(int index, Object value) throws SQLException {
+        if (value instanceof Date dateValue) setDate(index, dateValue);
+        else if (value instanceof Time timeValue) setTime(index, timeValue);
+        else if (value instanceof Timestamp timestampValue) setTimestamp(index, timestampValue);
+        else return false;
+        return true;
+    }
+
+    private boolean setObjectBySqlType(int index, Object value, int targetSqlType)
+            throws SQLException {
+        if (isTextType(targetSqlType)) {
+            storeTypedParameter(index, targetSqlType, "VARCHAR", jdbcValue(String.valueOf(value)));
+        } else if (isIntegralType(targetSqlType)) {
+            setIntegralObject(index, value, targetSqlType);
+        } else if (isFloatingType(targetSqlType)) {
+            storeTypedParameter(
+                    index,
+                    targetSqlType,
+                    "DOUBLE",
+                    JdbcValue.newBuilder().setDoubleVal(((Number) value).doubleValue()).build());
+        } else if (isDecimalType(targetSqlType)) {
+            storeTypedParameter(
+                    index,
+                    targetSqlType,
+                    "DECIMAL",
+                    JdbcValue.newBuilder().setDecimalVal(String.valueOf(value)).build());
+        } else if (isBooleanType(targetSqlType)) {
+            storeTypedParameter(
+                    index,
+                    targetSqlType,
+                    "BOOLEAN",
+                    JdbcValue.newBuilder().setBoolVal((Boolean) value).build());
+        } else if (isBinaryType(targetSqlType)) {
+            setBinaryObject(index, value, targetSqlType);
+        } else if (isTemporalType(targetSqlType)) {
+            setTemporalSqlObject(index, value, targetSqlType);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    private void setIntegralObject(int index, Object value, int targetSqlType) {
+        var number = (Number) value;
+        switch (targetSqlType) {
+            case Types.INTEGER ->
+                    storeTypedParameter(
+                            index,
+                            Types.INTEGER,
+                            "INTEGER",
+                            JdbcValue.newBuilder().setLongVal(number.intValue()).build());
+            case Types.BIGINT ->
+                    storeTypedParameter(
+                            index,
+                            Types.BIGINT,
+                            "BIGINT",
+                            JdbcValue.newBuilder().setLongVal(number.longValue()).build());
+            case Types.SMALLINT ->
+                    storeTypedParameter(
+                            index,
+                            Types.SMALLINT,
+                            "SMALLINT",
+                            JdbcValue.newBuilder().setLongVal(number.shortValue()).build());
+            case Types.TINYINT ->
+                    storeTypedParameter(
+                            index,
+                            Types.TINYINT,
+                            "TINYINT",
+                            JdbcValue.newBuilder().setLongVal(number.byteValue()).build());
+            default -> throw new IllegalArgumentException("Unsupported integral SQL type");
+        }
+    }
+
+    private void setBinaryObject(int index, Object value, int targetSqlType) {
+        var bytes =
+                value instanceof byte[] byteValue ? byteValue : String.valueOf(value).getBytes();
+        storeTypedParameter(
+                index,
+                targetSqlType,
+                "BINARY",
+                JdbcValue.newBuilder()
+                        .setBytesVal(com.google.protobuf.ByteString.copyFrom(bytes))
+                        .build());
+    }
+
+    private void setTemporalSqlObject(int index, Object value, int targetSqlType) {
+        var typeName =
+                switch (targetSqlType) {
+                    case Types.DATE -> "DATE";
+                    case Types.TIME -> "TIME";
+                    default -> "TIMESTAMP";
+                };
+        storeTypedParameter(
+                index,
+                targetSqlType,
+                typeName,
+                JdbcValue.newBuilder().setStringVal(String.valueOf(value)).build());
+    }
+
+    private static boolean isTextType(int sqlType) {
+        return sqlType == Types.VARCHAR
+                || sqlType == Types.CHAR
+                || sqlType == Types.LONGVARCHAR
+                || sqlType == Types.NVARCHAR
+                || sqlType == Types.NCHAR
+                || sqlType == Types.LONGNVARCHAR;
+    }
+
+    private static boolean isIntegralType(int sqlType) {
+        return sqlType == Types.INTEGER
+                || sqlType == Types.BIGINT
+                || sqlType == Types.SMALLINT
+                || sqlType == Types.TINYINT;
+    }
+
+    private static boolean isFloatingType(int sqlType) {
+        return sqlType == Types.FLOAT || sqlType == Types.REAL || sqlType == Types.DOUBLE;
+    }
+
+    private static boolean isDecimalType(int sqlType) {
+        return sqlType == Types.DECIMAL || sqlType == Types.NUMERIC;
+    }
+
+    private static boolean isBooleanType(int sqlType) {
+        return sqlType == Types.BOOLEAN || sqlType == Types.BIT;
+    }
+
+    private static boolean isBinaryType(int sqlType) {
+        return sqlType == Types.BINARY
+                || sqlType == Types.VARBINARY
+                || sqlType == Types.LONGVARBINARY;
+    }
+
+    private static boolean isTemporalType(int sqlType) {
+        return sqlType == Types.DATE || sqlType == Types.TIME || sqlType == Types.TIMESTAMP;
+    }
+
+    private void storeTypedParameter(int index, int sqlType, String typeName, JdbcValue value) {
+        parameters.put(index, parameter(index, sqlType, typeName, value));
+    }
+
+    public void setObject(int index, Object value, int targetSqlType, int scaleOrLength)
+            throws SQLException {
         setObject(index, value, targetSqlType);
     }
 
@@ -279,8 +493,13 @@ final class PreparedStatementQueryHandler {
         if (value == null) {
             setNull(index, Types.DATALINK);
         } else {
-            parameters.put(index, parameter(index, Types.DATALINK, "DATALINK",
-                    JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+            parameters.put(
+                    index,
+                    parameter(
+                            index,
+                            Types.DATALINK,
+                            "DATALINK",
+                            JdbcValue.newBuilder().setStringVal(value.toString()).build()));
         }
     }
 
@@ -289,10 +508,17 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.BLOB);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.BLOB, "BLOB",
-                        JdbcValue.newBuilder().setBytesVal(
-                                com.google.protobuf.ByteString.copyFrom(value.getBytes(1L, (int) value.length()))
-                        ).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.BLOB,
+                                "BLOB",
+                                JdbcValue.newBuilder()
+                                        .setBytesVal(
+                                                com.google.protobuf.ByteString.copyFrom(
+                                                        value.getBytes(1L, (int) value.length())))
+                                        .build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read Blob value", e);
             }
@@ -304,10 +530,17 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.BLOB);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.BLOB, "BLOB",
-                        JdbcValue.newBuilder().setBytesVal(
-                                com.google.protobuf.ByteString.readFrom(inputStream)
-                        ).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.BLOB,
+                                "BLOB",
+                                JdbcValue.newBuilder()
+                                        .setBytesVal(
+                                                com.google.protobuf.ByteString.readFrom(
+                                                        inputStream))
+                                        .build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read Blob InputStream", e);
             }
@@ -323,8 +556,15 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.CLOB);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.CLOB, "CLOB",
-                        JdbcValue.newBuilder().setStringVal(value.getSubString(1L, (int) value.length())).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.CLOB,
+                                "CLOB",
+                                JdbcValue.newBuilder()
+                                        .setStringVal(value.getSubString(1L, (int) value.length()))
+                                        .build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read Clob value", e);
             }
@@ -336,9 +576,20 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.CLOB);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.CLOB, "CLOB",
-                        JdbcValue.newBuilder().setStringVal(new java.io.BufferedReader(reader).lines()
-                                .collect(java.util.stream.Collectors.joining("\n"))).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.CLOB,
+                                "CLOB",
+                                JdbcValue.newBuilder()
+                                        .setStringVal(
+                                                new java.io.BufferedReader(reader)
+                                                        .lines()
+                                                        .collect(
+                                                                java.util.stream.Collectors.joining(
+                                                                        "\n")))
+                                        .build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read Clob Reader", e);
             }
@@ -354,8 +605,15 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.NCLOB);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.NCLOB, "NCLOB",
-                        JdbcValue.newBuilder().setStringVal(value.getSubString(1L, (int) value.length())).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.NCLOB,
+                                "NCLOB",
+                                JdbcValue.newBuilder()
+                                        .setStringVal(value.getSubString(1L, (int) value.length()))
+                                        .build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read NClob value", e);
             }
@@ -367,9 +625,20 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.NCLOB);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.NCLOB, "NCLOB",
-                        JdbcValue.newBuilder().setStringVal(new java.io.BufferedReader(reader).lines()
-                                .collect(java.util.stream.Collectors.joining("\n"))).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.NCLOB,
+                                "NCLOB",
+                                JdbcValue.newBuilder()
+                                        .setStringVal(
+                                                new java.io.BufferedReader(reader)
+                                                        .lines()
+                                                        .collect(
+                                                                java.util.stream.Collectors.joining(
+                                                                        "\n")))
+                                        .build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read NClob Reader", e);
             }
@@ -385,8 +654,13 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.ARRAY);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.ARRAY, value.getBaseTypeName(),
-                        JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.ARRAY,
+                                value.getBaseTypeName(),
+                                JdbcValue.newBuilder().setStringVal(value.toString()).build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read Array value", e);
             }
@@ -398,8 +672,13 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.REF);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.REF, value.getBaseTypeName(),
-                        JdbcValue.newBuilder().setStringVal(value.toString()).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.REF,
+                                value.getBaseTypeName(),
+                                JdbcValue.newBuilder().setStringVal(value.toString()).build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read Ref value", e);
             }
@@ -410,10 +689,17 @@ final class PreparedStatementQueryHandler {
         if (value == null) {
             setNull(index, Types.ROWID);
         } else {
-            parameters.put(index, parameter(index, Types.ROWID, "ROWID",
-                    JdbcValue.newBuilder().setBytesVal(
-                            com.google.protobuf.ByteString.copyFrom(value.getBytes())
-                    ).build()));
+            parameters.put(
+                    index,
+                    parameter(
+                            index,
+                            Types.ROWID,
+                            "ROWID",
+                            JdbcValue.newBuilder()
+                                    .setBytesVal(
+                                            com.google.protobuf.ByteString.copyFrom(
+                                                    value.getBytes()))
+                                    .build()));
         }
     }
 
@@ -422,8 +708,13 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.SQLXML);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.SQLXML, "SQLXML",
-                        JdbcValue.newBuilder().setStringVal(value.getString()).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.SQLXML,
+                                "SQLXML",
+                                JdbcValue.newBuilder().setStringVal(value.getString()).build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read SQLXML value", e);
             }
@@ -434,8 +725,13 @@ final class PreparedStatementQueryHandler {
         if (value == null) {
             setNull(index, Types.NVARCHAR);
         } else {
-            parameters.put(index, parameter(index, Types.NVARCHAR, "NVARCHAR",
-                    JdbcValue.newBuilder().setStringVal(value).build()));
+            parameters.put(
+                    index,
+                    parameter(
+                            index,
+                            Types.NVARCHAR,
+                            "NVARCHAR",
+                            JdbcValue.newBuilder().setStringVal(value).build()));
         }
     }
 
@@ -463,11 +759,13 @@ final class PreparedStatementQueryHandler {
         setBlob(index, inputStream);
     }
 
-    public void setBinaryStream(int index, InputStream inputStream, int length) throws SQLException {
+    public void setBinaryStream(int index, InputStream inputStream, int length)
+            throws SQLException {
         setBlob(index, inputStream);
     }
 
-    public void setBinaryStream(int index, InputStream inputStream, long length) throws SQLException {
+    public void setBinaryStream(int index, InputStream inputStream, long length)
+            throws SQLException {
         setBlob(index, inputStream);
     }
 
@@ -476,10 +774,18 @@ final class PreparedStatementQueryHandler {
             setNull(index, Types.LONGVARCHAR);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.LONGVARCHAR, "LONGVARCHAR",
-                        JdbcValue.newBuilder().setStringVal(
-                                new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.US_ASCII)
-                        ).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.LONGVARCHAR,
+                                "LONGVARCHAR",
+                                JdbcValue.newBuilder()
+                                        .setStringVal(
+                                                new String(
+                                                        inputStream.readAllBytes(),
+                                                        java.nio.charset.StandardCharsets.US_ASCII))
+                                        .build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read ASCII stream", e);
             }
@@ -490,20 +796,30 @@ final class PreparedStatementQueryHandler {
         setAsciiStream(index, inputStream);
     }
 
-    public void setAsciiStream(int index, InputStream inputStream, long length) throws SQLException {
+    public void setAsciiStream(int index, InputStream inputStream, long length)
+            throws SQLException {
         setAsciiStream(index, inputStream);
     }
 
     @SuppressWarnings("deprecation")
-    public void setUnicodeStream(int index, InputStream inputStream, int length) throws SQLException {
+    public void setUnicodeStream(int index, InputStream inputStream, int length)
+            throws SQLException {
         if (inputStream == null) {
             setNull(index, Types.LONGVARCHAR);
         } else {
             try {
-                parameters.put(index, parameter(index, Types.LONGVARCHAR, "LONGVARCHAR",
-                        JdbcValue.newBuilder().setStringVal(
-                                new String(inputStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
-                        ).build()));
+                parameters.put(
+                        index,
+                        parameter(
+                                index,
+                                Types.LONGVARCHAR,
+                                "LONGVARCHAR",
+                                JdbcValue.newBuilder()
+                                        .setStringVal(
+                                                new String(
+                                                        inputStream.readAllBytes(),
+                                                        java.nio.charset.StandardCharsets.UTF_8))
+                                        .build()));
             } catch (Exception e) {
                 throw new SQLException("Failed to read Unicode stream", e);
             }
@@ -523,7 +839,8 @@ final class PreparedStatementQueryHandler {
         generatedKeys.clearGeneratedKeys();
         var serialized = execute(sortedParameters());
         if (serialized.getMetadataCount() == 0) {
-            // No columns means no result set (update or callable without result), as in real JDBC drivers
+            // No columns means no result set (update or callable without result), as in real JDBC
+            // drivers
             executionState.storeUpdateCount(serialized.getRowsCount());
             return false;
         }
@@ -625,11 +942,16 @@ final class PreparedStatementQueryHandler {
         try {
             for (int i = 0; i < parameterBatches.size(); i++) {
                 try {
-                    result[i] = GrpcMockQueryClient.updateCountAsInt(
-                            client.findMock(sql, parameterBatches.get(i), i));
+                    result[i] =
+                            GrpcMockQueryClient.updateCountAsInt(
+                                    client.findMock(sql, parameterBatches.get(i), i));
                 } catch (SQLException error) {
-                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
-                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                    throw new BatchUpdateException(
+                            error.getMessage(),
+                            error.getSQLState(),
+                            error.getErrorCode(),
+                            java.util.Arrays.copyOf(result, i),
+                            error);
                 }
             }
         } finally {
@@ -647,10 +969,16 @@ final class PreparedStatementQueryHandler {
         try {
             for (int i = 0; i < parameterBatches.size(); i++) {
                 try {
-                    result[i] = GrpcMockQueryClient.updateCount(client.findMock(sql, parameterBatches.get(i), i));
+                    result[i] =
+                            GrpcMockQueryClient.updateCount(
+                                    client.findMock(sql, parameterBatches.get(i), i));
                 } catch (SQLException error) {
-                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
-                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                    throw new BatchUpdateException(
+                            error.getMessage(),
+                            error.getSQLState(),
+                            error.getErrorCode(),
+                            java.util.Arrays.copyOf(result, i),
+                            error);
                 }
             }
         } finally {
@@ -664,7 +992,8 @@ final class PreparedStatementQueryHandler {
         return List.copyOf(parameters.values());
     }
 
-    private static ParameterMetadata parameter(int index, int sqlType, String typeName, JdbcValue value) {
+    private static ParameterMetadata parameter(
+            int index, int sqlType, String typeName, JdbcValue value) {
         return ParameterMetadata.newBuilder()
                 .setIndex(index)
                 .setSqlType(sqlType)

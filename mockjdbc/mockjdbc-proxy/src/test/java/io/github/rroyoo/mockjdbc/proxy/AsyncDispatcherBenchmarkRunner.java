@@ -2,31 +2,31 @@ package io.github.rroyoo.mockjdbc.proxy;
 
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.PlainStatement;
-
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Tiny manual benchmark harness for async dispatcher tuning.
- */
+/** Tiny manual benchmark harness for async dispatcher tuning. */
 public final class AsyncDispatcherBenchmarkRunner {
 
-    private AsyncDispatcherBenchmarkRunner() {
-    }
+    private AsyncDispatcherBenchmarkRunner() {}
 
     public static void main(String[] args) throws Exception {
         var produced = new AtomicLong(0);
-        var producer = (MockedQueryEventProducer) event -> {
-            try {
-                Thread.sleep(1L);
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-            produced.incrementAndGet();
-        };
+        var producer =
+                (MockedQueryEventProducer)
+                        event -> {
+                            try {
+                                Thread.sleep(1L);
+                            } catch (InterruptedException interruptedException) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                            produced.incrementAndGet();
+                        };
 
-        var config = new AsyncDispatchConfig(4096, 4, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 512);
+        var config =
+                new AsyncDispatchConfig(
+                        4096, 4, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 512);
 
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
             var start = System.nanoTime();
@@ -53,4 +53,3 @@ public final class AsyncDispatcherBenchmarkRunner {
                 .build();
     }
 }
-

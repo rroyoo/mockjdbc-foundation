@@ -1,9 +1,9 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 class NullResultHandlerTest {
 
@@ -13,4 +13,3 @@ class NullResultHandlerTest {
         assertNull(NullResultHandler.handle());
     }
 }
-

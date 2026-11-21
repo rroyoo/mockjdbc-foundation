@@ -1,7 +1,6 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
-
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.List;
@@ -70,4 +69,3 @@ final class MockParameterMetaData implements ParameterMetaData {
         return iface.isInstance(this);
     }
 }
-

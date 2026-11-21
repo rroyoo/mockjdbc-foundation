@@ -1,26 +1,26 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
-import io.github.rroyoo.mockjdbc.mock.JdbcValue;
-import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.util.Calendar;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.rroyoo.mockjdbc.mock.JdbcValue;
+import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
+import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Calendar;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 class CallableStatementOutParamHandlerTest {
 
     @Test
-    @DisplayName("Given an OUT parameter registered by index, when typed getters are called, then default values are returned")
+    @DisplayName(
+            "Given an OUT parameter registered by index, when typed getters are called, then default values are returned")
     void shouldReturnDefaultValuesForRegisteredIndexOutParameter() throws Exception {
         var handler = new CallableStatementOutParamHandler(new StatementLifecycleHandler());
         handler.registerOutParameter(1, Types.INTEGER);
@@ -38,7 +38,8 @@ class CallableStatementOutParamHandlerTest {
     }
 
     @Test
-    @DisplayName("Given an OUT parameter registered by name, when typed getters are called, then default values are returned")
+    @DisplayName(
+            "Given an OUT parameter registered by name, when typed getters are called, then default values are returned")
     void shouldReturnDefaultValuesForRegisteredNamedOutParameter() throws Exception {
         var handler = new CallableStatementOutParamHandler(new StatementLifecycleHandler());
         handler.registerOutParameter("out_status", Types.VARCHAR, "VARCHAR");
@@ -52,7 +53,8 @@ class CallableStatementOutParamHandlerTest {
     }
 
     @Test
-    @DisplayName("Given an unregistered OUT parameter, when getter is called, then it throws SQLException")
+    @DisplayName(
+            "Given an unregistered OUT parameter, when getter is called, then it throws SQLException")
     void shouldThrowForUnregisteredOutParameter() {
         var handler = new CallableStatementOutParamHandler(new StatementLifecycleHandler());
 
@@ -61,7 +63,8 @@ class CallableStatementOutParamHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a closed lifecycle, when registering or reading OUT parameters, then it throws SQLException")
+    @DisplayName(
+            "Given a closed lifecycle, when registering or reading OUT parameters, then it throws SQLException")
     void shouldFailWhenStatementIsClosed() throws Exception {
         var lifecycle = new StatementLifecycleHandler();
         lifecycle.close();
@@ -72,16 +75,22 @@ class CallableStatementOutParamHandlerTest {
     }
 
     @Test
-    @DisplayName("Given OUT values applied from the server, when typed getters are called, then values are converted and wasNull is false")
+    @DisplayName(
+            "Given OUT values applied from the server, when typed getters are called, then values are converted and wasNull is false")
     void shouldConvertAppliedOutValues() throws Exception {
         var handler = new CallableStatementOutParamHandler(new StatementLifecycleHandler());
         handler.registerOutParameter(1, Types.DECIMAL);
         handler.registerOutParameter(2, Types.BOOLEAN);
         handler.registerOutParameter(3, Types.VARCHAR);
-        handler.applyOutValues(List.of(
-                out(1, JdbcValue.newBuilder().setDecimalVal("12.50").build()),
-                out(2, JdbcValue.newBuilder().setBoolVal(true).build()),
-                out(3, JdbcValue.newBuilder().setStringVal("2026-03-13 10:15:30").build())));
+        handler.applyOutValues(
+                List.of(
+                        out(1, JdbcValue.newBuilder().setDecimalVal("12.50").build()),
+                        out(2, JdbcValue.newBuilder().setBoolVal(true).build()),
+                        out(
+                                3,
+                                JdbcValue.newBuilder()
+                                        .setStringVal("2026-03-13 10:15:30")
+                                        .build())));
 
         assertEquals(new BigDecimal("12.50"), handler.getBigDecimal(1));
         assertEquals(12, handler.getInt(1));
@@ -92,15 +101,18 @@ class CallableStatementOutParamHandlerTest {
     }
 
     @Test
-    @DisplayName("Given applied values containing only IN parameters, when an OUT getter is called, then it returns defaults")
+    @DisplayName(
+            "Given applied values containing only IN parameters, when an OUT getter is called, then it returns defaults")
     void shouldIgnoreInParametersWhenApplyingOutValues() throws Exception {
         var handler = new CallableStatementOutParamHandler(new StatementLifecycleHandler());
         handler.registerOutParameter(1, Types.INTEGER);
-        handler.applyOutValues(List.of(ParameterMetadata.newBuilder()
-                .setIndex(1)
-                .setMode(java.sql.ParameterMetaData.parameterModeIn)
-                .setValue(JdbcValue.newBuilder().setLongVal(5).build())
-                .build()));
+        handler.applyOutValues(
+                List.of(
+                        ParameterMetadata.newBuilder()
+                                .setIndex(1)
+                                .setMode(java.sql.ParameterMetaData.parameterModeIn)
+                                .setValue(JdbcValue.newBuilder().setLongVal(5).build())
+                                .build()));
 
         assertEquals(0, handler.getInt(1));
         assertTrue(handler.wasNull());

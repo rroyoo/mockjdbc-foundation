@@ -2,7 +2,6 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
-
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
@@ -16,11 +15,10 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Tracks OUT parameter registrations for CallableStatement and exposes
- * typed getters by index and by name. Registered OUT parameters return null
- * (or the primitive default) until the mock server returns values for them in
- * {@code MockedQuery.callable_statement.parameters}; those values are matched by
- * 1-based parameter index, so name-based getters keep returning null/defaults.
+ * Tracks OUT parameter registrations for CallableStatement and exposes typed getters by index and
+ * by name. Registered OUT parameters return null (or the primitive default) until the mock server
+ * returns values for them in {@code MockedQuery.callable_statement.parameters}; those values are
+ * matched by 1-based parameter index, so name-based getters keep returning null/defaults.
  */
 final class CallableStatementOutParamHandler {
 
@@ -42,11 +40,15 @@ final class CallableStatementOutParamHandler {
         this.lifecycle = lifecycle;
     }
 
-    /** Replaces the OUT values with those returned by the latest execution (IN-only entries are ignored). */
+    /**
+     * Replaces the OUT values with those returned by the latest execution (IN-only entries are
+     * ignored).
+     */
     void applyOutValues(List<ParameterMetadata> returned) {
         valuesByIndex.clear();
         for (var parameter : returned) {
-            if ((parameter.getMode() == MODE_OUT || parameter.getMode() == MODE_IN_OUT) && parameter.hasValue()) {
+            if ((parameter.getMode() == MODE_OUT || parameter.getMode() == MODE_IN_OUT)
+                    && parameter.hasValue()) {
                 valuesByIndex.put(parameter.getIndex(), parameter.getValue());
             }
         }
@@ -59,12 +61,14 @@ final class CallableStatementOutParamHandler {
         byIndex.put(parameterIndex, new OutParam(sqlType, ""));
     }
 
-    public void registerOutParameter(int parameterIndex, int sqlType, int scale) throws SQLException {
+    public void registerOutParameter(int parameterIndex, int sqlType, int scale)
+            throws SQLException {
         lifecycle.assertOpen();
         byIndex.put(parameterIndex, new OutParam(sqlType, ""));
     }
 
-    public void registerOutParameter(int parameterIndex, int sqlType, String typeName) throws SQLException {
+    public void registerOutParameter(int parameterIndex, int sqlType, String typeName)
+            throws SQLException {
         lifecycle.assertOpen();
         byIndex.put(parameterIndex, new OutParam(sqlType, typeName != null ? typeName : ""));
     }
@@ -74,12 +78,14 @@ final class CallableStatementOutParamHandler {
         byName.put(parameterName, new OutParam(sqlType, ""));
     }
 
-    public void registerOutParameter(String parameterName, int sqlType, int scale) throws SQLException {
+    public void registerOutParameter(String parameterName, int sqlType, int scale)
+            throws SQLException {
         lifecycle.assertOpen();
         byName.put(parameterName, new OutParam(sqlType, ""));
     }
 
-    public void registerOutParameter(String parameterName, int sqlType, String typeName) throws SQLException {
+    public void registerOutParameter(String parameterName, int sqlType, String typeName)
+            throws SQLException {
         lifecycle.assertOpen();
         byName.put(parameterName, new OutParam(sqlType, typeName != null ? typeName : ""));
     }
@@ -275,8 +281,10 @@ final class CallableStatementOutParamHandler {
     private JdbcValue read(int index) throws SQLException {
         assertRegistered(index);
         var value = valuesByIndex.get(index);
-        lastWasNull = value == null || value.getKindCase() == JdbcValue.KindCase.IS_NULL
-                || value.getKindCase() == JdbcValue.KindCase.KIND_NOT_SET;
+        lastWasNull =
+                value == null
+                        || value.getKindCase() == JdbcValue.KindCase.IS_NULL
+                        || value.getKindCase() == JdbcValue.KindCase.KIND_NOT_SET;
         return lastWasNull ? null : value;
     }
 
@@ -295,27 +303,39 @@ final class CallableStatementOutParamHandler {
 
     private static long asLong(JdbcValue value) throws SQLException {
         try {
-            return switch (value.getKindCase()) {
-                case LONG_VAL -> value.getLongVal();
-                case DOUBLE_VAL -> (long) value.getDoubleVal();
-                case BOOL_VAL -> value.getBoolVal() ? 1L : 0L;
-                case DECIMAL_VAL -> new BigDecimal(value.getDecimalVal()).longValue();
-                case STRING_VAL -> new BigDecimal(value.getStringVal().trim()).longValue();
-                default -> throw new SQLException("Cannot convert OUT parameter of kind " + value.getKindCase() + " to a number");
-            };
+            return asLongValue(value);
         } catch (NumberFormatException e) {
             throw new SQLException("Cannot convert OUT parameter value to a number", e);
         }
     }
 
+    private static long asLongValue(JdbcValue value) throws SQLException {
+        return switch (value.getKindCase()) {
+            case LONG_VAL -> value.getLongVal();
+            case DOUBLE_VAL -> (long) value.getDoubleVal();
+            case BOOL_VAL -> value.getBoolVal() ? 1L : 0L;
+            case DECIMAL_VAL -> new BigDecimal(value.getDecimalVal()).longValue();
+            case STRING_VAL -> new BigDecimal(value.getStringVal().trim()).longValue();
+            default ->
+                    throw new SQLException(
+                            "Cannot convert OUT parameter of kind "
+                                    + value.getKindCase()
+                                    + " to a number");
+        };
+    }
+
     private static double asDouble(JdbcValue value) throws SQLException {
-        return value.getKindCase() == JdbcValue.KindCase.DOUBLE_VAL ? value.getDoubleVal() : asBigDecimal(value).doubleValue();
+        return value.getKindCase() == JdbcValue.KindCase.DOUBLE_VAL
+                ? value.getDoubleVal()
+                : asBigDecimal(value).doubleValue();
     }
 
     private static boolean asBoolean(JdbcValue value) throws SQLException {
         return switch (value.getKindCase()) {
             case BOOL_VAL -> value.getBoolVal();
-            case STRING_VAL -> "true".equalsIgnoreCase(value.getStringVal()) || "1".equals(value.getStringVal());
+            case STRING_VAL ->
+                    "true".equalsIgnoreCase(value.getStringVal())
+                            || "1".equals(value.getStringVal());
             default -> asLong(value) != 0L;
         };
     }
@@ -327,7 +347,11 @@ final class CallableStatementOutParamHandler {
                 case LONG_VAL -> BigDecimal.valueOf(value.getLongVal());
                 case DOUBLE_VAL -> BigDecimal.valueOf(value.getDoubleVal());
                 case STRING_VAL -> new BigDecimal(value.getStringVal().trim());
-                default -> throw new SQLException("Cannot convert OUT parameter of kind " + value.getKindCase() + " to a decimal");
+                default ->
+                        throw new SQLException(
+                                "Cannot convert OUT parameter of kind "
+                                        + value.getKindCase()
+                                        + " to a decimal");
             };
         } catch (NumberFormatException e) {
             throw new SQLException("Cannot convert OUT parameter value to a decimal", e);
@@ -341,7 +365,9 @@ final class CallableStatementOutParamHandler {
     }
 
     private static Timestamp toTimestamp(JdbcValue value) {
-        return Timestamp.from(Instant.ofEpochSecond(value.getTimestampVal().getSeconds(), value.getTimestampVal().getNanos()));
+        return Timestamp.from(
+                Instant.ofEpochSecond(
+                        value.getTimestampVal().getSeconds(), value.getTimestampVal().getNanos()));
     }
 
     private static Timestamp asTimestamp(JdbcValue value) throws SQLException {
@@ -353,19 +379,18 @@ final class CallableStatementOutParamHandler {
             try {
                 return Timestamp.valueOf(text.length() <= 10 ? text + " 00:00:00" : text);
             } catch (IllegalArgumentException e) {
-                throw new SQLException("Cannot convert OUT parameter value to a timestamp: " + text, e);
+                throw new SQLException(
+                        "Cannot convert OUT parameter value to a timestamp: " + text, e);
             }
         }
-        throw new SQLException("Cannot convert OUT parameter of kind " + value.getKindCase() + " to a timestamp");
+        throw new SQLException(
+                "Cannot convert OUT parameter of kind " + value.getKindCase() + " to a timestamp");
     }
 
     private static Object asObject(JdbcValue value, int sqlType) throws SQLException {
         return switch (value.getKindCase()) {
             case STRING_VAL -> value.getStringVal();
-            case LONG_VAL -> switch (sqlType) {
-                case Types.INTEGER, Types.SMALLINT, Types.TINYINT -> (Object) (int) value.getLongVal();
-                default -> (Object) value.getLongVal();
-            };
+            case LONG_VAL -> asLongObject(value, sqlType);
             case DOUBLE_VAL -> value.getDoubleVal();
             case BOOL_VAL -> value.getBoolVal();
             case DECIMAL_VAL -> new BigDecimal(value.getDecimalVal());
@@ -375,24 +400,49 @@ final class CallableStatementOutParamHandler {
         };
     }
 
+    private static Object asLongObject(JdbcValue value, int sqlType) {
+        return switch (sqlType) {
+            case Types.INTEGER, Types.SMALLINT, Types.TINYINT -> (int) value.getLongVal();
+            default -> value.getLongVal();
+        };
+    }
+
     private static <T> T convert(JdbcValue value, int sqlType, Class<T> type) throws SQLException {
-        Object converted;
-        if (type == String.class) converted = asString(value);
-        else if (type == Integer.class) converted = (int) asLong(value);
-        else if (type == Long.class) converted = asLong(value);
-        else if (type == Short.class) converted = (short) asLong(value);
-        else if (type == Double.class) converted = asDouble(value);
-        else if (type == Boolean.class) converted = asBoolean(value);
-        else if (type == BigDecimal.class) converted = asBigDecimal(value);
-        else if (type == Timestamp.class) converted = asTimestamp(value);
-        else if (type == byte[].class) converted = asBytes(value);
-        else {
-            converted = asObject(value, sqlType);
-            if (!type.isInstance(converted)) {
-                throw new SQLException("Cannot convert OUT parameter to " + type.getName());
-            }
+        return type.cast(convertValue(value, sqlType, type));
+    }
+
+    private static Object convertValue(JdbcValue value, int sqlType, Class<?> type)
+            throws SQLException {
+        if (type == String.class) return asString(value);
+        if (isIntegralType(type)) {
+            return asIntegralType(value, type);
         }
-        return type.cast(converted);
+        if (type == Double.class) return asDouble(value);
+        if (type == Boolean.class) return asBoolean(value);
+        if (type == BigDecimal.class) return asBigDecimal(value);
+        if (type == Timestamp.class) return asTimestamp(value);
+        if (type == byte[].class) return asBytes(value);
+        return asRequestedObject(value, sqlType, type);
+    }
+
+    private static boolean isIntegralType(Class<?> type) {
+        return type == Integer.class || type == Long.class || type == Short.class;
+    }
+
+    private static Object asIntegralType(JdbcValue value, Class<?> type) throws SQLException {
+        var number = asLong(value);
+        if (type == Integer.class) return (int) number;
+        if (type == Short.class) return (short) number;
+        return number;
+    }
+
+    private static Object asRequestedObject(JdbcValue value, int sqlType, Class<?> type)
+            throws SQLException {
+        var converted = asObject(value, sqlType);
+        if (!type.isInstance(converted)) {
+            throw new SQLException("Cannot convert OUT parameter to " + type.getName());
+        }
+        return converted;
     }
 
     private void assertRegistered(int index) throws SQLException {

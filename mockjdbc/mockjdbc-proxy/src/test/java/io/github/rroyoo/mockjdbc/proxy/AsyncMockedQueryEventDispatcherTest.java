@@ -1,30 +1,34 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.PlainStatement;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class AsyncMockedQueryEventDispatcherTest {
 
     @Test
-    @DisplayName("Given dispatcher with sender pool, when publishing events, then producer is called asynchronously")
+    @DisplayName(
+            "Given dispatcher with sender pool, when publishing events, then producer is called asynchronously")
     void shouldSendEventsAsynchronously() throws Exception {
         var received = new CopyOnWriteArrayList<MockedQuery>();
         var latch = new CountDownLatch(2);
-        var producer = (MockedQueryEventProducer) event -> {
-            received.add(event);
-            latch.countDown();
-        };
+        var producer =
+                (MockedQueryEventProducer)
+                        event -> {
+                            received.add(event);
+                            latch.countDown();
+                        };
 
-        var config = new AsyncDispatchConfig(16, 2, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
+        var config =
+                new AsyncDispatchConfig(
+                        16, 2, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
             dispatcher.publish(query("SELECT 1"));
             dispatcher.publish(query("SELECT 2"));
@@ -35,26 +39,33 @@ class AsyncMockedQueryEventDispatcherTest {
     }
 
     @Test
-    @DisplayName("Given a full ring buffer with drop-oldest strategy, when overflowing, then the oldest queued event is evicted and newer ones are delivered")
+    @DisplayName(
+            "Given a full ring buffer with drop-oldest strategy, when overflowing, then the oldest queued event is evicted and newer ones are delivered")
     void shouldDropOldestOnOverflow() throws Exception {
         var received = new CopyOnWriteArrayList<MockedQuery>();
         var gate = new java.util.concurrent.Semaphore(0);
-        var producer = (MockedQueryEventProducer) event -> {
-            received.add(event);
-            // Block after the first delivery so subsequent publishes accumulate in the ring
-            // buffer deterministically, without relying on thread-scheduling timing races.
-            if (received.size() == 1) {
-                gate.acquireUninterruptibly();
-            }
-        };
+        var producer =
+                (MockedQueryEventProducer)
+                        event -> {
+                            received.add(event);
+                            // Block after the first delivery so subsequent publishes accumulate in
+                            // the ring
+                            // buffer deterministically, without relying on thread-scheduling timing
+                            // races.
+                            if (received.size() == 1) {
+                                gate.acquireUninterruptibly();
+                            }
+                        };
 
-        var config = new AsyncDispatchConfig(2, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
+        var config =
+                new AsyncDispatchConfig(
+                        2, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
             dispatcher.publish(query("first"));
             awaitReceivedSize(received, 1);
 
             dispatcher.publish(query("second")); // fills slot 1
-            dispatcher.publish(query("third"));  // fills slot 2
+            dispatcher.publish(query("third")); // fills slot 2
             dispatcher.publish(query("fourth")); // overflow: evicts "second"
 
             gate.release();
@@ -67,24 +78,29 @@ class AsyncMockedQueryEventDispatcherTest {
     }
 
     @Test
-    @DisplayName("Given a full ring buffer with drop-newest strategy, when overflowing, then the incoming event is rejected and previously queued events are delivered")
+    @DisplayName(
+            "Given a full ring buffer with drop-newest strategy, when overflowing, then the incoming event is rejected and previously queued events are delivered")
     void shouldDropNewestOnOverflow() throws Exception {
         var received = new CopyOnWriteArrayList<MockedQuery>();
         var gate = new java.util.concurrent.Semaphore(0);
-        var producer = (MockedQueryEventProducer) event -> {
-            received.add(event);
-            if (received.size() == 1) {
-                gate.acquireUninterruptibly();
-            }
-        };
+        var producer =
+                (MockedQueryEventProducer)
+                        event -> {
+                            received.add(event);
+                            if (received.size() == 1) {
+                                gate.acquireUninterruptibly();
+                            }
+                        };
 
-        var config = new AsyncDispatchConfig(2, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 256);
+        var config =
+                new AsyncDispatchConfig(
+                        2, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 256);
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
             dispatcher.publish(query("first"));
             awaitReceivedSize(received, 1);
 
             dispatcher.publish(query("second")); // fills slot 1
-            dispatcher.publish(query("third"));  // fills slot 2
+            dispatcher.publish(query("third")); // fills slot 2
             dispatcher.publish(query("fourth")); // overflow: rejected, buffer unchanged
 
             gate.release();
@@ -96,7 +112,8 @@ class AsyncMockedQueryEventDispatcherTest {
         }
     }
 
-    private static void awaitReceivedSize(CopyOnWriteArrayList<MockedQuery> received, int expectedSize)
+    private static void awaitReceivedSize(
+            CopyOnWriteArrayList<MockedQuery> received, int expectedSize)
             throws InterruptedException {
         var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
         while (received.size() < expectedSize && System.nanoTime() < deadline) {
@@ -108,9 +125,9 @@ class AsyncMockedQueryEventDispatcherTest {
     @Test
     @DisplayName("Given a closed dispatcher, when publish is called, then it returns false")
     void shouldRejectPublishAfterClose() {
-        var producer = (MockedQueryEventProducer) event -> {
-        };
-        var config = new AsyncDispatchConfig(4, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 64);
+        var producer = (MockedQueryEventProducer) event -> {};
+        var config =
+                new AsyncDispatchConfig(4, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 64);
 
         var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config);
         dispatcher.close();
@@ -125,15 +142,23 @@ class AsyncMockedQueryEventDispatcherTest {
     }
 
     @Test
-    @DisplayName("Given a producer whose delivery completes exceptionally, when publishing, then the event is counted as failed and not sent")
+    @DisplayName(
+            "Given a producer whose delivery completes exceptionally, when publishing, then the event is counted as failed and not sent")
     void shouldCountAsyncDeliveryFailureAsFailed() throws Exception {
-        var producer = new MockedQueryEventProducer() {
-            @Override public void send(MockedQuery event) { }
-            @Override public java.util.concurrent.CompletionStage<Void> sendAsync(MockedQuery event) {
-                return java.util.concurrent.CompletableFuture.failedFuture(new RuntimeException("broker down"));
-            }
-        };
-        var config = new AsyncDispatchConfig(16, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
+        var producer =
+                new MockedQueryEventProducer() {
+                    @Override
+                    public void send(MockedQuery event) {}
+
+                    @Override
+                    public java.util.concurrent.CompletionStage<Void> sendAsync(MockedQuery event) {
+                        return java.util.concurrent.CompletableFuture.failedFuture(
+                                new RuntimeException("broker down"));
+                    }
+                };
+        var config =
+                new AsyncDispatchConfig(
+                        16, 1, AsyncDispatchConfig.OverflowStrategy.DROP_OLDEST, 256);
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
             dispatcher.publish(query("SELECT 1"));
 
@@ -142,15 +167,22 @@ class AsyncMockedQueryEventDispatcherTest {
     }
 
     @Test
-    @DisplayName("Given a producer that throws during send, when publishing, then the dispatcher counts the failure and stays usable")
+    @DisplayName(
+            "Given a producer that throws during send, when publishing, then the dispatcher counts the failure and stays usable")
     void shouldCountSynchronousSendFailureAsFailed() throws Exception {
-        var producer = new MockedQueryEventProducer() {
-            @Override public void send(MockedQuery event) { }
-            @Override public java.util.concurrent.CompletionStage<Void> sendAsync(MockedQuery event) {
-                throw new IllegalStateException("producer closed");
-            }
-        };
-        var config = new AsyncDispatchConfig(16, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 256);
+        var producer =
+                new MockedQueryEventProducer() {
+                    @Override
+                    public void send(MockedQuery event) {}
+
+                    @Override
+                    public java.util.concurrent.CompletionStage<Void> sendAsync(MockedQuery event) {
+                        throw new IllegalStateException("producer closed");
+                    }
+                };
+        var config =
+                new AsyncDispatchConfig(
+                        16, 1, AsyncDispatchConfig.OverflowStrategy.DROP_NEWEST, 256);
         try (var dispatcher = new AsyncMockedQueryEventDispatcher(producer, config)) {
             assertTrue(dispatcher.publish(query("SELECT 1")));
 
@@ -158,7 +190,8 @@ class AsyncMockedQueryEventDispatcherTest {
         }
     }
 
-    private static void awaitStats(AsyncMockedQueryEventDispatcher dispatcher, AsyncDispatchStats expected)
+    private static void awaitStats(
+            AsyncMockedQueryEventDispatcher dispatcher, AsyncDispatchStats expected)
             throws InterruptedException {
         var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
         while (!dispatcher.stats().equals(expected) && System.nanoTime() < deadline) {

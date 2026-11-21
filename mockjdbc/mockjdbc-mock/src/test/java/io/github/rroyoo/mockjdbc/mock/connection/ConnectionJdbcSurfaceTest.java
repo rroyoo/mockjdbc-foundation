@@ -1,11 +1,14 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
-import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -16,14 +19,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class ConnectionJdbcSurfaceTest {
 
@@ -54,19 +53,25 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given an open connection, when abort is called, then it is closed and the executor runs the release")
+    @DisplayName(
+            "Given an open connection, when abort is called, then it is closed and the executor runs the release")
     void shouldCloseConnectionOnAbortUsingExecutor() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         var executed = new AtomicBoolean(false);
 
-        connection.abort(command -> { executed.set(true); command.run(); });
+        connection.abort(
+                command -> {
+                    executed.set(true);
+                    command.run();
+                });
 
         assertTrue(connection.isClosed());
         assertTrue(executed.get());
     }
 
     @Test
-    @DisplayName("Given an aborted connection, when state-dependent methods are called, then SQLException is thrown")
+    @DisplayName(
+            "Given an aborted connection, when state-dependent methods are called, then SQLException is thrown")
     void shouldRejectStateDependentMethodsAfterAbort() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.abort(Runnable::run);
@@ -78,7 +83,8 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a null executor, when abort is called, then it throws SQLException and stays open")
+    @DisplayName(
+            "Given a null executor, when abort is called, then it throws SQLException and stays open")
     void shouldRejectAbortWithoutExecutor() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -99,7 +105,8 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when unwrap is called with a supported interface, then it returns the connection itself")
+    @DisplayName(
+            "Given a connection, when unwrap is called with a supported interface, then it returns the connection itself")
     void shouldUnwrapToSupportedInterface() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -109,7 +116,8 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when unwrap is called with an unrelated interface, then it throws SQLException")
+    @DisplayName(
+            "Given a connection, when unwrap is called with an unrelated interface, then it throws SQLException")
     void shouldRejectUnwrapOfUnrelatedInterface() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -120,7 +128,8 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when getMetaData is called, then it describes the mock product, driver and URL")
+    @DisplayName(
+            "Given a connection, when getMetaData is called, then it describes the mock product, driver and URL")
     void shouldExposeProductDriverAndUrlMetaData() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -136,16 +145,20 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given connection metadata, when an unsupported catalog method is called, then it throws SQLFeatureNotSupportedException")
+    @DisplayName(
+            "Given connection metadata, when an unsupported catalog method is called, then it throws SQLFeatureNotSupportedException")
     void shouldRejectCatalogQueriesInMetaData() throws Exception {
         var metaData = ConnectionFactory.create(mockConfig()).getMetaData();
 
-        assertThrows(SQLFeatureNotSupportedException.class, () -> metaData.getTables(null, null, "%", null));
+        assertThrows(
+                SQLFeatureNotSupportedException.class,
+                () -> metaData.getTables(null, null, "%", null));
         assertThrows(SQLFeatureNotSupportedException.class, () -> metaData.getTypeInfo());
     }
 
     @Test
-    @DisplayName("Given connection metadata, when unwrap is used, then it follows the Wrapper contract")
+    @DisplayName(
+            "Given connection metadata, when unwrap is used, then it follows the Wrapper contract")
     void shouldUnwrapMetaData() throws Exception {
         var metaData = ConnectionFactory.create(mockConfig()).getMetaData();
 
@@ -156,7 +169,8 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a new connection, when the type map is read, then it is empty and independent of later changes")
+    @DisplayName(
+            "Given a new connection, when the type map is read, then it is empty and independent of later changes")
     void shouldReturnEmptyTypeMapByDefault() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -167,7 +181,8 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a type map, when setTypeMap is called, then getTypeMap returns a copy of it")
+    @DisplayName(
+            "Given a type map, when setTypeMap is called, then getTypeMap returns a copy of it")
     void shouldStoreTypeMapPerConnection() throws Exception {
         var first = ConnectionFactory.create(mockConfig());
         var second = ConnectionFactory.create(mockConfig());
@@ -190,12 +205,13 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when LOB factories are called, then writable empty LOBs are returned")
+    @DisplayName(
+            "Given a connection, when LOB factories are called, then writable empty LOBs are returned")
     void shouldCreateInMemoryLobs() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
 
         var blob = connection.createBlob();
-        blob.setBytes(1, new byte[]{1, 2, 3});
+        blob.setBytes(1, new byte[] {1, 2, 3});
         var clob = connection.createClob();
         clob.setString(1, "hello");
         var nclob = connection.createNClob();
@@ -208,7 +224,8 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when createSQLXML is called, then it throws SQLFeatureNotSupportedException")
+    @DisplayName(
+            "Given a connection, when createSQLXML is called, then it throws SQLFeatureNotSupportedException")
     void shouldRejectSqlXml() {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -216,16 +233,17 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a type name and elements, when createArrayOf is called, then the array exposes them")
+    @DisplayName(
+            "Given a type name and elements, when createArrayOf is called, then the array exposes them")
     void shouldCreateArray() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
 
-        var array = connection.createArrayOf("INTEGER", new Object[]{1, 2, 3});
+        var array = connection.createArrayOf("INTEGER", new Object[] {1, 2, 3});
 
         assertEquals("INTEGER", array.getBaseTypeName());
         assertEquals(Types.INTEGER, array.getBaseType());
-        assertArrayEquals(new Object[]{1, 2, 3}, (Object[]) array.getArray());
-        assertArrayEquals(new Object[]{2, 3}, (Object[]) array.getArray(2, 2));
+        assertArrayEquals(new Object[] {1, 2, 3}, (Object[]) array.getArray());
+        assertArrayEquals(new Object[] {2, 3}, (Object[]) array.getArray(2, 2));
         assertThrows(SQLException.class, () -> array.getArray(3, 5));
         assertThrows(SQLException.class, () -> array.getArray(Long.MAX_VALUE, 2));
         assertThrows(SQLFeatureNotSupportedException.class, array::getResultSet);
@@ -235,18 +253,20 @@ class ConnectionJdbcSurfaceTest {
     }
 
     @Test
-    @DisplayName("Given a type name and attributes, when createStruct is called, then the struct exposes them")
+    @DisplayName(
+            "Given a type name and attributes, when createStruct is called, then the struct exposes them")
     void shouldCreateStruct() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
 
-        var struct = connection.createStruct("ADDRESS", new Object[]{"Main St", 42});
+        var struct = connection.createStruct("ADDRESS", new Object[] {"Main St", 42});
 
         assertEquals("ADDRESS", struct.getSQLTypeName());
-        assertArrayEquals(new Object[]{"Main St", 42}, struct.getAttributes());
+        assertArrayEquals(new Object[] {"Main St", 42}, struct.getAttributes());
     }
 
     @Test
-    @DisplayName("Given null arguments, when createArrayOf or createStruct is called, then SQLException is thrown")
+    @DisplayName(
+            "Given null arguments, when createArrayOf or createStruct is called, then SQLException is thrown")
     void shouldRejectNullStructuredTypeArguments() {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -258,8 +278,10 @@ class ConnectionJdbcSurfaceTest {
 
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("operationsRequiringOpenConnection")
-    @DisplayName("Given a closed connection, when a state-dependent operation is called, then it throws SQLException")
-    void shouldRejectOperationsOnClosedConnection(String name, ConnectionOperation operation) throws Exception {
+    @DisplayName(
+            "Given a closed connection, when a state-dependent operation is called, then it throws SQLException")
+    void shouldRejectOperationsOnClosedConnection(String name, ConnectionOperation operation)
+            throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.close();
 
@@ -276,12 +298,11 @@ class ConnectionJdbcSurfaceTest {
                 op("createClob", Connection::createClob),
                 op("createNClob", Connection::createNClob),
                 op("createArrayOf", c -> c.createArrayOf("INTEGER", new Object[0])),
-                op("createStruct", c -> c.createStruct("ADDRESS", new Object[0]))
-        );
+                op("createStruct", c -> c.createStruct("ADDRESS", new Object[0])));
     }
 
     private static Object[] op(String name, ConnectionOperation operation) {
-        return new Object[]{name, operation};
+        return new Object[] {name, operation};
     }
 
     @FunctionalInterface

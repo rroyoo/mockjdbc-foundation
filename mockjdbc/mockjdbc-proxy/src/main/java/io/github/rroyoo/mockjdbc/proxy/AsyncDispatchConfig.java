@@ -1,9 +1,10 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
-public record AsyncDispatchConfig(int ringBufferCapacity,
-                                  int senderThreads,
-                                  OverflowStrategy overflowStrategy,
-                                  int rowBatchSize) {
+public record AsyncDispatchConfig(
+        int ringBufferCapacity,
+        int senderThreads,
+        OverflowStrategy overflowStrategy,
+        int rowBatchSize) {
 
     public AsyncDispatchConfig {
         if (ringBufferCapacity < 1) {
@@ -29,4 +30,3 @@ public record AsyncDispatchConfig(int ringBufferCapacity,
         DROP_NEWEST
     }
 }
-

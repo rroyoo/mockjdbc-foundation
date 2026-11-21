@@ -18,6 +18,4 @@ public record JdbcQueryInterceptedEvent(
         List<List<Object>> parameters,
         long elapsedTimeMillis,
         boolean success,
-        Throwable error
-) {
-}
+        Throwable error) {}

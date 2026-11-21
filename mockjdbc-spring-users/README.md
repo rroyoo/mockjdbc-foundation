@@ -34,6 +34,15 @@ JDBC operation results, not changes visible to later queries.
 mvn test
 ```
 
+Every build also checks Java formatting with Spotless (Google Java Format, AOSP style)
+and cyclomatic complexity with PMD (method/constructor threshold 10). Java 21 or newer is
+required to run the formatter. Both checks run during `validate` and fail the build on
+violations. Apply the formatter with:
+
+```bash
+mvn spotless:apply
+```
+
 ## Run with h2 profile
 
 ```bash

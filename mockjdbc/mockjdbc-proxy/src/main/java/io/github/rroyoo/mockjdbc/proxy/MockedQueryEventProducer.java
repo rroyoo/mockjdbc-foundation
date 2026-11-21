@@ -1,7 +1,6 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
-
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -31,4 +30,3 @@ public interface MockedQueryEventProducer {
         return consumer::accept;
     }
 }
-

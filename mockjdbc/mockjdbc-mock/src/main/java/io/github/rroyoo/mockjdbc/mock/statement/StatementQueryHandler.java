@@ -1,7 +1,6 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
-
 import java.sql.BatchUpdateException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,17 +16,19 @@ final class StatementQueryHandler {
     private final GeneratedKeysHandler generatedKeys;
     private final List<String> batchSql = new ArrayList<>();
 
-    StatementQueryHandler(MockConfig mockConfig,
-                          StatementLifecycleHandler lifecycle,
-                          StatementExecutionStateHandler executionState,
-                          GeneratedKeysHandler generatedKeys) {
+    StatementQueryHandler(
+            MockConfig mockConfig,
+            StatementLifecycleHandler lifecycle,
+            StatementExecutionStateHandler executionState,
+            GeneratedKeysHandler generatedKeys) {
         this(new GrpcMockQueryClient(mockConfig), lifecycle, executionState, generatedKeys);
     }
 
-    StatementQueryHandler(GrpcMockQueryClient client,
-                          StatementLifecycleHandler lifecycle,
-                          StatementExecutionStateHandler executionState,
-                          GeneratedKeysHandler generatedKeys) {
+    StatementQueryHandler(
+            GrpcMockQueryClient client,
+            StatementLifecycleHandler lifecycle,
+            StatementExecutionStateHandler executionState,
+            GeneratedKeysHandler generatedKeys) {
         this.lifecycle = lifecycle;
         this.executionState = executionState;
         this.generatedKeys = generatedKeys;
@@ -184,7 +185,8 @@ final class StatementQueryHandler {
         return executionState.getResultSet();
     }
 
-    private void storeGeneratedKeys(io.github.rroyoo.mockjdbc.mock.MockedQuery response) throws SQLException {
+    private void storeGeneratedKeys(io.github.rroyoo.mockjdbc.mock.MockedQuery response)
+            throws SQLException {
         if (GrpcMockQueryClient.hasGeneratedKeys(response)) {
             generatedKeys.storeGeneratedKeys(GrpcMockQueryClient.generatedKeys(response));
         } else {
@@ -245,11 +247,16 @@ final class StatementQueryHandler {
         try {
             for (int i = 0; i < batchSql.size(); i++) {
                 try {
-                    result[i] = GrpcMockQueryClient.updateCountAsInt(
-                            client.findMock(batchSql.get(i), List.of(), i));
+                    result[i] =
+                            GrpcMockQueryClient.updateCountAsInt(
+                                    client.findMock(batchSql.get(i), List.of(), i));
                 } catch (SQLException error) {
-                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
-                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                    throw new BatchUpdateException(
+                            error.getMessage(),
+                            error.getSQLState(),
+                            error.getErrorCode(),
+                            java.util.Arrays.copyOf(result, i),
+                            error);
                 }
             }
         } finally {
@@ -267,11 +274,16 @@ final class StatementQueryHandler {
         try {
             for (int i = 0; i < batchSql.size(); i++) {
                 try {
-                    result[i] = GrpcMockQueryClient.updateCount(
-                            client.findMock(batchSql.get(i), List.of(), i));
+                    result[i] =
+                            GrpcMockQueryClient.updateCount(
+                                    client.findMock(batchSql.get(i), List.of(), i));
                 } catch (SQLException error) {
-                    throw new BatchUpdateException(error.getMessage(), error.getSQLState(),
-                            error.getErrorCode(), java.util.Arrays.copyOf(result, i), error);
+                    throw new BatchUpdateException(
+                            error.getMessage(),
+                            error.getSQLState(),
+                            error.getErrorCode(),
+                            java.util.Arrays.copyOf(result, i),
+                            error);
                 }
             }
         } finally {

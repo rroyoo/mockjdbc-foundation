@@ -2,6 +2,7 @@ package io.github.rroyoo.mockjdbc.users.web;
 
 import io.github.rroyoo.mockjdbc.users.domain.User;
 import io.github.rroyoo.mockjdbc.users.service.UserService;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -12,8 +13,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/users")
@@ -32,7 +31,8 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<User> getUser(@PathVariable long id) {
-        return userService.findById(id)
+        return userService
+                .findById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -44,8 +44,10 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable long id, @RequestBody UpdateUserRequest request) {
-        return userService.update(id, request.name(), request.email())
+    public ResponseEntity<User> updateUser(
+            @PathVariable long id, @RequestBody UpdateUserRequest request) {
+        return userService
+                .update(id, request.name(), request.email())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -58,4 +60,3 @@ public class UserController {
         return ResponseEntity.notFound().build();
     }
 }
-

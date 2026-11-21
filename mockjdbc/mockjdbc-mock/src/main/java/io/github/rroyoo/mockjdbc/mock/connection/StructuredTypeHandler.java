@@ -4,7 +4,10 @@ import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Struct;
 
-/** Creates in-memory {@link Array} and {@link Struct} values for the {@code Connection} factory methods. */
+/**
+ * Creates in-memory {@link Array} and {@link Struct} values for the {@code Connection} factory
+ * methods.
+ */
 final class StructuredTypeHandler {
 
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {

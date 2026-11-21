@@ -14,38 +14,40 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * JDK proxy {@link InvocationHandler} for {@link java.sql.PreparedStatement} and
- * {@link java.sql.CallableStatement} that captures SQL, bound parameters, execution results,
- * and ResultSet rows.
+ * JDK proxy {@link InvocationHandler} for {@link java.sql.PreparedStatement} and {@link
+ * java.sql.CallableStatement} that captures SQL, bound parameters, execution results, and ResultSet
+ * rows.
  *
- * <p><strong>Parameter tracking:</strong>
- * All {@code setXxx(int parameterIndex, T value)} calls populate an ordered {@link TreeMap}.
- * Bound values persist across executions and {@code addBatch()} (standard PreparedStatement
- * semantics) until {@code clearParameters()} or a setter replaces them.
- * For {@code addBatch()}, the current parameter snapshot is saved to a batch group list,
- * enabling multi-group capture for batched executions.
+ * <p><strong>Parameter tracking:</strong> All {@code setXxx(int parameterIndex, T value)} calls
+ * populate an ordered {@link TreeMap}. Bound values persist across executions and {@code
+ * addBatch()} (standard PreparedStatement semantics) until {@code clearParameters()} or a setter
+ * replaces them. For {@code addBatch()}, the current parameter snapshot is saved to a batch group
+ * list, enabling multi-group capture for batched executions.
  *
  * <p><strong>Intercepted execute methods (no-arg variants for PreparedStatement):</strong>
+ *
  * <ul>
- *   <li>{@code executeQuery()} — wraps returned ResultSet</li>
- *   <li>{@code executeUpdate()}, {@code executeLargeUpdate()} — captures update count</li>
- *   <li>{@code execute()} — wraps ResultSet or captures update count</li>
- *   <li>{@code executeBatch()}, {@code executeLargeBatch()} — captures per-batch update counts</li>
+ *   <li>{@code executeQuery()} — wraps returned ResultSet
+ *   <li>{@code executeUpdate()}, {@code executeLargeUpdate()} — captures update count
+ *   <li>{@code execute()} — wraps ResultSet or captures update count
+ *   <li>{@code executeBatch()}, {@code executeLargeBatch()} — captures per-batch update counts
  * </ul>
  *
- * <p><strong>CallableStatement OUT/INOUT parameter capture (index-based only):</strong>
- * {@code registerOutParameter(int, ...)} records the declared parameter mode (OUT, or INOUT when
- * an IN value was already bound via {@code setXxx}). Because OUT values are only known to the
- * caller after retrieving them via {@code getXxx(int)} — which happens strictly after
- * {@code execute()}/{@code executeUpdate()} returns — the capture event for a callable execution
- * that declares OUT parameters is <em>deferred</em>: it is held as a {@link PendingCallableCapture}
- * and flushed (with whatever OUT values were retrieved by then) on the next lifecycle event
- * (a subsequent {@code set*}/{@code execute*}/{@code registerOutParameter} call, or {@code close()}).
+ * <p><strong>CallableStatement OUT/INOUT parameter capture (index-based only):</strong> {@code
+ * registerOutParameter(int, ...)} records the declared parameter mode (OUT, or INOUT when an IN
+ * value was already bound via {@code setXxx}). Because OUT values are only known to the caller
+ * after retrieving them via {@code getXxx(int)} — which happens strictly after {@code
+ * execute()}/{@code executeUpdate()} returns — the capture event for a callable execution that
+ * declares OUT parameters is <em>deferred</em>: it is held as a {@link PendingCallableCapture} and
+ * flushed (with whatever OUT values were retrieved by then) on the next lifecycle event (a
+ * subsequent {@code set*}/{@code execute*}/{@code registerOutParameter} call, or {@code close()}).
  * Named-parameter registration ({@code registerOutParameter(String, ...)}) and the
  * ResultSet-returning branch of {@code execute()} are not covered by deferred OUT capture; those
  * paths fall back to the existing immediate-capture behavior without merged OUT values.
  */
 final class CapturingPreparedStatementInvocationHandler implements InvocationHandler {
+
+    private static final Object UNHANDLED = new Object();
 
     private final PreparedStatement delegate;
     private final String sql;
@@ -61,43 +63,45 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
     /** Declared OUT/INOUT parameter modes by 1-based index, from {@code registerOutParameter}. */
     private final TreeMap<Integer, Integer> outParamModesByIndex = new TreeMap<>();
 
-    /** Values retrieved via {@code getXxx(int)} for registered OUT/INOUT indices, since the last flush. */
+    /**
+     * Values retrieved via {@code getXxx(int)} for registered OUT/INOUT indices, since the last
+     * flush.
+     */
     private final TreeMap<Integer, Object> outValuesByIndex = new TreeMap<>();
 
     /** Deferred capture awaiting OUT parameter retrieval before being published. */
     private PendingCallableCapture pendingCallableCapture;
+
     private PendingGeneratedKeysCapture pendingGeneratedKeysCapture;
     private ResultSet activeGeneratedKeys;
 
     /**
-     * Stores the wrapped ResultSet after {@code execute()} returns {@code true}.
-     * Consumed and cleared on the next {@code getResultSet()} call.
+     * Stores the wrapped ResultSet after {@code execute()} returns {@code true}. Consumed and
+     * cleared on the next {@code getResultSet()} call.
      */
     private ResultSet pendingResultSet;
 
     /** Snapshot of a callable execution awaiting OUT parameter values before being published. */
-    private record PendingCallableCapture(SortedMap<Integer, Object> inParamsByIndex,
-                                          long updateCount,
-                                          long elapsedMs,
-                                          boolean success,
-                                          Throwable error) {
-    }
+    private record PendingCallableCapture(
+            SortedMap<Integer, Object> inParamsByIndex,
+            long updateCount,
+            long elapsedMs,
+            boolean success,
+            Throwable error) {}
 
-    private record PendingGeneratedKeysCapture(List<Object> parameters,
-                                               long updateCount,
-                                               long elapsedMs) {
-    }
+    private record PendingGeneratedKeysCapture(
+            List<Object> parameters, long updateCount, long elapsedMs) {}
 
-    CapturingPreparedStatementInvocationHandler(PreparedStatement delegate,
-                                                String sql,
-                                                JdbcExecutionCapture capture) {
+    CapturingPreparedStatementInvocationHandler(
+            PreparedStatement delegate, String sql, JdbcExecutionCapture capture) {
         this(delegate, sql, capture, false);
     }
 
-    CapturingPreparedStatementInvocationHandler(PreparedStatement delegate,
-                                                String sql,
-                                                JdbcExecutionCapture capture,
-                                                boolean returnGeneratedKeys) {
+    CapturingPreparedStatementInvocationHandler(
+            PreparedStatement delegate,
+            String sql,
+            JdbcExecutionCapture capture,
+            boolean returnGeneratedKeys) {
         this.delegate = delegate;
         this.sql = sql;
         this.capture = capture;
@@ -108,11 +112,39 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         var name = method.getName();
 
-        if ("equals".equals(name))   return proxy == (args != null ? args[0] : null);
+        if ("equals".equals(name)) return proxy == (args != null ? args[0] : null);
         if ("hashCode".equals(name)) return System.identityHashCode(proxy);
         if ("toString".equals(name)) return "CapturingPreparedStatement{sql=" + sql + "}";
 
-        // ── close() — flush any deferred callable capture first ─────────────
+        return invokeJdbcMethod(name, method, args);
+    }
+
+    private Object invokeJdbcMethod(String name, Method method, Object[] args) throws Throwable {
+        var result = handleLifecycleMethod(name, method, args);
+        if (result != UNHANDLED) {
+            return result;
+        }
+
+        result = handleCallableMethod(name, method, args);
+        if (result != UNHANDLED) {
+            return result;
+        }
+
+        result = handleParameterMethod(name, method, args);
+        if (result != UNHANDLED) {
+            return result;
+        }
+
+        result = handleExecutionMethod(name, method, args);
+        if (result != UNHANDLED) {
+            return result;
+        }
+
+        return delegateInvoke(method, args);
+    }
+
+    private Object handleLifecycleMethod(String name, Method method, Object[] args)
+            throws Throwable {
         if ("close".equals(name)) {
             flushPendingCallableCapture();
             flushPendingGeneratedKeysCapture();
@@ -131,35 +163,72 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
                 && (pendingGeneratedKeysCapture != null || activeGeneratedKeys != null)) {
             flushPendingGeneratedKeysCapture();
         }
+        return UNHANDLED;
+    }
 
-        // ── OUT/INOUT parameter retrieval while a deferred capture is open ──
-        var isRegisteredOutGetter = name.startsWith("get") && args != null && args.length >= 1
-                && args[0] instanceof Integer idx && outParamModesByIndex.containsKey(idx);
+    private Object handleCallableMethod(String name, Method method, Object[] args)
+            throws Throwable {
+        var result = handleOutParameterGetter(name, method, args);
+        if (result != UNHANDLED) {
+            return result;
+        }
 
-        if (isRegisteredOutGetter && pendingCallableCapture != null) {
+        if (pendingCallableCapture != null) {
+            flushPendingCallableCapture();
+        }
+
+        return handleRegisterOutParameter(name, method, args);
+    }
+
+    private Object handleOutParameterGetter(String name, Method method, Object[] args)
+            throws Throwable {
+        if (isRegisteredOutGetter(name, args) && pendingCallableCapture != null) {
             var idx = (Integer) args[0];
             var result = delegateInvoke(method, args);
             outValuesByIndex.put(idx, result);
             return result;
         }
+        return UNHANDLED;
+    }
 
-        // ── Any other call starting a new lifecycle phase flushes stale capture ──
-        if (pendingCallableCapture != null) {
-            flushPendingCallableCapture();
-        }
+    private boolean isRegisteredOutGetter(String name, Object[] args) {
+        return name.startsWith("get")
+                && args != null
+                && args.length >= 1
+                && args[0] instanceof Integer idx
+                && outParamModesByIndex.containsKey(idx);
+    }
 
-        // ── registerOutParameter(int, ...) — declare OUT/INOUT parameter mode ──
-        if ("registerOutParameter".equals(name) && args != null && args.length >= 2
+    private Object handleRegisterOutParameter(String name, Method method, Object[] args)
+            throws Throwable {
+        if ("registerOutParameter".equals(name)
+                && args != null
+                && args.length >= 2
                 && args[0] instanceof Integer idx) {
-            var mode = currentParams.containsKey(idx)
-                    ? ParameterMetaData.parameterModeInOut
-                    : ParameterMetaData.parameterModeOut;
+            var mode =
+                    currentParams.containsKey(idx)
+                            ? ParameterMetaData.parameterModeInOut
+                            : ParameterMetaData.parameterModeOut;
             outParamModesByIndex.put(idx, mode);
             return delegateInvoke(method, args);
         }
+        return UNHANDLED;
+    }
 
-        // ── Parameter setters ────────────────────────────────────────────────
-        if (name.startsWith("set") && args != null && args.length >= 1
+    private Object handleParameterMethod(String name, Method method, Object[] args)
+            throws Throwable {
+        var result = handleParameterSetter(name, method, args);
+        if (result != UNHANDLED) {
+            return result;
+        }
+        return handleParameterLifecycleMethod(name, method, args);
+    }
+
+    private Object handleParameterSetter(String name, Method method, Object[] args)
+            throws Throwable {
+        if (name.startsWith("set")
+                && args != null
+                && args.length >= 1
                 && args[0] instanceof Integer idx) {
             if ("setNull".equals(name)) {
                 currentParams.put(idx, null);
@@ -167,61 +236,75 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
                 currentParams.put(idx, args[1]);
             }
             // registerOutParameter may have come first: binding a value upgrades OUT to INOUT
-            outParamModesByIndex.computeIfPresent(idx, (i, mode) -> ParameterMetaData.parameterModeInOut);
+            outParamModesByIndex.computeIfPresent(
+                    idx, (i, mode) -> ParameterMetaData.parameterModeInOut);
             return delegateInvoke(method, args);
         }
+        return UNHANDLED;
+    }
 
-        // ── clearParameters() ────────────────────────────────────────────────
+    private Object handleParameterLifecycleMethod(String name, Method method, Object[] args)
+            throws Throwable {
         if ("clearParameters".equals(name)) {
             currentParams.clear();
             return delegateInvoke(method, args);
         }
 
-        // ── addBatch() (no-arg PreparedStatement variant) ────────────────────
-        if ("addBatch".equals(name) && (args == null || args.length == 0)) {
+        if ("addBatch".equals(name) && hasNoArguments(args)) {
             batchGroups.add(Collections.unmodifiableList(new ArrayList<>(sortedParamValues())));
             return delegateInvoke(method, args);
         }
+        return UNHANDLED;
+    }
 
-        // ── executeQuery() ───────────────────────────────────────────────────
-        if ("executeQuery".equals(name) && (args == null || args.length == 0)) {
-            return captureExecuteQuery();
+    private Object handleExecutionMethod(String name, Method method, Object[] args)
+            throws Throwable {
+        var result = handleBatchExecution(name);
+        if (result != UNHANDLED) {
+            return result;
         }
 
-        // ── executeUpdate() ──────────────────────────────────────────────────
-        if ("executeUpdate".equals(name) && (args == null || args.length == 0)) {
-            return captureExecuteUpdate();
+        result = handleSingleExecution(name, args);
+        if (result != UNHANDLED) {
+            return result;
         }
 
-        // ── executeLargeUpdate() ─────────────────────────────────────────────
-        if ("executeLargeUpdate".equals(name) && (args == null || args.length == 0)) {
-            return captureExecuteLargeUpdate();
-        }
-
-        // ── execute() ────────────────────────────────────────────────────────
-        if ("execute".equals(name) && (args == null || args.length == 0)) {
-            return captureExecute();
-        }
-
-        // ── executeBatch() ───────────────────────────────────────────────────
-        if ("executeBatch".equals(name)) {
-            return captureExecuteBatch();
-        }
-
-        // ── executeLargeBatch() ──────────────────────────────────────────────
-        if ("executeLargeBatch".equals(name)) {
-            return captureExecuteLargeBatch();
-        }
-
-        // ── getResultSet() — return pending wrapped RS if present ────────────
         if ("getResultSet".equals(name) && pendingResultSet != null) {
             var rs = pendingResultSet;
             pendingResultSet = null;
             return rs;
         }
+        return UNHANDLED;
+    }
 
-        // ── delegate everything else ─────────────────────────────────────────
-        return delegateInvoke(method, args);
+    private Object handleBatchExecution(String name) throws Throwable {
+        if ("executeBatch".equals(name)) {
+            return captureExecuteBatch();
+        }
+        if ("executeLargeBatch".equals(name)) {
+            return captureExecuteLargeBatch();
+        }
+        return UNHANDLED;
+    }
+
+    private Object handleSingleExecution(String name, Object[] args) throws Throwable {
+        if ("executeQuery".equals(name) && hasNoArguments(args)) {
+            return captureExecuteQuery();
+        }
+        if ("executeUpdate".equals(name) && hasNoArguments(args)) {
+            return captureExecuteUpdate();
+        }
+        if ("executeLargeUpdate".equals(name) && hasNoArguments(args)) {
+            return captureExecuteLargeUpdate();
+        }
+        if ("execute".equals(name) && hasNoArguments(args)) {
+            return captureExecute();
+        }
+        return UNHANDLED;
+    }
+
+    private static boolean hasNoArguments(Object[] args) {
+        return args == null || args.length == 0;
     }
 
     // ── Capture helpers ──────────────────────────────────────────────────────
@@ -233,8 +316,7 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         try {
             rawRs = delegate.executeQuery();
         } catch (Exception e) {
-            capture.captureUpdate(sql, params, 0L,
-                    System.currentTimeMillis() - startMs, false, e);
+            capture.captureUpdate(sql, params, 0L, System.currentTimeMillis() - startMs, false, e);
             throw e;
         }
         return capture.wrapResultSet(sql, params, rawRs, startMs);
@@ -249,9 +331,11 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             int count = delegate.executeUpdate();
             var elapsedMs = System.currentTimeMillis() - startMs;
             if (hasOutParams) {
-                pendingCallableCapture = new PendingCallableCapture(inParamsByIndex, count, elapsedMs, true, null);
+                pendingCallableCapture =
+                        new PendingCallableCapture(inParamsByIndex, count, elapsedMs, true, null);
             } else if (returnGeneratedKeys) {
-                pendingGeneratedKeysCapture = new PendingGeneratedKeysCapture(params, count, elapsedMs);
+                pendingGeneratedKeysCapture =
+                        new PendingGeneratedKeysCapture(params, count, elapsedMs);
             } else {
                 capture.captureUpdate(sql, params, count, elapsedMs, true, null);
             }
@@ -259,7 +343,8 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         } catch (Exception e) {
             var elapsedMs = System.currentTimeMillis() - startMs;
             if (hasOutParams) {
-                pendingCallableCapture = new PendingCallableCapture(inParamsByIndex, 0L, elapsedMs, false, e);
+                pendingCallableCapture =
+                        new PendingCallableCapture(inParamsByIndex, 0L, elapsedMs, false, e);
             } else {
                 capture.captureUpdate(sql, params, 0L, elapsedMs, false, e);
             }
@@ -274,14 +359,14 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             long count = delegate.executeLargeUpdate();
             var elapsedMs = System.currentTimeMillis() - startMs;
             if (returnGeneratedKeys) {
-                pendingGeneratedKeysCapture = new PendingGeneratedKeysCapture(params, count, elapsedMs);
+                pendingGeneratedKeysCapture =
+                        new PendingGeneratedKeysCapture(params, count, elapsedMs);
             } else {
                 capture.captureUpdate(sql, params, count, elapsedMs, true, null);
             }
             return count;
         } catch (Exception e) {
-            capture.captureUpdate(sql, params, 0L,
-                    System.currentTimeMillis() - startMs, false, e);
+            capture.captureUpdate(sql, params, 0L, System.currentTimeMillis() - startMs, false, e);
             throw e;
         }
     }
@@ -297,7 +382,8 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         } catch (Exception e) {
             var elapsedMs = System.currentTimeMillis() - startMs;
             if (hasOutParams) {
-                pendingCallableCapture = new PendingCallableCapture(inParamsByIndex, 0L, elapsedMs, false, e);
+                pendingCallableCapture =
+                        new PendingCallableCapture(inParamsByIndex, 0L, elapsedMs, false, e);
             } else {
                 capture.captureUpdate(sql, params, 0L, elapsedMs, false, e);
             }
@@ -312,12 +398,18 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
                 pendingResultSet = capture.wrapResultSet(sql, params, rawRs, startMs);
             }
         } else if (hasOutParams) {
-            pendingCallableCapture = new PendingCallableCapture(inParamsByIndex,
-                    (long) delegate.getUpdateCount(), elapsedMs, true, null);
+            pendingCallableCapture =
+                    new PendingCallableCapture(
+                            inParamsByIndex,
+                            (long) delegate.getUpdateCount(),
+                            elapsedMs,
+                            true,
+                            null);
         } else {
             var updateCount = (long) delegate.getUpdateCount();
             if (returnGeneratedKeys) {
-                pendingGeneratedKeysCapture = new PendingGeneratedKeysCapture(params, updateCount, elapsedMs);
+                pendingGeneratedKeysCapture =
+                        new PendingGeneratedKeysCapture(params, updateCount, elapsedMs);
             } else {
                 capture.captureUpdate(sql, params, updateCount, elapsedMs, true, null);
             }
@@ -332,7 +424,8 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
             int[] counts = delegate.executeBatch();
             var longCounts = new long[counts.length];
             for (var i = 0; i < counts.length; i++) longCounts[i] = counts[i];
-            capture.captureBatch(sql, groups, longCounts, System.currentTimeMillis() - startMs, true, null);
+            capture.captureBatch(
+                    sql, groups, longCounts, System.currentTimeMillis() - startMs, true, null);
             return counts;
         } catch (Exception e) {
             capture.captureBatch(sql, groups, null, System.currentTimeMillis() - startMs, false, e);
@@ -347,7 +440,8 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         var startMs = System.currentTimeMillis();
         try {
             long[] counts = delegate.executeLargeBatch();
-            capture.captureBatch(sql, groups, counts, System.currentTimeMillis() - startMs, true, null);
+            capture.captureBatch(
+                    sql, groups, counts, System.currentTimeMillis() - startMs, true, null);
             return counts;
         } catch (Exception e) {
             capture.captureBatch(sql, groups, null, System.currentTimeMillis() - startMs, false, e);
@@ -371,9 +465,9 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
     // ── Deferred CallableStatement OUT/INOUT parameter capture ───────────────
 
     /**
-     * Publishes a deferred callable capture, merging any OUT/INOUT values retrieved via
-     * {@code getXxx(int)} since the execution completed. Values not yet retrieved fall back to
-     * the bound IN value (or {@code null} for pure OUT parameters never read back).
+     * Publishes a deferred callable capture, merging any OUT/INOUT values retrieved via {@code
+     * getXxx(int)} since the execution completed. Values not yet retrieved fall back to the bound
+     * IN value (or {@code null} for pure OUT parameters never read back).
      */
     private void flushPendingCallableCapture() {
         if (pendingCallableCapture == null) {
@@ -385,9 +479,11 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         outValuesByIndex.clear();
 
         if (pending.error() != null) {
-            capture.captureCallableUpdate(sql, merged, 0L, pending.elapsedMs(), false, pending.error());
+            capture.captureCallableUpdate(
+                    sql, merged, 0L, pending.elapsedMs(), false, pending.error());
         } else {
-            capture.captureCallableUpdate(sql, merged, pending.updateCount(), pending.elapsedMs(), true, null);
+            capture.captureCallableUpdate(
+                    sql, merged, pending.updateCount(), pending.elapsedMs(), true, null);
         }
     }
 
@@ -398,17 +494,34 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         try {
             generatedKeys = delegate.getGeneratedKeys();
         } catch (java.sql.SQLException error) {
-            capture.captureUpdate(sql, pending.parameters(), pending.updateCount(),
-                    pending.elapsedMs(), true, null);
+            capture.captureUpdate(
+                    sql,
+                    pending.parameters(),
+                    pending.updateCount(),
+                    pending.elapsedMs(),
+                    true,
+                    null);
             throw error;
         }
         try {
-            activeGeneratedKeys = capture.captureUpdateWithGeneratedKeys(sql, pending.parameters(), pending.updateCount(),
-                    pending.elapsedMs(), true, null, generatedKeys);
+            activeGeneratedKeys =
+                    capture.captureUpdateWithGeneratedKeys(
+                            sql,
+                            pending.parameters(),
+                            pending.updateCount(),
+                            pending.elapsedMs(),
+                            true,
+                            null,
+                            generatedKeys);
             return activeGeneratedKeys;
         } catch (java.sql.SQLException error) {
-            capture.captureUpdate(sql, pending.parameters(), pending.updateCount(),
-                    pending.elapsedMs(), true, null);
+            capture.captureUpdate(
+                    sql,
+                    pending.parameters(),
+                    pending.updateCount(),
+                    pending.elapsedMs(),
+                    true,
+                    null);
             throw error;
         }
     }
@@ -423,8 +536,8 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         }
         var pending = pendingGeneratedKeysCapture;
         pendingGeneratedKeysCapture = null;
-        capture.captureUpdate(sql, pending.parameters(), pending.updateCount(),
-                pending.elapsedMs(), true, null);
+        capture.captureUpdate(
+                sql, pending.parameters(), pending.updateCount(), pending.elapsedMs(), true, null);
     }
 
     /**
@@ -440,7 +553,10 @@ final class CapturingPreparedStatementInvocationHandler implements InvocationHan
         var result = new ArrayList<JdbcExecutionCapture.CapturedParameter>(indices.size());
         for (var idx : indices) {
             var mode = outParamModesByIndex.getOrDefault(idx, ParameterMetaData.parameterModeIn);
-            var value = outValuesByIndex.containsKey(idx) ? outValuesByIndex.get(idx) : inParamsByIndex.get(idx);
+            var value =
+                    outValuesByIndex.containsKey(idx)
+                            ? outValuesByIndex.get(idx)
+                            : inParamsByIndex.get(idx);
             result.add(new JdbcExecutionCapture.CapturedParameter(idx, mode, value));
         }
         return result;

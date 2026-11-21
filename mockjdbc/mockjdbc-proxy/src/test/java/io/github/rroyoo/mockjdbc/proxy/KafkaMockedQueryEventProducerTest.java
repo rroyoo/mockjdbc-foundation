@@ -1,5 +1,11 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
 import io.github.rroyoo.mockjdbc.mock.PlainStatement;
 import org.apache.kafka.clients.producer.Producer;
@@ -7,30 +13,26 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-
 class KafkaMockedQueryEventProducerTest {
 
     @Test
-    @DisplayName("Given a mocked producer, when sending event, then it publishes protobuf bytes with datasource key")
+    @DisplayName(
+            "Given a mocked producer, when sending event, then it publishes protobuf bytes with datasource key")
     void shouldPublishMockedQueryAsKafkaRecord() throws Exception {
         @SuppressWarnings("unchecked")
         var kafkaProducer = (Producer<String, byte[]>) mock(Producer.class);
 
-        var producer = new KafkaMockedQueryEventProducer(
-                kafkaProducer,
-                "mockjdbc.query.events",
-                KafkaMockedQueryEventProducer.datasourceKeyResolver()
-        );
+        var producer =
+                new KafkaMockedQueryEventProducer(
+                        kafkaProducer,
+                        "mockjdbc.query.events",
+                        KafkaMockedQueryEventProducer.datasourceKeyResolver());
 
-        var event = MockedQuery.newBuilder()
-                .setDatasourceId("users-primary")
-                .setSimpleStatement(PlainStatement.newBuilder().setSql("SELECT 1").build())
-                .build();
+        var event =
+                MockedQuery.newBuilder()
+                        .setDatasourceId("users-primary")
+                        .setSimpleStatement(PlainStatement.newBuilder().setSql("SELECT 1").build())
+                        .build();
 
         producer.send(event);
 
@@ -46,18 +48,26 @@ class KafkaMockedQueryEventProducerTest {
     }
 
     @Test
-    @DisplayName("Given a broker delivery failure, when sending asynchronously, then the returned stage completes exceptionally")
+    @DisplayName(
+            "Given a broker delivery failure, when sending asynchronously, then the returned stage completes exceptionally")
     void shouldCompleteExceptionallyWhenBrokerDeliveryFails() {
         @SuppressWarnings("unchecked")
         var kafkaProducer = (Producer<String, byte[]>) mock(Producer.class);
-        org.mockito.Mockito.when(kafkaProducer.send(any(ProducerRecord.class), any(org.apache.kafka.clients.producer.Callback.class)))
-                .thenAnswer(invocation -> {
-                    ((org.apache.kafka.clients.producer.Callback) invocation.getArgument(1))
-                            .onCompletion(null, new RuntimeException("broker down"));
-                    return null;
-                });
-        var producer = new KafkaMockedQueryEventProducer(kafkaProducer, "topic",
-                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+        org.mockito.Mockito.when(
+                        kafkaProducer.send(
+                                any(ProducerRecord.class),
+                                any(org.apache.kafka.clients.producer.Callback.class)))
+                .thenAnswer(
+                        invocation -> {
+                            ((org.apache.kafka.clients.producer.Callback) invocation.getArgument(1))
+                                    .onCompletion(null, new RuntimeException("broker down"));
+                            return null;
+                        });
+        var producer =
+                new KafkaMockedQueryEventProducer(
+                        kafkaProducer,
+                        "topic",
+                        KafkaMockedQueryEventProducer.datasourceKeyResolver());
 
         var stage = producer.sendAsync(MockedQuery.getDefaultInstance()).toCompletableFuture();
 

@@ -1,13 +1,5 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
-import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.util.Properties;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,10 +9,18 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.util.Properties;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 class ConnectionFactoryTest {
 
     @Test
-    @DisplayName("Given a MockConfig, when creating a connection, then it returns a valid connection")
+    @DisplayName(
+            "Given a MockConfig, when creating a connection, then it returns a valid connection")
     void shouldCreateConnectionFromMockConfig() {
         // Act
         var connection = assertDoesNotThrow(() -> ConnectionFactory.create(mockConfig()));
@@ -30,7 +30,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a null MockConfig, when creating a connection, then it throws NullPointerException")
+    @DisplayName(
+            "Given a null MockConfig, when creating a connection, then it throws NullPointerException")
     void shouldThrowNullPointerExceptionWhenMockConfigIsNull() {
         // Act + Assert
         assertThrows(IllegalArgumentException.class, () -> ConnectionFactory.create(null));
@@ -60,7 +61,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a new connection, when getAutoCommit is called, then it returns true by default")
+    @DisplayName(
+            "Given a new connection, when getAutoCommit is called, then it returns true by default")
     void shouldReturnAutoCommitTrueByDefault() throws Exception {
         // Arrange
         var connection = ConnectionFactory.create(mockConfig());
@@ -70,7 +72,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when setAutoCommit is set to false, then getAutoCommit returns false")
+    @DisplayName(
+            "Given a connection, when setAutoCommit is set to false, then getAutoCommit returns false")
     void shouldReturnFalseAfterAutoCommitIsDisabled() throws Exception {
         // Arrange
         var connection = ConnectionFactory.create(mockConfig());
@@ -83,7 +86,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection with autoCommit disabled, when setAutoCommit is set to true, then getAutoCommit returns true")
+    @DisplayName(
+            "Given a connection with autoCommit disabled, when setAutoCommit is set to true, then getAutoCommit returns true")
     void shouldReturnTrueAfterAutoCommitIsReEnabled() throws Exception {
         // Arrange
         var connection = ConnectionFactory.create(mockConfig());
@@ -97,7 +101,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a new connection, when isReadOnly is called, then it returns false by default")
+    @DisplayName(
+            "Given a new connection, when isReadOnly is called, then it returns false by default")
     void shouldReturnReadOnlyFalseByDefault() throws Exception {
         // Arrange
         var connection = ConnectionFactory.create(mockConfig());
@@ -107,7 +112,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when setReadOnly is set to true, then isReadOnly returns true")
+    @DisplayName(
+            "Given a connection, when setReadOnly is set to true, then isReadOnly returns true")
     void shouldReturnTrueAfterReadOnlyIsEnabled() throws Exception {
         // Arrange
         var connection = ConnectionFactory.create(mockConfig());
@@ -120,7 +126,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a read-only connection, when setReadOnly is set to false, then isReadOnly returns false")
+    @DisplayName(
+            "Given a read-only connection, when setReadOnly is set to false, then isReadOnly returns false")
     void shouldReturnFalseAfterReadOnlyIsDisabled() throws Exception {
         // Arrange
         var connection = ConnectionFactory.create(mockConfig());
@@ -136,14 +143,16 @@ class ConnectionFactoryTest {
     // -- setTransactionIsolation / getTransactionIsolation --
 
     @Test
-    @DisplayName("Given a new connection, when getTransactionIsolation is called, then it returns TRANSACTION_READ_COMMITTED by default")
+    @DisplayName(
+            "Given a new connection, when getTransactionIsolation is called, then it returns TRANSACTION_READ_COMMITTED by default")
     void shouldReturnReadCommittedIsolationByDefault() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertEquals(Connection.TRANSACTION_READ_COMMITTED, connection.getTransactionIsolation());
     }
 
     @Test
-    @DisplayName("Given a connection, when setTransactionIsolation is set to SERIALIZABLE, then getTransactionIsolation returns SERIALIZABLE")
+    @DisplayName(
+            "Given a connection, when setTransactionIsolation is set to SERIALIZABLE, then getTransactionIsolation returns SERIALIZABLE")
     void shouldReturnSerializableAfterIsolationIsSet() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
@@ -153,14 +162,16 @@ class ConnectionFactoryTest {
     // -- setHoldability / getHoldability --
 
     @Test
-    @DisplayName("Given a new connection, when getHoldability is called, then it returns CLOSE_CURSORS_AT_COMMIT by default")
+    @DisplayName(
+            "Given a new connection, when getHoldability is called, then it returns CLOSE_CURSORS_AT_COMMIT by default")
     void shouldReturnCloseCursorsAtCommitHoldabilityByDefault() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertEquals(ResultSet.CLOSE_CURSORS_AT_COMMIT, connection.getHoldability());
     }
 
     @Test
-    @DisplayName("Given a connection, when setHoldability is set to HOLD_CURSORS_OVER_COMMIT, then getHoldability returns HOLD_CURSORS_OVER_COMMIT")
+    @DisplayName(
+            "Given a connection, when setHoldability is set to HOLD_CURSORS_OVER_COMMIT, then getHoldability returns HOLD_CURSORS_OVER_COMMIT")
     void shouldReturnHoldCursorsAfterHoldabilityIsSet() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
@@ -170,14 +181,16 @@ class ConnectionFactoryTest {
     // -- setCatalog / getCatalog --
 
     @Test
-    @DisplayName("Given a new connection, when getCatalog is called, then it returns null by default")
+    @DisplayName(
+            "Given a new connection, when getCatalog is called, then it returns null by default")
     void shouldReturnNullCatalogByDefault() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertNull(connection.getCatalog());
     }
 
     @Test
-    @DisplayName("Given a connection, when setCatalog is called, then getCatalog returns the same value")
+    @DisplayName(
+            "Given a connection, when setCatalog is called, then getCatalog returns the same value")
     void shouldReturnCatalogAfterItIsSet() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.setCatalog("my_catalog");
@@ -187,14 +200,16 @@ class ConnectionFactoryTest {
     // -- setSchema / getSchema --
 
     @Test
-    @DisplayName("Given a new connection, when getSchema is called, then it returns null by default")
+    @DisplayName(
+            "Given a new connection, when getSchema is called, then it returns null by default")
     void shouldReturnNullSchemaByDefault() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertNull(connection.getSchema());
     }
 
     @Test
-    @DisplayName("Given a connection, when setSchema is called, then getSchema returns the same value")
+    @DisplayName(
+            "Given a connection, when setSchema is called, then getSchema returns the same value")
     void shouldReturnSchemaAfterItIsSet() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.setSchema("my_schema");
@@ -204,14 +219,16 @@ class ConnectionFactoryTest {
     // -- setNetworkTimeout / getNetworkTimeout --
 
     @Test
-    @DisplayName("Given a new connection, when getNetworkTimeout is called, then it returns 0 by default")
+    @DisplayName(
+            "Given a new connection, when getNetworkTimeout is called, then it returns 0 by default")
     void shouldReturnZeroNetworkTimeoutByDefault() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertEquals(0, connection.getNetworkTimeout());
     }
 
     @Test
-    @DisplayName("Given a connection, when setNetworkTimeout is called, then getNetworkTimeout returns the same value")
+    @DisplayName(
+            "Given a connection, when setNetworkTimeout is called, then getNetworkTimeout returns the same value")
     void shouldReturnNetworkTimeoutAfterItIsSet() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.setNetworkTimeout(null, 5000);
@@ -251,14 +268,16 @@ class ConnectionFactoryTest {
     // -- getWarnings / clearWarnings --
 
     @Test
-    @DisplayName("Given a new connection, when getWarnings is called, then it returns null by default")
+    @DisplayName(
+            "Given a new connection, when getWarnings is called, then it returns null by default")
     void shouldReturnNullWarningsByDefault() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertNull(connection.getWarnings());
     }
 
     @Test
-    @DisplayName("Given a connection with no warnings, when clearWarnings is called, then getWarnings still returns null")
+    @DisplayName(
+            "Given a connection with no warnings, when clearWarnings is called, then getWarnings still returns null")
     void shouldReturnNullAfterClearWarningsOnFreshConnection() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.clearWarnings();
@@ -268,14 +287,16 @@ class ConnectionFactoryTest {
     // -- client info --
 
     @Test
-    @DisplayName("Given a new connection, when getClientInfo is called, then it returns empty properties")
+    @DisplayName(
+            "Given a new connection, when getClientInfo is called, then it returns empty properties")
     void shouldReturnEmptyClientInfoByDefault() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertTrue(connection.getClientInfo().isEmpty());
     }
 
     @Test
-    @DisplayName("Given a connection, when setClientInfo with key/value is called, then getClientInfo returns the value")
+    @DisplayName(
+            "Given a connection, when setClientInfo with key/value is called, then getClientInfo returns the value")
     void shouldReturnClientInfoValueAfterKeyValueIsSet() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         connection.setClientInfo("ApplicationName", "myApp");
@@ -283,7 +304,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when setClientInfo with Properties is called, then getClientInfo returns all values")
+    @DisplayName(
+            "Given a connection, when setClientInfo with Properties is called, then getClientInfo returns all values")
     void shouldReturnAllClientInfoAfterPropertiesAreSet() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         var props = new Properties();
@@ -297,7 +319,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when nativeSQL is called, then it returns the same SQL unchanged")
+    @DisplayName(
+            "Given a connection, when nativeSQL is called, then it returns the same SQL unchanged")
     void shouldReturnSameSqlWhenNativeSqlIsCalled() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         var sql = "SELECT * FROM users WHERE id = ?";
@@ -306,7 +329,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when nativeSQL is called with null, then it throws SQLException")
+    @DisplayName(
+            "Given a connection, when nativeSQL is called with null, then it throws SQLException")
     void shouldRejectNullWhenNativeSqlIsCalled() {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -314,14 +338,16 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given a connection, when createStatement is called, then it returns a statement instance")
+    @DisplayName(
+            "Given a connection, when createStatement is called, then it returns a statement instance")
     void shouldCreateStatementFromConnectionFactory() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertNotNull(connection.createStatement());
     }
 
     @Test
-    @DisplayName("Given a connection, when prepareStatement is called, then it returns a prepared statement instance")
+    @DisplayName(
+            "Given a connection, when prepareStatement is called, then it returns a prepared statement instance")
     void shouldCreatePreparedStatementFromConnectionFactory() throws Exception {
         var connection = ConnectionFactory.create(mockConfig());
         assertNotNull(connection.prepareStatement("SELECT 1"));
@@ -334,7 +360,8 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given an unregistered Connection method, when beginRequest is called, then it throws SQLFeatureNotSupportedException")
+    @DisplayName(
+            "Given an unregistered Connection method, when beginRequest is called, then it throws SQLFeatureNotSupportedException")
     void shouldThrowFeatureNotSupportedForUnregisteredVoidMethod() {
         var connection = ConnectionFactory.create(mockConfig());
 
@@ -342,13 +369,18 @@ class ConnectionFactoryTest {
     }
 
     @Test
-    @DisplayName("Given request and sharding methods, when they are called, then they throw SQLFeatureNotSupportedException")
+    @DisplayName(
+            "Given request and sharding methods, when they are called, then they throw SQLFeatureNotSupportedException")
     void shouldRejectRequestAndShardingMethodsExplicitly() {
         var connection = ConnectionFactory.create(mockConfig());
 
         assertThrows(java.sql.SQLFeatureNotSupportedException.class, connection::endRequest);
-        assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> connection.setShardingKey(null));
-        assertThrows(java.sql.SQLFeatureNotSupportedException.class, () -> connection.setShardingKeyIfValid(null, 1));
+        assertThrows(
+                java.sql.SQLFeatureNotSupportedException.class,
+                () -> connection.setShardingKey(null));
+        assertThrows(
+                java.sql.SQLFeatureNotSupportedException.class,
+                () -> connection.setShardingKeyIfValid(null, 1));
     }
 
     @Test

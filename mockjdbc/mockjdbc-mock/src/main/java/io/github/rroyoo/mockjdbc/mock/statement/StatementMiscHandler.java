@@ -2,7 +2,6 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 
 import io.github.rroyoo.mockjdbc.mock.connection.ConnectionFactory;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,4 +47,3 @@ final class StatementMiscHandler {
         return ConnectionFactory.create(mockConfig);
     }
 }
-

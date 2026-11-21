@@ -1,19 +1,18 @@
 package io.github.rroyoo.mockjdbc.mock.driver;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
-import java.util.Properties;
-import java.util.logging.Logger;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Properties;
+import java.util.logging.Logger;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class MockDriverTest {
 
@@ -44,21 +43,23 @@ class MockDriverTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "jdbc:mock://localhost:8080",
-            "jdbc:mock://127.0.0.1:50051/?keepAliveTime=60&keepAliveTimeUnit=SECONDS"
-    })
+    @ValueSource(
+            strings = {
+                "jdbc:mock://localhost:8080",
+                "jdbc:mock://127.0.0.1:50051/?keepAliveTime=60&keepAliveTimeUnit=SECONDS"
+            })
     @DisplayName("Given valid mock URLs, when acceptsURL is called, then it returns true")
     void shouldAcceptAllSupportedMockUrlFormats(String url) {
         assertTrue(mockDriver.acceptsURL(url));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "jdbc:mock://localhost",
-            "jdbc:mock://localhost:abc",
-            "jdbc:mock://localhost:8080?missingSlashBeforeQuery"
-    })
+    @ValueSource(
+            strings = {
+                "jdbc:mock://localhost",
+                "jdbc:mock://localhost:abc",
+                "jdbc:mock://localhost:8080?missingSlashBeforeQuery"
+            })
     @DisplayName("Given malformed mock URLs, when acceptsURL is called, then it returns false")
     void shouldRejectMalformedMockUrls(String url) {
         assertFalse(mockDriver.acceptsURL(url));
@@ -71,7 +72,8 @@ class MockDriverTest {
     }
 
     @Test
-    @DisplayName("Given a mock driver, when getParentLogger is called, then it returns Logger global")
+    @DisplayName(
+            "Given a mock driver, when getParentLogger is called, then it returns Logger global")
     void shouldReturnGlobalParentLogger() throws Exception {
         assertSame(Logger.getGlobal(), mockDriver.getParentLogger());
     }
@@ -83,9 +85,12 @@ class MockDriverTest {
     }
 
     @Test
-    @DisplayName("Given a mock driver, when getPropertyInfo is called, then it returns an empty array")
+    @DisplayName(
+            "Given a mock driver, when getPropertyInfo is called, then it returns an empty array")
     void shouldReturnEmptyPropertyInfo() throws Exception {
-        var propertyInfo = mockDriver.getPropertyInfo("jdbc:mock://localhost:8080", new java.util.Properties());
+        var propertyInfo =
+                mockDriver.getPropertyInfo(
+                        "jdbc:mock://localhost:8080", new java.util.Properties());
 
         assertEquals(0, propertyInfo.length);
     }

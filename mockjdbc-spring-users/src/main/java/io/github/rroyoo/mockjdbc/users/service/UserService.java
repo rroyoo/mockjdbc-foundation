@@ -2,10 +2,9 @@ package io.github.rroyoo.mockjdbc.users.service;
 
 import io.github.rroyoo.mockjdbc.users.domain.User;
 import io.github.rroyoo.mockjdbc.users.repository.UserRepository;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Optional;
+import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {

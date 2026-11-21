@@ -1,26 +1,27 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Properties;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Properties;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 class ClientInfoHandlerTest {
 
     @Test
-    @DisplayName("Given a new handler, when getClientInfo is called, then it returns empty properties")
+    @DisplayName(
+            "Given a new handler, when getClientInfo is called, then it returns empty properties")
     void shouldReturnEmptyPropertiesByDefault() throws Exception {
         var handler = new ClientInfoHandler();
         assertTrue(handler.getClientInfo().isEmpty());
     }
 
     @Test
-    @DisplayName("Given a handler, when setClientInfo with key/value is called, then getClientInfo returns the value")
+    @DisplayName(
+            "Given a handler, when setClientInfo with key/value is called, then getClientInfo returns the value")
     void shouldReturnValueAfterKeyValueIsSet() throws Exception {
         var handler = new ClientInfoHandler();
         handler.setClientInfo("ApplicationName", "myApp");
@@ -28,7 +29,8 @@ class ClientInfoHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a handler, when setClientInfo with null value is called, then the key is removed")
+    @DisplayName(
+            "Given a handler, when setClientInfo with null value is called, then the key is removed")
     void shouldRemoveKeyWhenValueIsNull() throws Exception {
         var handler = new ClientInfoHandler();
         handler.setClientInfo("ApplicationName", "myApp");
@@ -37,7 +39,8 @@ class ClientInfoHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a handler, when setClientInfo with Properties is called, then getClientInfo returns all values")
+    @DisplayName(
+            "Given a handler, when setClientInfo with Properties is called, then getClientInfo returns all values")
     void shouldReturnAllValuesAfterPropertiesAreSet() throws Exception {
         var handler = new ClientInfoHandler();
         var props = new Properties();
@@ -51,7 +54,8 @@ class ClientInfoHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a handler with existing info, when setClientInfo with Properties is called, then old entries are replaced")
+    @DisplayName(
+            "Given a handler with existing info, when setClientInfo with Properties is called, then old entries are replaced")
     void shouldReplaceExistingInfoWhenPropertiesAreSet() throws Exception {
         var handler = new ClientInfoHandler();
         handler.setClientInfo("OldKey", "oldValue");
@@ -65,7 +69,8 @@ class ClientInfoHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a handler, when getClientInfo for unknown key is called, then it returns null")
+    @DisplayName(
+            "Given a handler, when getClientInfo for unknown key is called, then it returns null")
     void shouldReturnNullForUnknownKey() throws Exception {
         var handler = new ClientInfoHandler();
         assertNull(handler.getClientInfo("unknown"));
@@ -83,4 +88,3 @@ class ClientInfoHandlerTest {
         assertEquals("myApp", result.getProperty("ApplicationName"));
     }
 }
-

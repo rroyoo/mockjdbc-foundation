@@ -23,7 +23,8 @@ import java.util.logging.Logger;
 
 final class ByteBuddyResultSetWrapperFactory {
 
-    private static final Logger LOGGER = Logger.getLogger(ByteBuddyResultSetWrapperFactory.class.getName());
+    private static final Logger LOGGER =
+            Logger.getLogger(ByteBuddyResultSetWrapperFactory.class.getName());
     private final int rowBatchSize;
 
     ByteBuddyResultSetWrapperFactory(int rowBatchSize) {
@@ -38,23 +39,26 @@ final class ByteBuddyResultSetWrapperFactory {
      * Wraps the given ResultSet in a JDK proxy that captures rows during iteration and emits a
      * {@link SerializedResultSet} to {@code onConsumed} when the ResultSet is exhausted or closed.
      */
-    ResultSet wrap(ResultSet delegate, Consumer<SerializedResultSet> onConsumed) throws SQLException {
+    ResultSet wrap(ResultSet delegate, Consumer<SerializedResultSet> onConsumed)
+            throws SQLException {
         return wrap(delegate, onConsumed, rowBatchSize);
     }
 
-    ResultSet wrapSingleResultSet(ResultSet delegate, Consumer<SerializedResultSet> onConsumed) throws SQLException {
+    ResultSet wrapSingleResultSet(ResultSet delegate, Consumer<SerializedResultSet> onConsumed)
+            throws SQLException {
         return wrap(delegate, onConsumed, Integer.MAX_VALUE);
     }
 
-    private ResultSet wrap(ResultSet delegate,
-                           Consumer<SerializedResultSet> onConsumed,
-                           int batchSize) throws SQLException {
+    private ResultSet wrap(
+            ResultSet delegate, Consumer<SerializedResultSet> onConsumed, int batchSize)
+            throws SQLException {
         try {
-            return (ResultSet) java.lang.reflect.Proxy.newProxyInstance(
-                    delegate.getClass().getClassLoader(),
-                    new Class<?>[]{ ResultSet.class },
-                    new ConsumptionTrackingInvocationHandler(delegate, onConsumed, batchSize)
-            );
+            return (ResultSet)
+                    java.lang.reflect.Proxy.newProxyInstance(
+                            delegate.getClass().getClassLoader(),
+                            new Class<?>[] {ResultSet.class},
+                            new ConsumptionTrackingInvocationHandler(
+                                    delegate, onConsumed, batchSize));
         } catch (Exception e) {
             throw new SQLException("Failed to create ResultSet wrapper proxy", e);
         }
@@ -72,16 +76,16 @@ final class ByteBuddyResultSetWrapperFactory {
         private boolean emittedChunks;
         private boolean captureFailed;
 
-        private ConsumptionTrackingInvocationHandler(ResultSet delegate,
-                                                     Consumer<SerializedResultSet> onConsumed,
-                                                     int rowBatchSize) {
+        private ConsumptionTrackingInvocationHandler(
+                ResultSet delegate, Consumer<SerializedResultSet> onConsumed, int rowBatchSize) {
             this.delegate = delegate;
             this.onConsumed = onConsumed;
             this.rowBatchSize = rowBatchSize;
         }
 
         @Override
-        public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+        public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args)
+                throws Throwable {
             var methodName = method.getName();
 
             if ("equals".equals(methodName)) {
@@ -94,31 +98,43 @@ final class ByteBuddyResultSetWrapperFactory {
                 return "CapturingResultSet{" + delegate + "}";
             }
 
-            Object result;
+            var result = invokeDelegate(method, args);
+            captureAfterInvocation(methodName, result);
+            return result;
+        }
+
+        private Object invokeDelegate(java.lang.reflect.Method method, Object[] args)
+                throws Throwable {
             try {
-                result = method.invoke(delegate, args);
+                return method.invoke(delegate, args);
             } catch (InvocationTargetException e) {
                 throw e.getTargetException();
             }
-            if (!captureFailed) {
-                try {
-                    if ("next".equals(methodName)) {
-                        if (Boolean.TRUE.equals(result)) {
-                            captureCurrentRow();
-                        } else {
-                            publishIfNeeded();
-                        }
-                    } else if ("close".equals(methodName)) {
+        }
+
+        private void captureAfterInvocation(String methodName, Object result) {
+            if (captureFailed) {
+                return;
+            }
+            try {
+                if ("next".equals(methodName)) {
+                    if (Boolean.TRUE.equals(result)) {
+                        captureCurrentRow();
+                    } else {
                         publishIfNeeded();
                     }
-                } catch (SQLException | RuntimeException e) {
-                    captureFailed = true;
-                    metadata.clear();
-                    rows.clear();
-                    LOGGER.log(Level.WARNING, "ResultSet capture failed; capture disabled for this result set", e);
+                } else if ("close".equals(methodName)) {
+                    publishIfNeeded();
                 }
+            } catch (SQLException | RuntimeException e) {
+                captureFailed = true;
+                metadata.clear();
+                rows.clear();
+                LOGGER.log(
+                        Level.WARNING,
+                        "ResultSet capture failed; capture disabled for this result set",
+                        e);
             }
-            return result;
         }
 
         private void captureCurrentRow() throws SQLException {
@@ -168,22 +184,26 @@ final class ByteBuddyResultSetWrapperFactory {
             }
 
             if (!emittedChunks) {
-                onConsumed.accept(SerializedResultSet.newBuilder().addAllMetadata(metadata).build());
+                onConsumed.accept(
+                        SerializedResultSet.newBuilder().addAllMetadata(metadata).build());
             }
         }
 
         private void publishChunk() {
-            var resultSet = SerializedResultSet.newBuilder()
-                    .addAllMetadata(metadata)
-                    .addAllRows(rows)
-                    .build();
+            var resultSet =
+                    SerializedResultSet.newBuilder()
+                            .addAllMetadata(metadata)
+                            .addAllRows(rows)
+                            .build();
             onConsumed.accept(resultSet);
             rows.clear();
             emittedChunks = true;
         }
 
-        private static ColumnMetadata toColumnMetadata(ResultSetMetaData metaData, int columnIndex) throws SQLException {
-            var builder = ColumnMetadata.newBuilder().setSqlType(metaData.getColumnType(columnIndex));
+        private static ColumnMetadata toColumnMetadata(ResultSetMetaData metaData, int columnIndex)
+                throws SQLException {
+            var builder =
+                    ColumnMetadata.newBuilder().setSqlType(metaData.getColumnType(columnIndex));
             var name = metaData.getColumnName(columnIndex);
             var label = metaData.getColumnLabel(columnIndex);
             var typeName = metaData.getColumnTypeName(columnIndex);
@@ -214,7 +234,6 @@ final class ByteBuddyResultSetWrapperFactory {
             }
             return builder.build();
         }
-
     }
 
     private static JdbcValue toResultJdbcValue(Object value) throws SQLException {
@@ -223,8 +242,11 @@ final class ByteBuddyResultSetWrapperFactory {
             if (length > Integer.MAX_VALUE) {
                 throw new SQLDataException("BLOB value exceeds the maximum supported size");
             }
-            return JdbcValue.newBuilder().setBytesVal(
-                    com.google.protobuf.ByteString.copyFrom(blob.getBytes(1L, (int) length))).build();
+            return JdbcValue.newBuilder()
+                    .setBytesVal(
+                            com.google.protobuf.ByteString.copyFrom(
+                                    blob.getBytes(1L, (int) length)))
+                    .build();
         }
         if (value instanceof Clob clob) {
             var length = clob.length();
@@ -241,7 +263,9 @@ final class ByteBuddyResultSetWrapperFactory {
             return JdbcValue.newBuilder().setIsNull(true).build();
         }
         if (value instanceof byte[] bytes) {
-            return JdbcValue.newBuilder().setBytesVal(com.google.protobuf.ByteString.copyFrom(bytes)).build();
+            return JdbcValue.newBuilder()
+                    .setBytesVal(com.google.protobuf.ByteString.copyFrom(bytes))
+                    .build();
         }
         if (value instanceof String stringValue) {
             return JdbcValue.newBuilder().setStringVal(stringValue).build();
@@ -249,7 +273,14 @@ final class ByteBuddyResultSetWrapperFactory {
         if (value instanceof Boolean boolValue) {
             return JdbcValue.newBuilder().setBoolVal(boolValue).build();
         }
-        if (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long) {
+        return toNonScalarJdbcValue(value);
+    }
+
+    private static JdbcValue toNonScalarJdbcValue(Object value) {
+        if (value instanceof Byte
+                || value instanceof Short
+                || value instanceof Integer
+                || value instanceof Long) {
             return JdbcValue.newBuilder().setLongVal(((Number) value).longValue()).build();
         }
         if (value instanceof Float || value instanceof Double) {
@@ -258,32 +289,44 @@ final class ByteBuddyResultSetWrapperFactory {
         if (value instanceof BigDecimal decimalValue) {
             return JdbcValue.newBuilder().setDecimalVal(decimalValue.toPlainString()).build();
         }
+        return toTemporalJdbcValue(value);
+    }
+
+    private static JdbcValue toTemporalJdbcValue(Object value) {
         if (value instanceof Timestamp timestampValue) {
-            return JdbcValue.newBuilder().setTimestampVal(com.google.protobuf.Timestamp.newBuilder()
-                    .setSeconds(timestampValue.toInstant().getEpochSecond())
-                    .setNanos(timestampValue.toInstant().getNano())
-                    .build()).build();
+            return JdbcValue.newBuilder()
+                    .setTimestampVal(
+                            com.google.protobuf.Timestamp.newBuilder()
+                                    .setSeconds(timestampValue.toInstant().getEpochSecond())
+                                    .setNanos(timestampValue.toInstant().getNano())
+                                    .build())
+                    .build();
         }
         if (value instanceof java.util.Date dateValue) {
-            return JdbcValue.newBuilder().setStringVal(new Timestamp(dateValue.getTime()).toString()).build();
+            return JdbcValue.newBuilder()
+                    .setStringVal(new Timestamp(dateValue.getTime()).toString())
+                    .build();
         }
 
         return JdbcValue.newBuilder().setStringVal(String.valueOf(value)).build();
     }
 
     static SerializedResultSet resultSetFromUpdateResult(Object result) {
-        var metadata = ColumnMetadata.newBuilder()
-                .setName("update_count")
-                .setLabel("update_count")
-                .setSqlType(Types.BIGINT)
-                .setTypeName("BIGINT")
-                .build();
+        var metadata =
+                ColumnMetadata.newBuilder()
+                        .setName("update_count")
+                        .setLabel("update_count")
+                        .setSqlType(Types.BIGINT)
+                        .setTypeName("BIGINT")
+                        .build();
 
         var builder = SerializedResultSet.newBuilder().addMetadata(metadata);
         if (result instanceof Number number) {
-            var row = Row.newBuilder()
-                    .addValues(JdbcValue.newBuilder().setLongVal(number.longValue()).build())
-                    .build();
+            var row =
+                    Row.newBuilder()
+                            .addValues(
+                                    JdbcValue.newBuilder().setLongVal(number.longValue()).build())
+                            .build();
             builder.addRows(row);
         }
 

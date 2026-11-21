@@ -1,8 +1,7 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
-import net.bytebuddy.implementation.bind.annotation.RuntimeType;
-
 import java.sql.SQLException;
+import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 
 final class NullResultHandler {
 

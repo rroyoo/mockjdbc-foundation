@@ -1,25 +1,24 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
-import net.bytebuddy.asm.Advice;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
+import javax.sql.DataSource;
+import net.bytebuddy.asm.Advice;
 
 /**
  * ByteBuddy {@link Advice} class that intercepts {@link DataSource#getConnection()} at the exit
- * point and replaces the returned {@link Connection} with a capturing proxy when the DataSource
- * is registered in {@link JdbcAgentRegistry}.
+ * point and replaces the returned {@link Connection} with a capturing proxy when the DataSource is
+ * registered in {@link JdbcAgentRegistry}.
  *
  * <p>This class is inlined by ByteBuddy into the instrumented DataSource class. All referenced
- * types ({@link JdbcAgentRegistry}) must therefore be resolvable by the target class's
- * classloader — which is guaranteed because the {@code mockjdbc-proxy} jar is on the application
- * classpath.
+ * types ({@link JdbcAgentRegistry}) must therefore be resolvable by the target class's classloader
+ * — which is guaranteed because the {@code mockjdbc-proxy} jar is on the application classpath.
  *
  * <p><strong>Guardrails:</strong>
+ *
  * <ul>
- *   <li>The advice is a pure exit-point hook; it never modifies arguments or suppresses exceptions.</li>
+ *   <li>The advice is a pure exit-point hook; it never modifies arguments or suppresses exceptions.
  *   <li>If wrapping fails for any reason, {@link JdbcAgentRegistry#wrapIfRegistered} returns the
- *       original connection unchanged — the application never breaks.</li>
+ *       original connection unchanged — the application never breaks.
  * </ul>
  */
 final class DataSourceGetConnectionAdvice {

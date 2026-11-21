@@ -1,11 +1,11 @@
 package io.github.rroyoo.mockjdbc.wiremock;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class WireMockKafkaBridgeExtensionTest {
 
@@ -23,4 +23,3 @@ class WireMockKafkaBridgeExtensionTest {
         verify(consumer).close();
     }
 }
-

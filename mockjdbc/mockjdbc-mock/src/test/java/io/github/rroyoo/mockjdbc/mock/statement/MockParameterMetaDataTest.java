@@ -1,29 +1,29 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
-import io.github.rroyoo.mockjdbc.mock.JdbcValue;
-import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.sql.ParameterMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.rroyoo.mockjdbc.mock.JdbcValue;
+import io.github.rroyoo.mockjdbc.mock.ParameterMetadata;
+import java.sql.ParameterMetaData;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 class MockParameterMetaDataTest {
 
     @Test
-    @DisplayName("Given parameter metadata entries, when querying ParameterMetaData, then it exposes count, type and mode information")
+    @DisplayName(
+            "Given parameter metadata entries, when querying ParameterMetaData, then it exposes count, type and mode information")
     void shouldExposeParameterMetadataDetails() throws Exception {
-        var parameters = List.of(
-                parameter(1, Types.VARCHAR, "VARCHAR"),
-                parameter(2, Types.INTEGER, "INTEGER")
-        );
+        var parameters =
+                List.of(
+                        parameter(1, Types.VARCHAR, "VARCHAR"),
+                        parameter(2, Types.INTEGER, "INTEGER"));
         var metaData = new MockParameterMetaData(parameters);
 
         assertEquals(2, metaData.getParameterCount());
@@ -39,7 +39,8 @@ class MockParameterMetaDataTest {
     }
 
     @Test
-    @DisplayName("Given MockParameterMetaData, when checking wrapper methods, then isWrapperFor and unwrap behave consistently")
+    @DisplayName(
+            "Given MockParameterMetaData, when checking wrapper methods, then isWrapperFor and unwrap behave consistently")
     void shouldSupportJdbcWrapperContract() throws Exception {
         var metaData = new MockParameterMetaData(List.of(parameter(1, Types.VARCHAR, "VARCHAR")));
 
@@ -58,4 +59,3 @@ class MockParameterMetaDataTest {
                 .build();
     }
 }
-

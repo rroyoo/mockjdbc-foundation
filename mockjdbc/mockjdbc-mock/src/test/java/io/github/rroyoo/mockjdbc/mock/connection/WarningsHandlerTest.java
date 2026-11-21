@@ -1,13 +1,12 @@
 package io.github.rroyoo.mockjdbc.mock.connection;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.sql.SQLWarning;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.sql.SQLWarning;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class WarningsHandlerTest {
 
@@ -19,7 +18,8 @@ class WarningsHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a handler with a warning added, when getWarnings is called, then it returns the warning")
+    @DisplayName(
+            "Given a handler with a warning added, when getWarnings is called, then it returns the warning")
     void shouldReturnWarningAfterItIsAdded() throws Exception {
         var handler = new WarningsHandler();
         var warning = new SQLWarning("test warning");
@@ -31,7 +31,8 @@ class WarningsHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a handler with multiple warnings, when getWarnings is called, then they are chained")
+    @DisplayName(
+            "Given a handler with multiple warnings, when getWarnings is called, then they are chained")
     void shouldChainMultipleWarnings() throws Exception {
         var handler = new WarningsHandler();
         handler.addWarning(new SQLWarning("first"));
@@ -45,7 +46,8 @@ class WarningsHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a handler with warnings, when clearWarnings is called, then getWarnings returns null")
+    @DisplayName(
+            "Given a handler with warnings, when clearWarnings is called, then getWarnings returns null")
     void shouldReturnNullAfterWarningsAreCleared() throws Exception {
         var handler = new WarningsHandler();
         handler.addWarning(new SQLWarning("test warning"));
@@ -55,4 +57,3 @@ class WarningsHandlerTest {
         assertNull(handler.getWarnings());
     }
 }
-

@@ -1,5 +1,11 @@
 package io.github.rroyoo.mockjdbc.mock.statement;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.github.rroyoo.mockjdbc.mock.ColumnMetadata;
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.MockQueryServiceGrpc;
@@ -15,25 +21,18 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.sql.SQLDataException;
-import java.sql.SQLSyntaxErrorException;
 import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.sql.Types;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class GrpcMockQueryClientTest {
 
@@ -42,10 +41,7 @@ class GrpcMockQueryClientTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        server = NettyServerBuilder.forPort(0)
-                .addService(service)
-                .build()
-                .start();
+        server = NettyServerBuilder.forPort(0).addService(service).build().start();
         service.reset();
     }
 
@@ -58,17 +54,19 @@ class GrpcMockQueryClientTest {
     }
 
     @Test
-    @DisplayName("Given a reachable grpc server, when findResultSet is called, then it sends SQL and parameters and returns the serialized result")
+    @DisplayName(
+            "Given a reachable grpc server, when findResultSet is called, then it sends SQL and parameters and returns the serialized result")
     void shouldSendLookupRequestAndReturnSerializedResultSet() throws Exception {
         service.responder = request -> mockedQuery(singleRowResultSet());
         var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
 
-        var parameter = ParameterMetadata.newBuilder()
-                .setIndex(1)
-                .setSqlType(Types.VARCHAR)
-                .setTypeName("VARCHAR")
-                .setValue(JdbcValue.newBuilder().setStringVal("bob").build())
-                .build();
+        var parameter =
+                ParameterMetadata.newBuilder()
+                        .setIndex(1)
+                        .setSqlType(Types.VARCHAR)
+                        .setTypeName("VARCHAR")
+                        .setValue(JdbcValue.newBuilder().setStringVal("bob").build())
+                        .build();
 
         var resultSet = client.findResultSet(" SELECT   ?; ", List.of(parameter));
 
@@ -80,26 +78,31 @@ class GrpcMockQueryClientTest {
     }
 
     @Test
-    @DisplayName("Given a legacy update response, when update count is decoded, then the update_count cell is used")
+    @DisplayName(
+            "Given a legacy update response, when update count is decoded, then the update_count cell is used")
     void shouldDecodeUpdateCountFromLegacyResultSetColumn() throws Exception {
-        var legacyUpdateResult = SerializedResultSet.newBuilder()
-                .addMetadata(ColumnMetadata.newBuilder()
-                        .setName("update_count")
-                        .setLabel("update_count")
-                        .setSqlType(Types.BIGINT)
-                        .setTypeName("BIGINT")
-                        .build())
-                .addRows(Row.newBuilder()
-                        .addValues(JdbcValue.newBuilder().setLongVal(7).build())
-                        .build())
-                .build();
+        var legacyUpdateResult =
+                SerializedResultSet.newBuilder()
+                        .addMetadata(
+                                ColumnMetadata.newBuilder()
+                                        .setName("update_count")
+                                        .setLabel("update_count")
+                                        .setSqlType(Types.BIGINT)
+                                        .setTypeName("BIGINT")
+                                        .build())
+                        .addRows(
+                                Row.newBuilder()
+                                        .addValues(JdbcValue.newBuilder().setLongVal(7).build())
+                                        .build())
+                        .build();
         var response = mockedQuery(legacyUpdateResult);
 
         assertEquals(7L, GrpcMockQueryClient.updateCount(response));
     }
 
     @Test
-    @DisplayName("Given SQL literals with different case or whitespace, when looked up, then quoted content stays distinct")
+    @DisplayName(
+            "Given SQL literals with different case or whitespace, when looked up, then quoted content stays distinct")
     void shouldPreserveQuotedSqlContentWhenNormalizingLookup() throws Exception {
         service.responder = request -> mockedQuery(singleRowResultSet());
         var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
@@ -112,12 +115,14 @@ class GrpcMockQueryClientTest {
     }
 
     @Test
-    @DisplayName("Given a grpc error response, when findResultSet is called, then it throws SQLException with grpc cause")
+    @DisplayName(
+            "Given a grpc error response, when findResultSet is called, then it throws SQLException with grpc cause")
     void shouldWrapGrpcErrorsIntoSqlException() {
         service.failure = Status.UNAVAILABLE.asRuntimeException();
         var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
 
-        var sqlException = assertThrows(SQLException.class, () -> client.findResultSet("SELECT 1", List.of()));
+        var sqlException =
+                assertThrows(SQLException.class, () -> client.findResultSet("SELECT 1", List.of()));
 
         assertTrue(sqlException.getMessage().contains("SELECT 1"));
         assertNotNull(sqlException.getCause());
@@ -125,39 +130,53 @@ class GrpcMockQueryClientTest {
     }
 
     @Test
-    @DisplayName("Given a MockedQuery containing QueryError type and message, when findResultSet is called, then it throws the mapped SQLException subtype")
+    @DisplayName(
+            "Given a MockedQuery containing QueryError type and message, when findResultSet is called, then it throws the mapped SQLException subtype")
     void shouldThrowMappedSQLExceptionSubtypeFromProtoError() {
-        service.responder = request -> MockedQuery.newBuilder()
-                .setError(QueryError.newBuilder()
-                        .setType(SQLSyntaxErrorException.class.getName())
-                        .setMessage("bad sql")
-                        .build())
-                .build();
+        service.responder =
+                request ->
+                        MockedQuery.newBuilder()
+                                .setError(
+                                        QueryError.newBuilder()
+                                                .setType(SQLSyntaxErrorException.class.getName())
+                                                .setMessage("bad sql")
+                                                .build())
+                                .build();
         var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
 
-        var exception = assertThrows(SQLSyntaxErrorException.class, () -> client.findResultSet("SELECT *", List.of()));
+        var exception =
+                assertThrows(
+                        SQLSyntaxErrorException.class,
+                        () -> client.findResultSet("SELECT *", List.of()));
 
         assertEquals("bad sql", exception.getMessage());
     }
 
     @Test
-    @DisplayName("Given a MockedQuery containing QueryError type with empty message, when findResultSet is called, then it creates the mapped exception without message")
+    @DisplayName(
+            "Given a MockedQuery containing QueryError type with empty message, when findResultSet is called, then it creates the mapped exception without message")
     void shouldCreateMappedSQLExceptionWithoutMessageWhenProtoMessageIsEmpty() {
-        service.responder = request -> MockedQuery.newBuilder()
-                .setError(QueryError.newBuilder()
-                        .setType(SQLDataException.class.getName())
-                        .setMessage("")
-                        .build())
-                .build();
+        service.responder =
+                request ->
+                        MockedQuery.newBuilder()
+                                .setError(
+                                        QueryError.newBuilder()
+                                                .setType(SQLDataException.class.getName())
+                                                .setMessage("")
+                                                .build())
+                                .build();
         var client = new GrpcMockQueryClient(mockConfig(server.getPort()));
 
-        var exception = assertThrows(SQLDataException.class, () -> client.findResultSet("SELECT *", List.of()));
+        var exception =
+                assertThrows(
+                        SQLDataException.class, () -> client.findResultSet("SELECT *", List.of()));
 
         assertTrue(exception.getMessage() == null || exception.getMessage().isBlank());
     }
 
     @Test
-    @DisplayName("Given clients sharing an endpoint, when all are closed, then the channel is released and closed clients reject queries")
+    @DisplayName(
+            "Given clients sharing an endpoint, when all are closed, then the channel is released and closed clients reject queries")
     void shouldReleaseChannelWhenLastClientCloses() throws Exception {
         var first = new GrpcMockQueryClient(mockConfig(server.getPort()));
         var second = new GrpcMockQueryClient(mockConfig(server.getPort()));
@@ -185,20 +204,26 @@ class GrpcMockQueryClientTest {
 
     private static SerializedResultSet singleRowResultSet() {
         return SerializedResultSet.newBuilder()
-                .addMetadata(ColumnMetadata.newBuilder()
-                        .setName("name")
-                        .setLabel("name")
-                        .setSqlType(Types.VARCHAR)
-                        .setTypeName("VARCHAR")
-                        .build())
-                .addRows(Row.newBuilder().addValues(JdbcValue.newBuilder().setStringVal("bob").build()).build())
+                .addMetadata(
+                        ColumnMetadata.newBuilder()
+                                .setName("name")
+                                .setLabel("name")
+                                .setSqlType(Types.VARCHAR)
+                                .setTypeName("VARCHAR")
+                                .build())
+                .addRows(
+                        Row.newBuilder()
+                                .addValues(JdbcValue.newBuilder().setStringVal("bob").build())
+                                .build())
                 .build();
     }
 
-    private static final class TestMockQueryService extends MockQueryServiceGrpc.MockQueryServiceImplBase {
+    private static final class TestMockQueryService
+            extends MockQueryServiceGrpc.MockQueryServiceImplBase {
 
         private final AtomicReference<QueryLookupRequest> lastRequest = new AtomicReference<>();
-        private volatile Function<QueryLookupRequest, MockedQuery> responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
+        private volatile Function<QueryLookupRequest, MockedQuery> responder =
+                request -> mockedQuery(SerializedResultSet.getDefaultInstance());
         private volatile StatusRuntimeException failure;
 
         private void reset() {
@@ -208,7 +233,8 @@ class GrpcMockQueryClientTest {
         }
 
         @Override
-        public void findMock(QueryLookupRequest request, StreamObserver<MockedQuery> responseObserver) {
+        public void findMock(
+                QueryLookupRequest request, StreamObserver<MockedQuery> responseObserver) {
             lastRequest.set(request);
             if (failure != null) {
                 responseObserver.onError(failure);

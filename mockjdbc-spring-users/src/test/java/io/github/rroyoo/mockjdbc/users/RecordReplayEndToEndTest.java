@@ -1,16 +1,14 @@
 package io.github.rroyoo.mockjdbc.users;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.github.rroyoo.mockjdbc.proxy.AsyncDispatchConfig;
 import io.github.rroyoo.mockjdbc.proxy.JdbcAgentRegistry;
 import io.github.rroyoo.mockjdbc.proxy.KafkaMockedQueryEventProducer;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.testcontainers.containers.ComposeContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
 import java.io.File;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -31,12 +29,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.testcontainers.containers.ComposeContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
 class RecordReplayEndToEndTest {
@@ -52,14 +51,19 @@ class RecordReplayEndToEndTest {
             new ComposeContainer(new File("docker-compose.yml"))
                     .withLocalCompose(true)
                     .withExposedService("kafka-1", KAFKA_PORT)
-                    .withExposedService("wiremock-grpc-1", WIREMOCK_PORT,
+                    .withExposedService(
+                            "wiremock-grpc-1",
+                            WIREMOCK_PORT,
                             Wait.forHttp("/__admin").forStatusCode(200));
 
     @Test
-    @DisplayName("Given a captured H2 query, when replayed, then Kafka-generated WireMock stub returns its result")
+    @DisplayName(
+            "Given a captured H2 query, when replayed, then Kafka-generated WireMock stub returns its result")
     void shouldReplayCapturedQueryWithoutHandWrittenMapping() throws Exception {
-        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
-                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var kafkaBootstrap =
+                MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                        + ":"
+                        + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
         var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
         var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
         var expectedMappingName = DATASOURCE_ID + "::" + SQL.toLowerCase(Locale.ROOT) + "::p1=4242";
@@ -74,31 +78,36 @@ class RecordReplayEndToEndTest {
         kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
         kafkaProperties.setProperty("acks", "all");
 
-        try (var producer = KafkaMockedQueryEventProducer.create(
-                     kafkaProperties,
-                     TOPIC,
-                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
-             var registration = JdbcAgentRegistry.register(
-                     dataSource,
-                     DATASOURCE_ID,
-                     event -> { },
-                     producer::send,
-                     AsyncDispatchConfig.defaults());
-             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
-             var statement = connection.prepareStatement(SQL)) {
+        try (var producer =
+                        KafkaMockedQueryEventProducer.create(
+                                kafkaProperties,
+                                TOPIC,
+                                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+                var registration =
+                        JdbcAgentRegistry.register(
+                                dataSource,
+                                DATASOURCE_ID,
+                                event -> {},
+                                producer::send,
+                                AsyncDispatchConfig.defaults());
+                var connection =
+                        JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+                var statement = connection.prepareStatement(SQL)) {
             statement.setInt(1, 4242);
             try (var resultSet = statement.executeQuery()) {
                 assertTrue(resultSet.next());
                 assertEquals(4242, resultSet.getInt("captured_value"));
                 assertFalse(resultSet.next());
             }
-            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
+            assertEquals(
+                    1, registration.events().size(), "The JDBC proxy should capture the query");
             awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
         }
 
-        try (var connection = DriverManager.getConnection(
-                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
-             var statement = connection.prepareStatement(SQL)) {
+        try (var connection =
+                        DriverManager.getConnection(
+                                "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+                var statement = connection.prepareStatement(SQL)) {
             statement.setInt(1, 4242);
             try (var resultSet = statement.executeQuery()) {
                 assertTrue(resultSet.next());
@@ -109,16 +118,20 @@ class RecordReplayEndToEndTest {
     }
 
     @Test
-    @DisplayName("Given captured null and DECIMAL values, when replayed, then values and null state are preserved")
+    @DisplayName(
+            "Given captured null and DECIMAL values, when replayed, then values and null state are preserved")
     void shouldReplayNullAndDecimalValues() throws Exception {
-        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
-                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var kafkaBootstrap =
+                MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                        + ":"
+                        + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
         var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
         var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
-        var sql = "SELECT CAST(? AS DECIMAL(12, 4)) AS amount, CAST(? AS VARCHAR(20)) AS optional_text";
+        var sql =
+                "SELECT CAST(? AS DECIMAL(12, 4)) AS amount, CAST(? AS VARCHAR(20)) AS optional_text";
         var expectedDecimal = new BigDecimal("123.4500");
-        var expectedMappingName = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT)
-                + "::p1=123.4500::p2=null";
+        var expectedMappingName =
+                DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT) + "::p1=123.4500::p2=null";
 
         var dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
@@ -130,18 +143,21 @@ class RecordReplayEndToEndTest {
         kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
         kafkaProperties.setProperty("acks", "all");
 
-        try (var producer = KafkaMockedQueryEventProducer.create(
-                     kafkaProperties,
-                     TOPIC,
-                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
-             var registration = JdbcAgentRegistry.register(
-                     dataSource,
-                     DATASOURCE_ID,
-                     event -> { },
-                     producer::send,
-                     AsyncDispatchConfig.defaults());
-             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
-             var statement = connection.prepareStatement(sql)) {
+        try (var producer =
+                        KafkaMockedQueryEventProducer.create(
+                                kafkaProperties,
+                                TOPIC,
+                                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+                var registration =
+                        JdbcAgentRegistry.register(
+                                dataSource,
+                                DATASOURCE_ID,
+                                event -> {},
+                                producer::send,
+                                AsyncDispatchConfig.defaults());
+                var connection =
+                        JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+                var statement = connection.prepareStatement(sql)) {
             statement.setBigDecimal(1, expectedDecimal);
             statement.setNull(2, Types.VARCHAR);
             try (var resultSet = statement.executeQuery()) {
@@ -154,13 +170,15 @@ class RecordReplayEndToEndTest {
                 assertFalse(resultSet.wasNull());
                 assertFalse(resultSet.next());
             }
-            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
+            assertEquals(
+                    1, registration.events().size(), "The JDBC proxy should capture the query");
             awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
         }
 
-        try (var connection = DriverManager.getConnection(
-                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
-             var statement = connection.prepareStatement(sql)) {
+        try (var connection =
+                        DriverManager.getConnection(
+                                "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+                var statement = connection.prepareStatement(sql)) {
             statement.setBigDecimal(1, expectedDecimal);
             statement.setNull(2, Types.VARCHAR);
             try (var resultSet = statement.executeQuery()) {
@@ -177,16 +195,20 @@ class RecordReplayEndToEndTest {
     }
 
     @Test
-    @DisplayName("Given captured temporal values, when replayed, then dates, times, timestamps and nulls are preserved")
+    @DisplayName(
+            "Given captured temporal values, when replayed, then dates, times, timestamps and nulls are preserved")
     void shouldReplayDateTimeValues() throws Exception {
-        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
-                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var kafkaBootstrap =
+                MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                        + ":"
+                        + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
         var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
         var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
-        var sql = "SELECT DATE '2026-03-17' AS captured_date, TIME '10:15:30' AS captured_time, "
-                + "TIMESTAMP '2026-03-17 10:15:30.123456789' AS captured_timestamp, "
-                + "CAST(NULL AS DATE) AS null_date, CAST(NULL AS TIME) AS null_time, "
-                + "CAST(NULL AS TIMESTAMP) AS null_timestamp";
+        var sql =
+                "SELECT DATE '2026-03-17' AS captured_date, TIME '10:15:30' AS captured_time, "
+                        + "TIMESTAMP '2026-03-17 10:15:30.123456789' AS captured_timestamp, "
+                        + "CAST(NULL AS DATE) AS null_date, CAST(NULL AS TIME) AS null_time, "
+                        + "CAST(NULL AS TIMESTAMP) AS null_timestamp";
         var expectedMappingName = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT);
 
         var dataSource = new DriverManagerDataSource();
@@ -199,30 +221,35 @@ class RecordReplayEndToEndTest {
         kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
         kafkaProperties.setProperty("acks", "all");
 
-        try (var producer = KafkaMockedQueryEventProducer.create(
-                     kafkaProperties,
-                     TOPIC,
-                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
-             var registration = JdbcAgentRegistry.register(
-                     dataSource,
-                     DATASOURCE_ID,
-                     event -> { },
-                     producer::send,
-                     AsyncDispatchConfig.defaults());
-             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
-             var statement = connection.createStatement();
-             var resultSet = statement.executeQuery(sql)) {
+        try (var producer =
+                        KafkaMockedQueryEventProducer.create(
+                                kafkaProperties,
+                                TOPIC,
+                                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+                var registration =
+                        JdbcAgentRegistry.register(
+                                dataSource,
+                                DATASOURCE_ID,
+                                event -> {},
+                                producer::send,
+                                AsyncDispatchConfig.defaults());
+                var connection =
+                        JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+                var statement = connection.createStatement();
+                var resultSet = statement.executeQuery(sql)) {
             assertTrue(resultSet.next());
             assertDateTimeValues(resultSet);
             assertFalse(resultSet.next());
-            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
+            assertEquals(
+                    1, registration.events().size(), "The JDBC proxy should capture the query");
             awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
         }
 
-        try (var connection = DriverManager.getConnection(
-                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
-             var statement = connection.createStatement();
-             var resultSet = statement.executeQuery(sql)) {
+        try (var connection =
+                        DriverManager.getConnection(
+                                "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+                var statement = connection.createStatement();
+                var resultSet = statement.executeQuery(sql)) {
             assertTrue(resultSet.next());
             assertDateTimeValues(resultSet);
             assertFalse(resultSet.next());
@@ -230,15 +257,19 @@ class RecordReplayEndToEndTest {
     }
 
     @Test
-    @DisplayName("Given captured BLOB and CLOB values, when replayed, then payloads and nulls are preserved")
+    @DisplayName(
+            "Given captured BLOB and CLOB values, when replayed, then payloads and nulls are preserved")
     void shouldReplayBlobAndClobValues() throws Exception {
-        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
-                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var kafkaBootstrap =
+                MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                        + ":"
+                        + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
         var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
         var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
-        var sql = "SELECT CAST(X'00ff10' AS BLOB) AS captured_blob, "
-                + "CAST('clob payload: café' AS CLOB) AS captured_clob, "
-                + "CAST(NULL AS BLOB) AS null_blob, CAST(NULL AS CLOB) AS null_clob";
+        var sql =
+                "SELECT CAST(X'00ff10' AS BLOB) AS captured_blob, "
+                        + "CAST('clob payload: café' AS CLOB) AS captured_clob, "
+                        + "CAST(NULL AS BLOB) AS null_blob, CAST(NULL AS CLOB) AS null_clob";
         var expectedMappingName = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT);
 
         var dataSource = new DriverManagerDataSource();
@@ -251,30 +282,35 @@ class RecordReplayEndToEndTest {
         kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
         kafkaProperties.setProperty("acks", "all");
 
-        try (var producer = KafkaMockedQueryEventProducer.create(
-                     kafkaProperties,
-                     TOPIC,
-                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
-             var registration = JdbcAgentRegistry.register(
-                     dataSource,
-                     DATASOURCE_ID,
-                     event -> { },
-                     producer::send,
-                     AsyncDispatchConfig.defaults());
-             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
-             var statement = connection.createStatement();
-             var resultSet = statement.executeQuery(sql)) {
+        try (var producer =
+                        KafkaMockedQueryEventProducer.create(
+                                kafkaProperties,
+                                TOPIC,
+                                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+                var registration =
+                        JdbcAgentRegistry.register(
+                                dataSource,
+                                DATASOURCE_ID,
+                                event -> {},
+                                producer::send,
+                                AsyncDispatchConfig.defaults());
+                var connection =
+                        JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+                var statement = connection.createStatement();
+                var resultSet = statement.executeQuery(sql)) {
             assertTrue(resultSet.next());
             assertBlobClobValues(resultSet);
             assertFalse(resultSet.next());
-            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
+            assertEquals(
+                    1, registration.events().size(), "The JDBC proxy should capture the query");
             awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
         }
 
-        try (var connection = DriverManager.getConnection(
-                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
-             var statement = connection.createStatement();
-             var resultSet = statement.executeQuery(sql)) {
+        try (var connection =
+                        DriverManager.getConnection(
+                                "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+                var statement = connection.createStatement();
+                var resultSet = statement.executeQuery(sql)) {
             assertTrue(resultSet.next());
             assertBlobClobValues(resultSet);
             assertFalse(resultSet.next());
@@ -284,8 +320,10 @@ class RecordReplayEndToEndTest {
     @Test
     @DisplayName("Given captured column metadata, when replayed, then JDBC metadata is preserved")
     void shouldReplayColumnMetadata() throws Exception {
-        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
-                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var kafkaBootstrap =
+                MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                        + ":"
+                        + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
         var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
         var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
         var sql = "select id, amount, optional_text from metadata_fidelity";
@@ -297,18 +335,20 @@ class RecordReplayEndToEndTest {
         dataSource.setUsername("sa");
         dataSource.setPassword("");
         try (var connection = dataSource.getConnection();
-             var statement = connection.createStatement()) {
-            statement.execute("CREATE TABLE metadata_fidelity ("
-                    + "id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, "
-                    + "amount DECIMAL(12, 4) NOT NULL, optional_text VARCHAR(32))");
-            statement.execute("INSERT INTO metadata_fidelity (amount, optional_text) "
-                    + "VALUES (123.4500, 'metadata')");
+                var statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE metadata_fidelity ("
+                            + "id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, "
+                            + "amount DECIMAL(12, 4) NOT NULL, optional_text VARCHAR(32))");
+            statement.execute(
+                    "INSERT INTO metadata_fidelity (amount, optional_text) "
+                            + "VALUES (123.4500, 'metadata')");
         }
 
         List<ColumnMetadataSnapshot> expectedMetadata;
         try (var connection = dataSource.getConnection();
-             var statement = connection.createStatement();
-             var resultSet = statement.executeQuery(sql)) {
+                var statement = connection.createStatement();
+                var resultSet = statement.executeQuery(sql)) {
             expectedMetadata = columnMetadataSnapshot(resultSet.getMetaData());
         }
         assertEquals(12, expectedMetadata.get(1).precision());
@@ -321,33 +361,38 @@ class RecordReplayEndToEndTest {
         kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
         kafkaProperties.setProperty("acks", "all");
 
-        try (var producer = KafkaMockedQueryEventProducer.create(
-                     kafkaProperties,
-                     TOPIC,
-                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
-             var registration = JdbcAgentRegistry.register(
-                     dataSource,
-                     DATASOURCE_ID,
-                     event -> { },
-                     producer::send,
-                     AsyncDispatchConfig.defaults());
-             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
-             var statement = connection.createStatement();
-             var resultSet = statement.executeQuery(sql)) {
+        try (var producer =
+                        KafkaMockedQueryEventProducer.create(
+                                kafkaProperties,
+                                TOPIC,
+                                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+                var registration =
+                        JdbcAgentRegistry.register(
+                                dataSource,
+                                DATASOURCE_ID,
+                                event -> {},
+                                producer::send,
+                                AsyncDispatchConfig.defaults());
+                var connection =
+                        JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+                var statement = connection.createStatement();
+                var resultSet = statement.executeQuery(sql)) {
             assertColumnMetadataEquals(expectedMetadata, resultSet.getMetaData());
             assertTrue(resultSet.next());
             assertEquals(1L, resultSet.getLong("id"));
             assertEquals(new BigDecimal("123.4500"), resultSet.getBigDecimal("amount"));
             assertEquals("metadata", resultSet.getString("optional_text"));
             assertFalse(resultSet.next());
-            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the query");
+            assertEquals(
+                    1, registration.events().size(), "The JDBC proxy should capture the query");
             awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
         }
 
-        try (var connection = DriverManager.getConnection(
-                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
-             var statement = connection.createStatement();
-             var resultSet = statement.executeQuery(sql)) {
+        try (var connection =
+                        DriverManager.getConnection(
+                                "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+                var statement = connection.createStatement();
+                var resultSet = statement.executeQuery(sql)) {
             assertColumnMetadataEquals(expectedMetadata, resultSet.getMetaData());
             assertTrue(resultSet.next());
             assertEquals(1L, resultSet.getLong("id"));
@@ -358,15 +403,19 @@ class RecordReplayEndToEndTest {
     }
 
     @Test
-    @DisplayName("Given a captured insert with generated keys, when replayed, then update count and generated key match")
+    @DisplayName(
+            "Given a captured insert with generated keys, when replayed, then update count and generated key match")
     void shouldReplayCapturedInsertWithGeneratedKeys() throws Exception {
-        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
-                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var kafkaBootstrap =
+                MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                        + ":"
+                        + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
         var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
         var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
         var sql = "INSERT INTO replay_users (name) VALUES (?)";
         var name = "Grace Hopper";
-        var expectedMappingName = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT) + "::p1=" + name;
+        var expectedMappingName =
+                DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT) + "::p1=" + name;
 
         var dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
@@ -374,26 +423,30 @@ class RecordReplayEndToEndTest {
         dataSource.setUsername("sa");
         dataSource.setPassword("");
         try (var connection = dataSource.getConnection();
-             var statement = connection.createStatement()) {
-            statement.execute("CREATE TABLE replay_users (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, name VARCHAR(100))");
+                var statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE replay_users (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, name VARCHAR(100))");
         }
 
         var kafkaProperties = new Properties();
         kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
         kafkaProperties.setProperty("acks", "all");
 
-        try (var producer = KafkaMockedQueryEventProducer.create(
-                     kafkaProperties,
-                     TOPIC,
-                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
-             var registration = JdbcAgentRegistry.register(
-                     dataSource,
-                     DATASOURCE_ID,
-                     event -> { },
-                     producer::send,
-                     AsyncDispatchConfig.defaults());
-             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
-             var statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (var producer =
+                        KafkaMockedQueryEventProducer.create(
+                                kafkaProperties,
+                                TOPIC,
+                                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+                var registration =
+                        JdbcAgentRegistry.register(
+                                dataSource,
+                                DATASOURCE_ID,
+                                event -> {},
+                                producer::send,
+                                AsyncDispatchConfig.defaults());
+                var connection =
+                        JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+                var statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, name);
             assertEquals(1, statement.executeUpdate());
             try (var generatedKeys = statement.getGeneratedKeys()) {
@@ -402,13 +455,15 @@ class RecordReplayEndToEndTest {
                 assertFalse(generatedKeys.next());
             }
 
-            assertEquals(1, registration.events().size(), "The JDBC proxy should capture the insert");
+            assertEquals(
+                    1, registration.events().size(), "The JDBC proxy should capture the insert");
             awaitGeneratedStub(wireMockHost, wireMockPort, expectedMappingName);
         }
 
-        try (var connection = DriverManager.getConnection(
-                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
-             var statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (var connection =
+                        DriverManager.getConnection(
+                                "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+                var statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, name);
             assertEquals(1, statement.executeUpdate());
             try (var generatedKeys = statement.getGeneratedKeys()) {
@@ -420,17 +475,18 @@ class RecordReplayEndToEndTest {
     }
 
     @Test
-    @DisplayName("Given a captured prepared batch, when replayed, then each entry returns its update count")
+    @DisplayName(
+            "Given a captured prepared batch, when replayed, then each entry returns its update count")
     void shouldReplayPreparedBatchWithCapturedUpdateCounts() throws Exception {
-        var kafkaBootstrap = MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
-                + ":" + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
+        var kafkaBootstrap =
+                MOCK_BACKEND.getServiceHost("kafka-1", KAFKA_PORT)
+                        + ":"
+                        + MOCK_BACKEND.getServicePort("kafka-1", KAFKA_PORT);
         var wireMockHost = MOCK_BACKEND.getServiceHost("wiremock-grpc-1", WIREMOCK_PORT);
         var wireMockPort = MOCK_BACKEND.getServicePort("wiremock-grpc-1", WIREMOCK_PORT);
         var sql = "DELETE FROM replay_batch_users WHERE id = ?";
-        var firstMapping = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT)
-                + "::p1=1::batch=0";
-        var secondMapping = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT)
-                + "::p1=1::batch=1";
+        var firstMapping = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT) + "::p1=1::batch=0";
+        var secondMapping = DATASOURCE_ID + "::" + sql.toLowerCase(Locale.ROOT) + "::p1=1::batch=1";
 
         var dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
@@ -438,8 +494,9 @@ class RecordReplayEndToEndTest {
         dataSource.setUsername("sa");
         dataSource.setPassword("");
         try (var connection = dataSource.getConnection();
-             var statement = connection.createStatement()) {
-            statement.execute("CREATE TABLE replay_batch_users (id BIGINT PRIMARY KEY, name VARCHAR(100))");
+                var statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE replay_batch_users (id BIGINT PRIMARY KEY, name VARCHAR(100))");
             statement.execute("INSERT INTO replay_batch_users (id, name) VALUES (1, 'batch row')");
         }
 
@@ -447,54 +504,59 @@ class RecordReplayEndToEndTest {
         kafkaProperties.setProperty("bootstrap.servers", kafkaBootstrap);
         kafkaProperties.setProperty("acks", "all");
 
-        try (var producer = KafkaMockedQueryEventProducer.create(
-                     kafkaProperties,
-                     TOPIC,
-                     KafkaMockedQueryEventProducer.datasourceKeyResolver());
-             var registration = JdbcAgentRegistry.register(
-                     dataSource,
-                     DATASOURCE_ID,
-                     event -> { },
-                     producer::send,
-                     AsyncDispatchConfig.defaults());
-             var connection = JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
-             var statement = connection.prepareStatement(sql)) {
+        try (var producer =
+                        KafkaMockedQueryEventProducer.create(
+                                kafkaProperties,
+                                TOPIC,
+                                KafkaMockedQueryEventProducer.datasourceKeyResolver());
+                var registration =
+                        JdbcAgentRegistry.register(
+                                dataSource,
+                                DATASOURCE_ID,
+                                event -> {},
+                                producer::send,
+                                AsyncDispatchConfig.defaults());
+                var connection =
+                        JdbcAgentRegistry.wrapIfRegistered(dataSource, dataSource.getConnection());
+                var statement = connection.prepareStatement(sql)) {
             statement.setLong(1, 1);
             statement.addBatch();
             statement.setLong(1, 1);
             statement.addBatch();
 
-            assertArrayEquals(new int[]{1, 0}, statement.executeBatch());
-            assertEquals(1, registration.events().size(), "One local capture event represents the prepared batch");
-            assertEquals(List.of(List.of(1L), List.of(1L)),
-                    registration.events().get(0).parameters());
+            assertArrayEquals(new int[] {1, 0}, statement.executeBatch());
+            assertEquals(
+                    1,
+                    registration.events().size(),
+                    "One local capture event represents the prepared batch");
+            assertEquals(
+                    List.of(List.of(1L), List.of(1L)), registration.events().get(0).parameters());
             awaitGeneratedStub(wireMockHost, wireMockPort, firstMapping);
             awaitGeneratedStub(wireMockHost, wireMockPort, secondMapping);
         }
 
-        try (var connection = DriverManager.getConnection(
-                     "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
-             var statement = connection.prepareStatement(sql)) {
+        try (var connection =
+                        DriverManager.getConnection(
+                                "jdbc:mock://" + wireMockHost + ":" + wireMockPort);
+                var statement = connection.prepareStatement(sql)) {
             statement.setLong(1, 1);
             statement.addBatch();
             statement.setLong(1, 1);
             statement.addBatch();
 
-            assertArrayEquals(new int[]{1, 0}, statement.executeBatch());
+            assertArrayEquals(new int[] {1, 0}, statement.executeBatch());
         }
     }
 
-    private static void awaitGeneratedStub(String host, int port, String expectedMappingName) throws Exception {
+    private static void awaitGeneratedStub(String host, int port, String expectedMappingName)
+            throws Exception {
         var client = HttpClient.newHttpClient();
         var uri = URI.create("http://" + host + ":" + port + "/__admin/mappings");
         var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
         var lastMappings = "";
 
         while (System.nanoTime() < deadline) {
-            var request = HttpRequest.newBuilder(uri)
-                    .timeout(Duration.ofSeconds(2))
-                    .GET()
-                    .build();
+            var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(2)).GET().build();
             var response = client.send(request, HttpResponse.BodyHandlers.ofString());
             assertEquals(200, response.statusCode(), "WireMock Admin API should be available");
             lastMappings = response.body();
@@ -504,14 +566,18 @@ class RecordReplayEndToEndTest {
             Thread.sleep(100);
         }
 
-        throw new AssertionError("Kafka bridge did not register generated stub: " + expectedMappingName
-                + "; current mappings: " + lastMappings);
+        throw new AssertionError(
+                "Kafka bridge did not register generated stub: "
+                        + expectedMappingName
+                        + "; current mappings: "
+                        + lastMappings);
     }
 
     private static void assertDateTimeValues(ResultSet resultSet) throws Exception {
         assertEquals(Date.valueOf("2026-03-17"), resultSet.getDate("captured_date"));
         assertEquals(Time.valueOf("10:15:30"), resultSet.getTime("captured_time"));
-        assertEquals(Timestamp.valueOf("2026-03-17 10:15:30.123456789"),
+        assertEquals(
+                Timestamp.valueOf("2026-03-17 10:15:30.123456789"),
                 resultSet.getTimestamp("captured_timestamp"));
         assertNull(resultSet.getObject("null_date"));
         assertTrue(resultSet.wasNull());
@@ -522,7 +588,7 @@ class RecordReplayEndToEndTest {
     }
 
     private static void assertBlobClobValues(ResultSet resultSet) throws Exception {
-        var expectedBytes = new byte[]{0, (byte) 0xff, 0x10};
+        var expectedBytes = new byte[] {0, (byte) 0xff, 0x10};
         var blob = resultSet.getBlob("captured_blob");
         assertArrayEquals(expectedBytes, blob.getBytes(1L, expectedBytes.length));
         var expectedText = "clob payload: café";
@@ -540,24 +606,25 @@ class RecordReplayEndToEndTest {
             throws Exception {
         var columns = new ArrayList<ColumnMetadataSnapshot>(metadata.getColumnCount());
         for (var index = 1; index <= metadata.getColumnCount(); index++) {
-            columns.add(new ColumnMetadataSnapshot(
-                    metadata.getColumnName(index),
-                    metadata.getColumnLabel(index),
-                    metadata.getColumnType(index),
-                    metadata.getColumnTypeName(index),
-                    metadata.getPrecision(index),
-                    metadata.getScale(index),
-                    metadata.isNullable(index),
-                    metadata.getTableName(index),
-                    metadata.getSchemaName(index),
-                    metadata.getCatalogName(index),
-                    metadata.isAutoIncrement(index)));
+            columns.add(
+                    new ColumnMetadataSnapshot(
+                            metadata.getColumnName(index),
+                            metadata.getColumnLabel(index),
+                            metadata.getColumnType(index),
+                            metadata.getColumnTypeName(index),
+                            metadata.getPrecision(index),
+                            metadata.getScale(index),
+                            metadata.isNullable(index),
+                            metadata.getTableName(index),
+                            metadata.getSchemaName(index),
+                            metadata.getCatalogName(index),
+                            metadata.isAutoIncrement(index)));
         }
         return List.copyOf(columns);
     }
 
-    private static void assertColumnMetadataEquals(List<ColumnMetadataSnapshot> expected,
-                                                   ResultSetMetaData actual) throws Exception {
+    private static void assertColumnMetadataEquals(
+            List<ColumnMetadataSnapshot> expected, ResultSetMetaData actual) throws Exception {
         assertEquals(expected.size(), actual.getColumnCount());
         for (var index = 1; index <= expected.size(); index++) {
             var column = expected.get(index - 1);
@@ -586,6 +653,5 @@ class RecordReplayEndToEndTest {
             String tableName,
             String schemaName,
             String catalogName,
-            boolean autoIncrement) {
-    }
+            boolean autoIncrement) {}
 }

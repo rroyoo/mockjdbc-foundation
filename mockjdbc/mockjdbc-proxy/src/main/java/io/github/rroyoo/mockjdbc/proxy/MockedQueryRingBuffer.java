@@ -1,28 +1,27 @@
 package io.github.rroyoo.mockjdbc.proxy;
 
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
-
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 
 /**
- * Fixed-size, array-backed, lock-free multi-producer/multi-consumer circular buffer of
- * {@link MockedQuery} events.
+ * Fixed-size, array-backed, lock-free multi-producer/multi-consumer circular buffer of {@link
+ * MockedQuery} events.
  *
- * <p>Implements the bounded MPMC queue algorithm described by Dmitry Vyukov: each slot carries
- * its own sequence counter so producers and consumers can claim slots with a single CAS on a
- * shared cursor, without a global lock and without allocating a node per element (unlike
- * {@code LinkedBlockingDeque}).
+ * <p>Implements the bounded MPMC queue algorithm described by Dmitry Vyukov: each slot carries its
+ * own sequence counter so producers and consumers can claim slots with a single CAS on a shared
+ * cursor, without a global lock and without allocating a node per element (unlike {@code
+ * LinkedBlockingDeque}).
  *
- * <p><strong>Correctness note:</strong> a slot's data is written with a plain array store,
- * followed by a release-store of that slot's sequence number. Consumers acquire-load the
- * sequence before reading the slot's data. The Java Memory Model guarantees that once a consumer
- * observes the published sequence value via {@link AtomicLongArray#get(int)}, it also observes
- * the preceding plain write to the data array — the same technique used internally by the LMAX
- * Disruptor's {@code RingBuffer} entries array.
+ * <p><strong>Correctness note:</strong> a slot's data is written with a plain array store, followed
+ * by a release-store of that slot's sequence number. Consumers acquire-load the sequence before
+ * reading the slot's data. The Java Memory Model guarantees that once a consumer observes the
+ * published sequence value via {@link AtomicLongArray#get(int)}, it also observes the preceding
+ * plain write to the data array — the same technique used internally by the LMAX Disruptor's {@code
+ * RingBuffer} entries array.
  *
- * <p>This buffer never blocks: {@link #tryOffer} and {@link #tryPoll} return immediately when
- * full or empty, respectively. Overflow handling (drop-oldest / drop-newest) is the caller's
+ * <p>This buffer never blocks: {@link #tryOffer} and {@link #tryPoll} return immediately when full
+ * or empty, respectively. Overflow handling (drop-oldest / drop-newest) is the caller's
  * responsibility.
  */
 final class MockedQueryRingBuffer {
@@ -37,9 +36,8 @@ final class MockedQueryRingBuffer {
 
     /**
      * @param requestedCapacity minimum capacity; rounded up to the next power of two (floor of 2 —
-     *                          the underlying MPMC slot-sequence algorithm requires at least 2
-     *                          slots to distinguish "just published" from "consumed, ready for
-     *                          next lap" on the same physical slot)
+     *     the underlying MPMC slot-sequence algorithm requires at least 2 slots to distinguish
+     *     "just published" from "consumed, ready for next lap" on the same physical slot)
      */
     MockedQueryRingBuffer(int requestedCapacity) {
         var normalized = Math.max(2, requestedCapacity);

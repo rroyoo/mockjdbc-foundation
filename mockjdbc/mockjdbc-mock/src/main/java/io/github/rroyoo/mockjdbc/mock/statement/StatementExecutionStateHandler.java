@@ -54,8 +54,7 @@ final class StatementExecutionStateHandler {
             case java.sql.Statement.KEEP_CURRENT_RESULT -> {
                 return false;
             }
-            case java.sql.Statement.CLOSE_CURRENT_RESULT,
-                 java.sql.Statement.CLOSE_ALL_RESULTS -> {
+            case java.sql.Statement.CLOSE_CURRENT_RESULT, java.sql.Statement.CLOSE_ALL_RESULTS -> {
                 closeCurrentResultSet();
                 return false;
             }

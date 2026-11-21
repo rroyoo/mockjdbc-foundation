@@ -2,7 +2,6 @@ package io.github.rroyoo.mockjdbc.wiremock;
 
 import com.github.tomakehurst.wiremock.core.Admin;
 import io.github.rroyoo.mockjdbc.mock.MockedQuery;
-
 import java.util.Objects;
 
 final class WireMockMappingRegistrar {
@@ -27,4 +26,3 @@ final class WireMockMappingRegistrar {
         return true;
     }
 }
-
