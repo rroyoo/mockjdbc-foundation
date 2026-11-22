@@ -27,43 +27,79 @@ Notes from CI debugging:
 - The parent POM uses `${revision}` with `flatten-maven-plugin`, so installed POMs resolve. `.flattened-pom.xml` is git-ignored.
 - Docker is needed for Testcontainers tests; they are skipped locally when Docker is not usable for them.
 
-## Backlog (priority order)
+## Project completion roadmap
 
-### 1. Extend `ColumnMetadata` (cross-module contract) (`done`)
-- [x] Add optional precision, scale, nullability, table/schema/catalog names, and auto-increment fields to the protobuf contract; capture and replay them through the proxy, WireMock mapper, and mock driver.
-- Exit criteria: proxy -> stub -> mock preserves every JDBC metadata field; old events without these optional fields replay with the previous defaults.
+This is the canonical repository-level delivery plan. `docs/test-validation-roadmap.md` remains the evidence log for the completed M1-M7 integration-validation work.
 
-### 2. Statement family gaps (ADR-0001 section E, ADR-0003)
-- [ ] `unwrap` / `isWrapperFor` on `Statement`, `PreparedStatement`, `CallableStatement`.
-- [ ] Modern convenience methods (`enquoteLiteral`, `enquoteIdentifier`, `isSimpleIdentifier`, `enquoteNCharLiteral`).
-- [ ] Decide and enforce semantics for result-set type / concurrency / holdability overloads (currently accepted but not enforced).
-- [ ] Remaining prepared-only and callable methods that are not intercepted.
-- Update `docs/jdbc-supported-surface.md` and add targeted tests per group.
+Completion means the supported JDBC contract is implemented and tested, unsupported behavior is explicit, the record/replay path remains verified in CI, production-readiness risks are addressed or deliberately excluded, and module/ADR documentation matches the code. It does not imply full JDBC API parity.
 
-### 3. `ResultSetFactory` follow-ups
-- [x] `BLOB` / `CLOB` values are captured as bytes / text and replayed as JDBC `Blob` / `Clob`; incompatible wire kinds fail with `SQLDataException`.
-- [ ] Decide handling for remaining wire-kind pass-through types: `CHAR`/`VARCHAR` variants, `ARRAY`, `STRUCT`, `SQLXML`, `NULL`, `OTHER` (coerce or reject with `SQLFeatureNotSupportedException`).
-- [x] `DATE`/`TIME` derived from protobuf timestamps use UTC, independent of the JVM default zone; unrepresentable `DATE` values fail with `SQLDataException` instead of normalizing.
-- [ ] `DatabaseMetaData` catalog queries are unsupported; revisit only if a real use case appears.
+### Phase 0 — Record/replay foundation and validation (`done`)
 
-### 4. CI and quality
-- [x] Confirm Testcontainers tests run in CI (PR #14 verified `KafkaMappingConsumerIntegrationTest` and `KafkaMockedQueryEventProducerIntegrationTest` without skips).
-- [x] End-to-end test: proxy -> Kafka -> WireMock bridge -> WireMock gRPC -> mock driver (`mockjdbc-spring-users/RecordReplayEndToEndTest`).
-- [x] Add JaCoCo line coverage reporting with a 50% combined minimum and a 90% target.
-- [x] Add GitHub CodeQL analysis and publish test/coverage totals to the Actions run summary (ADR-0005).
-- [ ] Pin `maven-jar-plugin` version in `mockjdbc-proxy/pom.xml` (Maven warns it is missing) and consider a Maven wrapper (`.mvn/wrapper`).
-- [ ] Qodana: `qodana.yaml` and `.github/workflows/qodana_code_quality.yml` are untracked. Either add them and configure the `QODANA_TOKEN` secret, or delete them.
+- [x] Capture and replay JDBC work through proxy -> Kafka -> WireMock bridge -> gRPC -> mock driver, including generated keys, batches, metadata, temporal values, LOBs, and callable results.
+- [x] Verify backend errors, concurrent statements, and Docker-backed Kafka integration tests in CI.
+- [x] Enforce the 50% combined coverage floor, CodeQL, test summaries, and Buf `FILE` compatibility against `main` (merged in PR #36).
 
-### 5. Security and robustness
-- [ ] Proxy: option to mask sensitive parameters/columns before publishing to Kafka.
-- [ ] WireMock bridge: bounded retries and a dead-letter path for records whose registration keeps failing (today a failing record is retried indefinitely on the poll thread).
-- [x] `mockjdbc-proto` compatibility check in CI with pinned Buf CLI and `FILE` breaking rules against `main`.
+**Exit criteria:** M1-M7 are complete in `docs/test-validation-roadmap.md`; required end-to-end CI checks pass.
 
-### 6. Documentation upkeep
-- [ ] ADR-0001 still has unchecked items that may already be done (for example reclassifying `mockjdbc-proxy` as active); verify against code and tick or update.
-- [x] Add `docs/adr/ADR-0005-github-ci-cd-quality-gates.md` and align the CI quality checklist.
-- [x] ADR-0002 / ADR-0004 Docker-backed integration checks verified in CI (PR #14).
-- [ ] `mockjdbc-spring-users` status in the module matrix is `partial`; the `mockjdbc` profile tests are skipped by default.
+### Phase 1 — Close the mock JDBC statement contract (`open`, next)
+
+- [ ] Implement or explicitly reject `unwrap` / `isWrapperFor` for `Statement`, `PreparedStatement`, and `CallableStatement`.
+- [ ] Implement or explicitly reject modern convenience methods (`enquoteLiteral`, `enquoteIdentifier`, `isSimpleIdentifier`, `enquoteNCharLiteral`).
+- [ ] Decide and enforce result-set type, concurrency, and holdability semantics for statement-creation overloads.
+- [ ] Inventory remaining prepared-only and callable methods; resolve name-based OUT getters that currently return defaults, INOUT capture limits, and advanced callable types.
+- [ ] Apply the SQL exception policy consistently; do not silently return defaults for unsupported methods.
+- [ ] Add focused tests and update `docs/jdbc-supported-surface.md` for each method group.
+
+**Exit criteria:** every in-scope statement-family method is behavior-tested, or fails explicitly with the documented JDBC exception; overload behavior and callable limitations are reflected in the support matrix.
+
+### Phase 2 — Complete result and metadata fidelity (`open`)
+
+- [ ] Define and test handling for pass-through wire kinds: `CHAR`/`VARCHAR` variants, `ARRAY`, `STRUCT`, `SQLXML`, `NULL`, and `OTHER` (coerce supported values or reject unsupported ones explicitly).
+- [ ] Keep proxy capture, Protobuf, WireMock mapping, and mock-driver conversion aligned for every supported value type.
+- [ ] Make an explicit support decision for `DatabaseMetaData` catalog queries; they remain unsupported unless a concrete use case is accepted.
+
+**Exit criteria:** each value type in scope round-trips with deterministic type/null behavior; incompatible or unsupported values fail clearly, with unit and end-to-end coverage where applicable.
+
+### Phase 3 — Data safety and bridge resilience (`open`)
+
+- [ ] Define a masking policy for sensitive parameters/columns and implement it before proxy events are published to Kafka.
+- [ ] Add bounded retries and a dead-letter path for WireMock registration failures so a poison record cannot retry indefinitely on the consumer poll thread.
+- [ ] Test redaction, retry limits, dead-letter contents, and continued processing of later records.
+
+**Exit criteria:** sensitive values follow the configured policy before publication; persistent registration failures are bounded, observable, and do not block unrelated events.
+
+### Phase 4 — Build, test, and release readiness (`open`)
+
+- [ ] Raise combined line coverage from the 50% gate toward the 90% target; adopt staged thresholds based on measured coverage.
+- [ ] Pin Maven plugin versions that currently produce model warnings (`maven-jar-plugin` in `mockjdbc-proxy`, `maven-surefire-plugin` in proxy and WireMock); decide whether a Maven Wrapper is needed.
+- [ ] Keep the standalone sample's clean bootstrap documented (`mvn install` for the reactor first); Docker-backed `mockjdbc` profile tests must continue running without skips in CI and may be unavailable locally without Docker.
+- [ ] Define version/tag and package-publication policy before deciding whether to add release automation.
+
+**Exit criteria:** a clean environment can build the reactor and sample using documented commands; coverage reaches 90% combined or the target is explicitly revised by ADR; required integrations pass in CI; release policy is explicit even if automatic publication remains out of scope.
+
+### Phase 5 — Documentation and governance closeout (`open`)
+
+- [ ] Reconcile remaining historical proxy-placeholder wording and checklists in ADR-0001 with the implemented active/partial modules and this roadmap.
+- [ ] Review ADR-0002 / ADR-0004 status labels against their completed acceptance checklists; close or retain statuses with an explicit reason.
+- [ ] Reconcile ADR-0003's open exception-policy and supported-surface checks with current implementation and tests.
+- [ ] Decide whether to adopt Qodana: its config/workflow are absent from the current tree; if it is out of scope, close the stale reference rather than claiming the files are untracked.
+- [ ] Keep the module-status matrix and validation roadmap aligned with these phase statuses.
+
+**Exit criteria:** status labels, acceptance checklists, and next milestones agree across `docs/next-steps.md`, ADRs, `docs/module-status-matrix.md`, and `docs/test-validation-roadmap.md`.
+
+## Deferred or explicitly unsupported
+
+- **Transaction effects:** `commit` / `rollback` remain no-ops because replay is stateless; revisit only if mutable transactional replay becomes a requirement.
+- **Connection APIs:** `createSQLXML`, request/sharding methods, and unwired JDBC methods remain explicitly unsupported unless a concrete use case changes scope.
+- **Catalog metadata:** `DatabaseMetaData` catalog queries remain unsupported pending a demonstrated need.
+- **Release automation:** publishing/deployment remains out of scope until the versioning and package policy in Phase 4 is decided.
+
+## Sequencing and dependencies
+
+- Phase 1 is the next implementation slice and has no blocker beyond agreeing on the supported method boundary.
+- Phase 2 follows the JDBC contract decisions; any Protobuf change must pass the Buf compatibility gate, and intentional breaking changes need an explicit versioning decision.
+- Phase 3 can proceed independently, but must be complete before calling the pipeline production-ready.
+- Phase 4 validates the agreed feature set and depends on Phases 1-3 decisions; Phase 5 is maintained throughout and completed before declaring project completion.
 
 ## Working agreements
 
