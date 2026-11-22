@@ -24,6 +24,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Set up Buf
+        uses: bufbuild/buf-setup-action@v1.50.0
+        with:
+          version: 1.50.0
+
+      - name: Check Protobuf compatibility
+        working-directory: mockjdbc/mockjdbc-proto/src/main/protobuf
+        run: >-
+          buf breaking --against
+          'https://github.com/rroyoo/mockjdbc-foundation.git#branch=main,subdir=mockjdbc/mockjdbc-proto/src/main/protobuf'
+
       - name: Set up Java 21
         uses: actions/setup-java@v5
         with:
