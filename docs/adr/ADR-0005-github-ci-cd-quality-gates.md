@@ -24,6 +24,7 @@ The workflow must:
 4. Run GitHub CodeQL for Java/Kotlin and publish findings to GitHub code scanning. Skip upload analysis for pull requests from forks, where the token cannot publish security events; build and tests still run.
 5. Require both Kafka Testcontainers integration suites to be discovered and pass without skips.
 6. Publish test counts, failures, skipped tests, line coverage, and the threshold in the GitHub Actions job summary. Keep detailed logs and CodeQL findings in GitHub; do not upload test/coverage artifacts.
+7. Run `buf breaking` with the `FILE` rules against the `main` branch for `mockjdbc-proto`, using a pinned Buf CLI version and the public Git baseline.
 
 Use minimal workflow permissions, cancel superseded runs for the same branch/PR, and retain the standard runner and Maven cache. Any change to dependencies, scopes, coverage exclusions, or thresholds requires an ADR/checklist update.
 
@@ -43,6 +44,7 @@ Use minimal workflow permissions, cancel superseded runs for the same branch/PR,
 | JaCoCo line coverage | At least 50% combined coverage; 90% is a target | Actions job summary |
 | Kafka integration tests | Both Kafka Testcontainers tests pass without skips | Actions job summary |
 | CodeQL | Analysis runs for same-repository code and reports findings | GitHub Security / code scanning |
+| Protobuf compatibility | `mockjdbc-proto` passes Buf `FILE` breaking checks against `main` | Pull request / Actions check |
 
 The JaCoCo gate does not imply a guarantee of defect-free code. It establishes a measurable minimum alongside tests, static analysis, and required pull-request checks.
 
@@ -56,6 +58,7 @@ The JaCoCo gate does not imply a guarantee of defect-free code. It establishes a
 - [x] Publish test and coverage totals in the GitHub Actions run summary.
 - [x] Publish CodeQL analysis findings in GitHub code scanning.
 - [x] Fail the summary gate if required Kafka integration tests are missing or skipped.
+- [x] Check `mockjdbc-proto` compatibility against `main` with Buf `FILE` rules.
 - [x] Configure `main` branch protection to require a passing, up-to-date `verify` check; no review-count gate is enabled.
 - [ ] Raise the coverage gate toward 90% as coverage debt is closed.
 - [ ] Define version/tag and package-release policy before adding automatic release/deployment.
@@ -71,6 +74,7 @@ The JaCoCo gate does not imply a guarantee of defect-free code. It establishes a
 ### Trade-offs
 
 - CodeQL increases workflow duration and may surface existing findings that must be triaged.
+- The Protobuf check compares against the current `main` schema; intentional breaking changes require a deliberate compatibility/versioning decision.
 - Test/coverage data is summarized in the Actions run; raw XML is available in runner logs/workspace only and is not retained as a downloadable artifact.
 - The workflow file cannot configure repository rules. The `main` branch protection setting is managed in GitHub and must be updated if the required check name changes.
 - A 50% aggregate baseline can hide weakly tested individual modules. Per-module thresholds remain deferred until a baseline is collected.
@@ -81,4 +85,6 @@ The JaCoCo gate does not imply a guarantee of defect-free code. It establishes a
 - `docs/test-validation-roadmap.md`
 - [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 - [CodeQL Action](https://github.com/github/codeql-action)
+- [Buf breaking checks](https://buf.build/docs/breaking/usage/)
+- [Buf setup action](https://github.com/bufbuild/buf-setup-action)
 - [Testcontainers Docker 29 compatibility issue](https://github.com/testcontainers/testcontainers-java/issues/11211)

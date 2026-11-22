@@ -1,6 +1,6 @@
 # Next Steps
 
-Hand-off for continuing project improvements. Last updated: 2026-11-20.
+Hand-off for continuing project improvements. Last updated: 2026-11-22.
 
 Read first: `docs/module-status-matrix.md`, `docs/jdbc-supported-surface.md`, `.github/copilot-instructions.md`.
 
@@ -57,7 +57,7 @@ Notes from CI debugging:
 ### 5. Security and robustness
 - [ ] Proxy: option to mask sensitive parameters/columns before publishing to Kafka.
 - [ ] WireMock bridge: bounded retries and a dead-letter path for records whose registration keeps failing (today a failing record is retried indefinitely on the poll thread).
-- [ ] Protobuf compatibility check in CI (for example `buf breaking`) for `mockjdbc-proto`.
+- [x] `mockjdbc-proto` compatibility check in CI with pinned Buf CLI and `FILE` breaking rules against `main`.
 
 ### 6. Documentation upkeep
 - [ ] ADR-0001 still has unchecked items that may already be done (for example reclassifying `mockjdbc-proxy` as active); verify against code and tick or update.

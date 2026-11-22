@@ -70,11 +70,12 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 ### M7. CI quality
 - [x] `done` Confirm both Kafka Testcontainers suites run without skips in GitHub Actions (PR #14).
 - [x] `done` JaCoCo line-coverage report with a combined minimum of 50%; 90% remains the target.
-- [ ] `open` Protobuf compatibility check for `mockjdbc-proto`.
+- [x] `done` `mockjdbc-proto` compatibility is checked in CI with Buf `FILE` rules against `main`.
+  - Exit criteria: pull requests fail when Protobuf changes break `main`; push builds exercise the same check against the main schema. The check uses a pinned Buf CLI and needs no BSR credentials.
 
 ## Next recommended slice
 
-M7 CI quality: add a Protobuf compatibility check for `mockjdbc-proto`.
+All active M1-M7 validation work is complete. Continue with the next open item in `docs/next-steps.md`: statement-family gaps.
 
 ## Log
 
@@ -96,3 +97,4 @@ M7 CI quality: add a Protobuf compatibility check for `mockjdbc-proto`.
 - 2026-11-22: M6 no-matching-stub behavior verified through the mockjdbc profile: an unmatched SQL query receives the default WireMock response with zero columns and rows. Next slice: backend-down / timeout error handling.
 - 2026-11-22: M6 backend failure handling verified: unavailable gRPC backends and expired per-query deadlines surface as `SQLException` with status, SQL, and timeout context. `grpcTimeoutMillis` defaults to 30000 and is configurable by JDBC URL or connection properties. Next slice: concurrent connections and statements.
 - 2026-11-22: M6 concurrency verified with three simultaneous statement queries across two connections against the same gRPC endpoint: each statement retained its own result set and prepared parameters, and connection configuration state did not leak. Next slice: M7 Protobuf compatibility check.
+- 2026-11-22: M7 Protobuf compatibility is enforced with Buf `FILE` rules against the `main` schema in CI. The active M1-M7 validation checklist is complete; next work returns to the general statement-family backlog.
