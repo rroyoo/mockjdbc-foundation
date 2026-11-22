@@ -64,7 +64,8 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 - [x] `done` No matching stub (default empty result) behaviour asserted.
   - Exit criteria: a query without a specific WireMock mapping matches the default response and returns zero columns and rows.
 - [x] `done` Backend unavailable and gRPC deadline exceeded surface as clear `SQLException`s. Query deadlines default to 30 seconds and can be set with `grpcTimeoutMillis`; invalid non-positive values fail explicitly.
-- [ ] `open` Concurrent connections and statements.
+- [x] `done` Concurrent statements across two connections preserve each statement's result and prepared parameters, while connection configuration state remains isolated.
+  - Exit criteria: two connections run three statements concurrently against the same gRPC endpoint; all results are released together, and tests assert statement result-set and connection-state isolation.
 
 ### M7. CI quality
 - [x] `done` Confirm both Kafka Testcontainers suites run without skips in GitHub Actions (PR #14).
@@ -73,7 +74,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M6 mock robustness: verify concurrent connections and statements remain isolated.
+M7 CI quality: add a Protobuf compatibility check for `mockjdbc-proto`.
 
 ## Log
 
@@ -94,3 +95,4 @@ M6 mock robustness: verify concurrent connections and statements remain isolated
 - 2026-11-20: M5 datasource identity and Kafka keying verified by the existing two-DataSource registry and producer-key tests. Next integration slice: M6 no-matching-stub behavior.
 - 2026-11-22: M6 no-matching-stub behavior verified through the mockjdbc profile: an unmatched SQL query receives the default WireMock response with zero columns and rows. Next slice: backend-down / timeout error handling.
 - 2026-11-22: M6 backend failure handling verified: unavailable gRPC backends and expired per-query deadlines surface as `SQLException` with status, SQL, and timeout context. `grpcTimeoutMillis` defaults to 30000 and is configurable by JDBC URL or connection properties. Next slice: concurrent connections and statements.
+- 2026-11-22: M6 concurrency verified with three simultaneous statement queries across two connections against the same gRPC endpoint: each statement retained its own result set and prepared parameters, and connection configuration state did not leak. Next slice: M7 Protobuf compatibility check.
