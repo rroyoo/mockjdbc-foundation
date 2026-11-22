@@ -47,6 +47,7 @@ class GrpcMockQueryClientTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        GrpcMockQueryClient.shutdownAll();
         if (server != null) {
             server.shutdownNow();
             server.awaitTermination();
@@ -131,6 +132,54 @@ class GrpcMockQueryClientTest {
 
     @Test
     @DisplayName(
+            "Given an unavailable mock backend, when findResultSet is called, then it throws SQLException with the grpc status")
+    void shouldWrapUnavailableBackendIntoSqlException() throws Exception {
+        var port = server.getPort();
+        server.shutdownNow();
+        server.awaitTermination();
+        var client = new GrpcMockQueryClient(mockConfig(port, "1000"));
+
+        var sqlException =
+                assertThrows(SQLException.class, () -> client.findResultSet("SELECT 1", List.of()));
+
+        assertTrue(sqlException.getMessage().contains("UNAVAILABLE"));
+        assertTrue(sqlException.getMessage().contains("SELECT 1"));
+        assertEquals(
+                Status.Code.UNAVAILABLE,
+                ((StatusRuntimeException) sqlException.getCause()).getStatus().getCode());
+    }
+
+    @Test
+    @DisplayName(
+            "Given a mock backend that does not respond before the configured deadline, when findResultSet is called, then it throws a timeout SQLException")
+    void shouldWrapGrpcDeadlineExceededIntoTimeoutSqlException() {
+        service.holdResponse = true;
+        var client = new GrpcMockQueryClient(mockConfig(server.getPort(), "100"));
+
+        var sqlException =
+                assertThrows(SQLException.class, () -> client.findResultSet("SELECT 1", List.of()));
+
+        assertTrue(sqlException.getMessage().contains("Timed out after 100 ms"));
+        assertTrue(sqlException.getMessage().contains("SELECT 1"));
+        assertEquals(
+                Status.Code.DEADLINE_EXCEEDED,
+                ((StatusRuntimeException) sqlException.getCause()).getStatus().getCode());
+    }
+
+    @Test
+    @DisplayName(
+            "Given a non-positive gRPC timeout, when findResultSet is called, then it throws SQLException")
+    void shouldRejectNonPositiveGrpcTimeout() {
+        var client = new GrpcMockQueryClient(mockConfig(server.getPort(), "0"));
+
+        var sqlException =
+                assertThrows(SQLException.class, () -> client.findResultSet("SELECT 1", List.of()));
+
+        assertEquals("grpcTimeoutMillis must be a positive integer", sqlException.getMessage());
+    }
+
+    @Test
+    @DisplayName(
             "Given a MockedQuery containing QueryError type and message, when findResultSet is called, then it throws the mapped SQLException subtype")
     void shouldThrowMappedSQLExceptionSubtypeFromProtoError() {
         service.responder =
@@ -198,6 +247,12 @@ class GrpcMockQueryClientTest {
         return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), new Properties());
     }
 
+    private static MockConfig mockConfig(int port, String timeoutMillis) {
+        var properties = new Properties();
+        properties.setProperty("grpcTimeoutMillis", timeoutMillis);
+        return new MockConfig(new MockConfig.MockServer("127.0.0.1", port), properties);
+    }
+
     private static MockedQuery mockedQuery(SerializedResultSet resultSet) {
         return MockedQuery.newBuilder().setResultSet(resultSet).build();
     }
@@ -225,11 +280,13 @@ class GrpcMockQueryClientTest {
         private volatile Function<QueryLookupRequest, MockedQuery> responder =
                 request -> mockedQuery(SerializedResultSet.getDefaultInstance());
         private volatile StatusRuntimeException failure;
+        private volatile boolean holdResponse;
 
         private void reset() {
             lastRequest.set(null);
             responder = request -> mockedQuery(SerializedResultSet.getDefaultInstance());
             failure = null;
+            holdResponse = false;
         }
 
         @Override
@@ -238,6 +295,9 @@ class GrpcMockQueryClientTest {
             lastRequest.set(request);
             if (failure != null) {
                 responseObserver.onError(failure);
+                return;
+            }
+            if (holdResponse) {
                 return;
             }
             responseObserver.onNext(responder.apply(request));

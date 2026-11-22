@@ -212,6 +212,10 @@ All properties are parsed into `MockConfig` and used by `ConnectionFactory` / `G
 | `keepAliveTimeoutTimeUnit` | TimeUnit | ❌ | `SECONDS` | Enum name |
 | `idleTimeout` | long | ❌ | `10` | Channel idle threshold |
 | `idleTimeoutTimeUnit` | TimeUnit | ❌ | `MINUTES` | Enum name |
+| `grpcTimeoutMillis` | long | ❌ | `30000` | Per-query gRPC deadline in milliseconds; must be positive |
+
+`grpcTimeoutMillis` can also be supplied through the JDBC connection `Properties`. A lookup
+that exceeds the deadline or cannot reach the backend fails with `SQLException`.
 
 ---
 
