@@ -1,6 +1,7 @@
 package io.github.rroyoo.mockjdbc.users;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -77,6 +78,18 @@ class UserControllerMockJdbcProfileTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].name").value("Ada Lovelace"))
                 .andExpect(jsonPath("$[1].name").value("Grace Hopper"));
+    }
+
+    @Test
+    @DisplayName(
+            "Given SQL without a matching stub, when executed using mockjdbc profile, then the default empty result is returned")
+    void shouldReturnEmptyResultForQueryWithoutMatchingStub() throws SQLException {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.createStatement();
+                var resultSet = statement.executeQuery("SELECT 'unmatched-stub'")) {
+            assertEquals(0, resultSet.getMetaData().getColumnCount());
+            assertFalse(resultSet.next());
+        }
     }
 
     @Test

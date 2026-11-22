@@ -492,6 +492,30 @@ class ResultSetFactoryTest {
 
     @Test
     @DisplayName(
+            "Given an empty result without column metadata, when creating ResultSet, then it has no rows or columns")
+    void shouldCreateZeroColumnResultSetForEmptyPayload() throws Exception {
+        try (var resultSet = ResultSetFactory.create(SerializedResultSet.getDefaultInstance())) {
+            assertEquals(0, resultSet.getMetaData().getColumnCount());
+            assertFalse(resultSet.next());
+            assertEquals(0, resultSet.getRow());
+            assertThrows(SQLException.class, () -> resultSet.getString(1));
+            resultSet.close();
+            assertTrue(resultSet.isClosed());
+            assertThrows(SQLException.class, resultSet::next);
+        }
+    }
+
+    @Test
+    @DisplayName(
+            "Given rows without column metadata, when creating ResultSet, then SQLException is thrown")
+    void shouldRejectRowsWithoutColumnMetadata() {
+        var serialized = SerializedResultSet.newBuilder().addRows(Row.getDefaultInstance()).build();
+
+        assertThrows(SQLException.class, () -> ResultSetFactory.create(serialized));
+    }
+
+    @Test
+    @DisplayName(
             "Given metadata without rows, when creating ResultSet, then it is empty but keeps column metadata")
     void shouldExposeMetadataForEmptyResultSet() throws Exception {
         var serialized =

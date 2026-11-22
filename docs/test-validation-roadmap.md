@@ -61,7 +61,8 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 - [ ] `deferred` Masking of sensitive parameters (feature not implemented yet).
 
 ### M6. Mock robustness
-- [ ] `open` No matching stub (default empty result) behaviour asserted.
+- [x] `done` No matching stub (default empty result) behaviour asserted.
+  - Exit criteria: a query without a specific WireMock mapping matches the default response and returns zero columns and rows.
 - [ ] `open` Backend down / timeout surfaces a clear `SQLException`.
 - [ ] `open` Concurrent connections and statements.
 
@@ -72,7 +73,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M6 mock robustness: assert the no-matching-stub behavior returns the documented default empty result.
+M6 mock robustness: verify backend-down / timeout failures surface as a clear `SQLException`.
 
 ## Log
 
@@ -91,3 +92,4 @@ M6 mock robustness: assert the no-matching-stub behavior returns the documented 
 - 2026-11-20: M4 extended `ColumnMetadata` with optional JDBC precision, scale, nullability, table/schema/catalog names, and auto-increment. The values now round-trip through the bridge; absent fields from older events retain the former defaults. Next integration slice: M5 proxy failure/drop behavior and dispatch statistics.
 - 2026-11-20: M5 failure/drop behavior verified: asynchronous delivery failures and full queues preserve JDBC `executeUpdate` results; `DROP_OLDEST` and `DROP_NEWEST` delivery behavior is covered, with offered/sent/dropped/failed/queued counters asserted. Next slice: distinct datasource IDs and datasource-oriented Kafka keys.
 - 2026-11-20: M5 datasource identity and Kafka keying verified by the existing two-DataSource registry and producer-key tests. Next integration slice: M6 no-matching-stub behavior.
+- 2026-11-22: M6 no-matching-stub behavior verified through the mockjdbc profile: an unmatched SQL query receives the default WireMock response with zero columns and rows. Next slice: backend-down / timeout error handling.
