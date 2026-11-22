@@ -3,11 +3,13 @@ package io.github.rroyoo.mockjdbc.mock.statement;
 import io.github.rroyoo.mockjdbc.mock.ColumnMetadata;
 import io.github.rroyoo.mockjdbc.mock.JdbcValue;
 import io.github.rroyoo.mockjdbc.mock.SerializedResultSet;
+import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -21,6 +23,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sql.rowset.RowSetMetaDataImpl;
 import javax.sql.rowset.RowSetProvider;
 import javax.sql.rowset.serial.SerialBlob;
@@ -45,6 +48,13 @@ final class ResultSetFactory {
     private ResultSetFactory() {}
 
     static ResultSet create(SerializedResultSet serializedResultSet) throws SQLException {
+        if (serializedResultSet.getMetadataCount() == 0) {
+            if (serializedResultSet.getRowsCount() > 0) {
+                throw new SQLException("Cannot create rows without column metadata");
+            }
+            return emptyResultSet();
+        }
+
         try {
             var rowSet = RowSetProvider.newFactory().createCachedRowSet();
             rowSet.setMetaData(metaData(serializedResultSet));
@@ -61,6 +71,106 @@ final class ResultSetFactory {
             throw e;
         } catch (Exception e) {
             throw new SQLException("Failed to create cached ResultSet", e);
+        }
+    }
+
+    private static ResultSet emptyResultSet() {
+        var closed = new AtomicBoolean();
+        var metadata = emptyResultSetMetaData();
+        return (ResultSet)
+                Proxy.newProxyInstance(
+                        ResultSet.class.getClassLoader(),
+                        new Class<?>[] {ResultSet.class},
+                        (proxy, method, arguments) -> {
+                            var name = method.getName();
+                            if (method.getDeclaringClass() == Object.class) {
+                                return objectMethod(proxy, name, arguments, "EmptyResultSet");
+                            }
+                            if (name.equals("close")) {
+                                closed.set(true);
+                                return null;
+                            }
+                            if (name.equals("isClosed")) {
+                                return closed.get();
+                            }
+                            if (name.equals("isWrapperFor")) {
+                                return ((Class<?>) arguments[0]).isInstance(proxy);
+                            }
+                            if (name.equals("unwrap")) {
+                                return unwrap(proxy, (Class<?>) arguments[0]);
+                            }
+
+                            ensureOpen(closed.get());
+                            return switch (name) {
+                                case "next" -> false;
+                                case "getMetaData" -> metadata;
+                                case "getStatement", "getWarnings", "getCursorName" -> null;
+                                case "getRow", "getFetchSize" -> 0;
+                                case "getType" -> ResultSet.TYPE_FORWARD_ONLY;
+                                case "getConcurrency" -> ResultSet.CONCUR_READ_ONLY;
+                                case "getHoldability" -> ResultSet.CLOSE_CURSORS_AT_COMMIT;
+                                case "getFetchDirection" -> ResultSet.FETCH_FORWARD;
+                                case "isBeforeFirst",
+                                        "isAfterLast",
+                                        "isFirst",
+                                        "isLast",
+                                        "rowUpdated",
+                                        "rowInserted",
+                                        "rowDeleted" ->
+                                        false;
+                                case "wasNull" -> false;
+                                case "clearWarnings" -> null;
+                                default ->
+                                        throw new SQLException(
+                                                "Empty ResultSet has no column data for " + name);
+                            };
+                        });
+    }
+
+    private static ResultSetMetaData emptyResultSetMetaData() {
+        return (ResultSetMetaData)
+                Proxy.newProxyInstance(
+                        ResultSetMetaData.class.getClassLoader(),
+                        new Class<?>[] {ResultSetMetaData.class},
+                        (proxy, method, arguments) -> {
+                            var name = method.getName();
+                            if (method.getDeclaringClass() == Object.class) {
+                                return objectMethod(
+                                        proxy, name, arguments, "EmptyResultSetMetaData");
+                            }
+                            if (name.equals("getColumnCount")) {
+                                return 0;
+                            }
+                            if (name.equals("isWrapperFor")) {
+                                return ((Class<?>) arguments[0]).isInstance(proxy);
+                            }
+                            if (name.equals("unwrap")) {
+                                return unwrap(proxy, (Class<?>) arguments[0]);
+                            }
+                            throw new SQLException("Empty ResultSet has no column metadata");
+                        });
+    }
+
+    private static Object objectMethod(
+            Object proxy, String name, Object[] arguments, String description) {
+        return switch (name) {
+            case "toString" -> description;
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == arguments[0];
+            default -> throw new IllegalStateException("Unexpected Object method: " + name);
+        };
+    }
+
+    private static Object unwrap(Object proxy, Class<?> type) throws SQLException {
+        if (type != null && type.isInstance(proxy)) {
+            return proxy;
+        }
+        throw new SQLException("Not a wrapper for " + type);
+    }
+
+    private static void ensureOpen(boolean closed) throws SQLException {
+        if (closed) {
+            throw new SQLException("ResultSet is closed");
         }
     }
 

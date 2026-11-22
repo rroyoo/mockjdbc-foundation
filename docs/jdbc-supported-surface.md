@@ -117,6 +117,7 @@ Source of truth:
 - 2026-11-05: Added record/replay support for generated-key result sets on `executeUpdate`; update counts and key rows are carried separately in the `MockedQuery` response.
 - 2026-11-20: `DATE`/`TIME` values backed by protobuf timestamps now use UTC rather than the JVM default zone; temporal values and nulls are covered by record/replay tests.
 - 2026-11-20: `BLOB` and `CLOB` columns now preserve their binary/text contents and materialize as JDBC `Blob` / `Clob` during replay, with unit and record/replay coverage.
+- 2026-11-22: Empty mock responses without metadata now materialize as zero-column, zero-row `ResultSet` instances, so the default response for unmatched SQL can be consumed without a row-set construction failure.
 
 
 ## 7. Result-set materialization (replay side)
@@ -126,5 +127,6 @@ Source of truth:
 - Dates and times accept ISO text (`2026-03-17`, `10:15:30`), JDBC timestamp text (`2026-03-17 10:15:30.0`) or protobuf timestamps. A protobuf timestamp converted to SQL `DATE`/`TIME` is interpreted in UTC; SQL `TIMESTAMP` preserves the protobuf instant.
 - Out-of-range, unparsable, or unrepresentable values raise `SQLDataException`; a `DATE` skipped by the JVM default time zone is rejected rather than silently normalized, whether carried as a protobuf timestamp or string. Nulls are preserved and reported through `wasNull`.
 - Rows shorter than the metadata are padded with nulls; rows longer than the metadata raise `SQLException`.
+- An empty payload without column metadata becomes a zero-column, zero-row `ResultSet`; rows without column metadata raise `SQLException`.
 - Column metadata preserves name, label, type, type name, precision, scale, nullability, table/schema/catalog names, and auto-increment. For older events without the optional metadata fields, replay keeps the previous defaults: precision/scale zero, nullability unknown, names empty, and auto-increment false. Signedness is still derived from the SQL type.
 - The proxy serializes JDBC `Blob` contents as protobuf bytes and `Clob` contents as protobuf strings; values larger than the supported `int`-sized LOB API range disable capture for that result set without interrupting JDBC iteration.
