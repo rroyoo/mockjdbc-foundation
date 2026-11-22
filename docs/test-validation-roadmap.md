@@ -63,7 +63,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 ### M6. Mock robustness
 - [x] `done` No matching stub (default empty result) behaviour asserted.
   - Exit criteria: a query without a specific WireMock mapping matches the default response and returns zero columns and rows.
-- [ ] `open` Backend down / timeout surfaces a clear `SQLException`.
+- [x] `done` Backend unavailable and gRPC deadline exceeded surface as clear `SQLException`s. Query deadlines default to 30 seconds and can be set with `grpcTimeoutMillis`; invalid non-positive values fail explicitly.
 - [ ] `open` Concurrent connections and statements.
 
 ### M7. CI quality
@@ -73,7 +73,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-M6 mock robustness: verify backend-down / timeout failures surface as a clear `SQLException`.
+M6 mock robustness: verify concurrent connections and statements remain isolated.
 
 ## Log
 
@@ -93,3 +93,4 @@ M6 mock robustness: verify backend-down / timeout failures surface as a clear `S
 - 2026-11-20: M5 failure/drop behavior verified: asynchronous delivery failures and full queues preserve JDBC `executeUpdate` results; `DROP_OLDEST` and `DROP_NEWEST` delivery behavior is covered, with offered/sent/dropped/failed/queued counters asserted. Next slice: distinct datasource IDs and datasource-oriented Kafka keys.
 - 2026-11-20: M5 datasource identity and Kafka keying verified by the existing two-DataSource registry and producer-key tests. Next integration slice: M6 no-matching-stub behavior.
 - 2026-11-22: M6 no-matching-stub behavior verified through the mockjdbc profile: an unmatched SQL query receives the default WireMock response with zero columns and rows. Next slice: backend-down / timeout error handling.
+- 2026-11-22: M6 backend failure handling verified: unavailable gRPC backends and expired per-query deadlines surface as `SQLException` with status, SQL, and timeout context. `grpcTimeoutMillis` defaults to 30000 and is configurable by JDBC URL or connection properties. Next slice: concurrent connections and statements.

@@ -4,6 +4,7 @@ import io.github.rroyoo.mockjdbc.mock.*;
 import io.github.rroyoo.mockjdbc.mock.driver.MockConfig;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -12,6 +13,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 final class GrpcMockQueryClient implements AutoCloseable {
+
+    private static final String RPC_TIMEOUT_PROPERTY = "grpcTimeoutMillis";
+    private static final long DEFAULT_RPC_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(30);
 
     /**
      * Reference-counted channel per host:port. Each client acquires its channel on first use and
@@ -113,6 +117,7 @@ final class GrpcMockQueryClient implements AutoCloseable {
 
     MockedQuery findMock(String sql, List<ParameterMetadata> parameters, Integer batchIndex)
             throws SQLException {
+        var timeoutMillis = rpcTimeoutMillis();
         var activeChannel = acquireChannel();
         try {
             var requestBuilder =
@@ -125,14 +130,44 @@ final class GrpcMockQueryClient implements AutoCloseable {
 
             var response =
                     MockQueryServiceGrpc.newBlockingStub(activeChannel)
+                            .withDeadlineAfter(timeoutMillis, TimeUnit.MILLISECONDS)
                             .findMock(requestBuilder.build());
             if (response.hasError()) {
                 throw toSqlException(response.getError());
             }
             return response;
         } catch (StatusRuntimeException e) {
-            throw new SQLException("Failed to query mock server for SQL: " + sql, e);
+            var message =
+                    e.getStatus().getCode() == Status.Code.DEADLINE_EXCEEDED
+                            ? "Timed out after "
+                                    + timeoutMillis
+                                    + " ms querying mock server for SQL: "
+                                    + sql
+                            : "Failed to query mock server ("
+                                    + e.getStatus().getCode()
+                                    + ") for SQL: "
+                                    + sql;
+            throw new SQLException(message, e);
         }
+    }
+
+    private long rpcTimeoutMillis() throws SQLException {
+        var properties = mockConfig.properties();
+        var configuredTimeout =
+                properties == null ? null : properties.getProperty(RPC_TIMEOUT_PROPERTY);
+        if (configuredTimeout == null) {
+            return DEFAULT_RPC_TIMEOUT_MILLIS;
+        }
+
+        try {
+            var timeoutMillis = Long.parseLong(configuredTimeout);
+            if (timeoutMillis > 0) {
+                return timeoutMillis;
+            }
+        } catch (NumberFormatException e) {
+            throw new SQLException(RPC_TIMEOUT_PROPERTY + " must be a positive integer", e);
+        }
+        throw new SQLException(RPC_TIMEOUT_PROPERTY + " must be a positive integer");
     }
 
     private synchronized ManagedChannel acquireChannel() throws SQLException {
