@@ -24,9 +24,9 @@
         <maven.plugin.version.compiler>3.16.0</maven.plugin.version.compiler>
         <maven.plugin.version.jacoco>0.8.16</maven.plugin.version.jacoco>
         <maven.plugin.version.os-maven>1.7.1</maven.plugin.version.os-maven>
-        <maven.plugin.version.pmd>3.27.0</maven.plugin.version.pmd>
+        <maven.plugin.version.pmd>3.28.0</maven.plugin.version.pmd>
         <maven.plugin.version.protobuf>5.1.12</maven.plugin.version.protobuf>
-        <maven.plugin.version.spotless>3.10.3</maven.plugin.version.spotless>
+        <maven.plugin.version.spotless>3.11.0</maven.plugin.version.spotless>
         <maven.version.byte-buddy>1.18.17</maven.version.byte-buddy>
         <maven.version.grpc>1.79.0</maven.version.grpc>
         <maven.version.google-java-format>1.30.0</maven.version.google-java-format>
