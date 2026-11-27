@@ -37,7 +37,7 @@ Run the app with the `proxy` profile, which wraps its H2 `DataSource` with the `
 ```bash
 mvn spring-boot:run \
   -Dspring-boot.run.profiles=proxy \
-  -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-1.0.0-SNAPSHOT.jar"
+  -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-0.1.0-SNAPSHOT.jar"
 ```
 
 Exercise the API so there is real SQL to capture:

@@ -80,7 +80,7 @@ The `proxy` profile in `mockjdbc-spring-users` demonstrates this end to end:
 ```bash
 mvn spring-boot:run \
   -Dspring-boot.run.profiles=proxy \
-  -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-1.0.0-SNAPSHOT.jar"
+  -Dspring-boot.run.jvmArguments="-javaagent:../mockjdbc/mockjdbc-proxy/target/mockjdbc-proxy-0.1.0-SNAPSHOT.jar"
 ```
 
 Optional environment overrides for the sample app's Kafka producer:
