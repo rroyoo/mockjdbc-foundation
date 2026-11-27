@@ -1,0 +1,8 @@
+{
+  "label": "Guides",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "description": "Task-focused guides for the WireMock bridge and a full end-to-end tutorial."
+  }
+}

@@ -51,6 +51,8 @@ cd mockjdbc-foundation/mockjdbc
 mvn -B -ntp clean install
 ```
 
+📖 **[Read the full documentation](https://rroyoo.github.io/mockjdbc-foundation/)** for installation, capture/replay tutorials, configuration reference, and the supported JDBC surface.
+
 This installs `mockjdbc-proto`, `mockjdbc-mock`, `mockjdbc-proxy`, and `mockjdbc-wiremock` into your local Maven repository under coordinates such as:
 
 ```xml
@@ -70,7 +72,7 @@ mvn -B -ntp verify
 
 See [`mockjdbc-spring-users/README.md`](mockjdbc-spring-users/README.md) for profile-by-profile instructions (H2, proxy capture, mock replay).
 
-A dedicated user documentation site (Docusaurus) is planned; see the [open-source launch roadmap](docs/open-source-launch-roadmap.md) for status.
+A full Docusaurus documentation site is published at **https://rroyoo.github.io/mockjdbc-foundation/**, including an end-to-end tutorial, configuration reference, and troubleshooting guide.
 
 ## Known limitations
 

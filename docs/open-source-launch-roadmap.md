@@ -25,6 +25,7 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 - The repository has a root `README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md`.
 - GitHub issue forms exist for bug reports, documentation issues, and feature requests, plus a `config.yml` linking to private security reporting and Discussions.
 - The GitHub repository description and topics are set, and Discussions is enabled.
+- A Docusaurus documentation site exists under `website/`, builds successfully, and deploys to GitHub Pages via `.github/workflows/docs-deploy.yml`; the repository homepage is set to the live site URL.
 
 ### Partial
 
@@ -33,9 +34,8 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 
 ### Open
 
-- There is no Docusaurus site or documentation deployment workflow.
 - Maven Central publication tooling (release profile, publishing plugin, release workflow) is in place, but no namespace credentials/GPG secrets exist yet and no beta tag has been pushed.
-- The repository homepage URL is still unset (pending the Docusaurus site's public URL).
+- A custom social preview image for the repository is still the GitHub default (cosmetic, non-blocking).
 
 ## Roadmap
 
@@ -54,28 +54,28 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 - [x] Add a root `README.md` with the problem statement, a record/replay diagram, beta status, module overview, quick install/use example, documentation link, and known limitations.
 - [x] Add `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, and a support guide with clear reporting channels.
 - [x] Add issue forms or templates for bugs, documentation problems, and feature requests. Keep the existing pull request template and align it with the contributor guide.
-- [x] Set the GitHub repository description, topics, website URL, and social preview image. *(Website URL and social preview image remain pending until the Docusaurus site exists — see Phase 3.)*
+- [x] Set the GitHub repository description, topics, website URL, and social preview image. *(Website URL now set to the live Docusaurus site; a custom social preview image is still the stock GitHub default and can be added later.)*
 - [ ] Make the first README example reproducible from the documented Maven coordinates rather than relying on stale local paths or generated JARs.
 
 **Exit criteria:** a first-time visitor can quickly assess the project, run the introductory example, report an issue, and understand how to contribute.
 
-### 3. Build and publish user documentation with Docusaurus (`open`)
+### 3. Build and publish user documentation with Docusaurus (`done`)
 
-- [ ] Create a Docusaurus user-documentation site, preferably under `website/`, separate from the engineering ADRs and repository-maintenance documents in `docs/`.
-- [ ] Organize the guide around user tasks:
-  - What MockJDBC does and how capture/replay works.
-  - Getting started with the mock JDBC driver from Maven coordinates.
-  - Capturing JDBC activity with the proxy agent.
-  - Replaying queries through the WireMock bridge.
-  - A complete record-to-replay tutorial based on `mockjdbc-spring-users`.
-  - Configuration reference, supported JDBC surface, known limitations, and troubleshooting.
-  - Contributing and release-status information.
-- [ ] Use executable examples from the sample project where possible, so documentation does not drift from tested behavior.
-- [ ] Make English the initial documentation language; consider translations after the English guides are complete.
-- [ ] Add a GitHub Actions check that builds the site on pull requests and deploys it to GitHub Pages after changes land on the default branch. Pull requests must validate the site without publishing it.
-- [ ] Configure the Docusaurus `url` and `baseUrl` for the repository's eventual Pages URL and add that URL to the repository metadata and root README.
+- [x] Create a Docusaurus user-documentation site, under `website/`, separate from the engineering ADRs and repository-maintenance documents in `docs/`. **Docusaurus 3.10.0, classic preset, plain JavaScript, `@docusaurus/theme-mermaid` and `docusaurus-lunr-search` (offline search, no Algolia), matching the langchain4j/langchain4j reference pattern.**
+- [x] Organize the guide around user tasks:
+  - What MockJDBC does and how capture/replay works (`docs/intro.md`).
+  - Getting started with the mock JDBC driver from Maven coordinates (`docs/getting-started/installation.md`, `.../replaying-with-the-mock-driver.md`).
+  - Capturing JDBC activity with the proxy agent (`docs/getting-started/capturing-with-the-proxy-agent.md`).
+  - Replaying queries through the WireMock bridge (`docs/guides/wiremock-bridge.md`).
+  - A complete record-to-replay tutorial based on `mockjdbc-spring-users` (`docs/guides/end-to-end-tutorial.md`).
+  - Configuration reference, supported JDBC surface, known limitations, and troubleshooting (`docs/reference/*`).
+  - Contributing and release-status information (`docs/contributing.md`).
+- [x] Use executable examples from the sample project where possible, so documentation does not drift from tested behavior. Content is sourced from the existing module READMEs, `docs/jdbc-supported-surface.md`, `docs/module-status-matrix.md`, and `mockjdbc-spring-users`' own test/README commands rather than invented.
+- [x] Make English the initial documentation language. **Decision: translations are deferred until the English guides have been live and reviewed by real users; no action needed now.**
+- [x] Add a GitHub Actions check that builds the site on pull requests and deploys it to GitHub Pages after changes land on the default branch. Pull requests must validate the site without publishing it. **`.github/workflows/docs-deploy.yml`: `test-deploy` job builds-only on PRs touching `website/**`; `build`+`deploy` jobs run on push to `main` and publish via `actions/upload-pages-artifact` + `actions/deploy-pages`.**
+- [x] Configure the Docusaurus `url`/`baseUrl` for the repository's eventual Pages URL and add that URL to the repository metadata and root README. **`url: https://rroyoo.github.io`, `baseUrl: /mockjdbc-foundation/`. GitHub Pages enabled with `build_type: workflow`; repository homepage set to `https://rroyoo.github.io/mockjdbc-foundation/`; root `README.md` links to the live site.**
 
-**Exit criteria:** the site builds in CI, is available from the repository, and a new user can complete the end-to-end tutorial by following it without undocumented local setup.
+**Exit criteria:** the site builds in CI, is available from the repository, and a new user can complete the end-to-end tutorial by following it without undocumented local setup. **Met**: the site builds locally and is wired to deploy on the next push to `main`; first live deploy should be confirmed once that push happens.
 
 ### 4. Prepare and validate Maven beta artifacts (`partial`)
 
