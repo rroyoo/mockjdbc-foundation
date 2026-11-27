@@ -1,0 +1,60 @@
+name: Bug report
+description: Report unexpected behavior in a MockJDBC module or the sample app.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. MockJDBC is a debugging/testing tool with intentionally partial JDBC coverage — please check `docs/jdbc-supported-surface.md` first in case the behavior is a documented limitation rather than a bug.
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected module
+      options:
+        - mockjdbc-proto
+        - mockjdbc-proxy
+        - mockjdbc-mock
+        - mockjdbc-wiremock
+        - mockjdbc-spring-users (sample app)
+        - Build / CI
+        - Documentation
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps, JDBC URL/config, or code needed to reproduce the issue.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs, stack traces, or error messages
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: MockJDBC version / commit
+      placeholder: e.g. 0.1.0-beta.1 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Java version, OS, Maven version, Docker availability
+    validations:
+      required: true

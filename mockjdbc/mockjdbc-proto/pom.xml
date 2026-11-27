@@ -11,6 +11,8 @@
     </parent>
 
     <artifactId>mockjdbc-proto</artifactId>
+    <name>MockJDBC Proto</name>
+    <description>Protobuf and gRPC contracts shared by the MockJDBC capture, mock, and WireMock bridge modules.</description>
 
     <dependencies>
         <dependency>

@@ -10,6 +10,8 @@
     </parent>
 
     <artifactId>mockjdbc-wiremock</artifactId>
+    <name>MockJDBC WireMock Bridge</name>
+    <description>WireMock extension that consumes captured MockedQuery events from Kafka and registers them as stub mappings.</description>
 
     <dependencies>
         <dependency>

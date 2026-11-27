@@ -47,7 +47,7 @@ services:
     command:
       - /bin/sh
       - -ec
-      - cp /bridge/mockjdbc-wiremock-1.0.0-SNAPSHOT.jar /extensions/
+      - cp /bridge/mockjdbc-wiremock-0.1.0-SNAPSHOT.jar /extensions/
     volumes:
       - ../mockjdbc/mockjdbc-wiremock/target:/bridge:ro
       - wiremock_extensions:/extensions

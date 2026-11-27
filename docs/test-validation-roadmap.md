@@ -75,7 +75,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-All active M1-M7 validation work is complete. Continue with the next open item in `docs/next-steps.md`: statement-family gaps.
+All active M1-M7 validation work is complete. The next repository delivery is Phase 1, “Close the mock JDBC statement contract,” in `docs/next-steps.md`; add phase-specific integration evidence here as those features land.
 
 ## Log
 

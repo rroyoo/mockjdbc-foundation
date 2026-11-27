@@ -10,6 +10,8 @@
     </parent>
 
     <artifactId>mockjdbc-proxy</artifactId>
+    <name>MockJDBC Proxy Agent</name>
+    <description>ByteBuddy Java agent that captures JDBC query activity and publishes it as MockedQuery events.</description>
 
     <dependencies>
         <dependency>

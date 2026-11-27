@@ -15,11 +15,11 @@ Status labels:
 
 | Module/Project | Status | Evidence | Next milestone |
 |---|---|---|---|
-| `mockjdbc/mockjdbc-mock` | `partial` | Factories and handlers implemented with tests in `mockjdbc-mock/src/test/java` | Close statement-family wrapper and modern convenience method gaps (`Connection` gaps are closed) |
-| `mockjdbc/mockjdbc-proto` | `active` | Protobuf schemas and generated stubs in `mockjdbc-proto` | Keep contract stable and versioned with mock/proxy/wiremock module needs |
-| `mockjdbc/mockjdbc-proxy` | `partial`, `active` | Production classes and tests under `mockjdbc-proxy/src/main/java` and `mockjdbc-proxy/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Finalize remaining ADR-0002 checklist items |
-| `mockjdbc/mockjdbc-wiremock` | `partial`, `active` | Bridge classes + tests in `mockjdbc-wiremock/src/main/java` and `mockjdbc-wiremock/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Finalize remaining ADR-0004 checklist items |
-| `mockjdbc-spring-users` | `partial` | Independent app with tests for `h2` and `mockjdbc` profiles | Sample consumes reactor artifacts via regular Maven coordinates (`mvn install` required first) |
+| `mockjdbc/mockjdbc-mock` | `partial` | Factories and handlers implemented with tests in `mockjdbc-mock/src/test/java` | Phase 1: close statement-family contract; Phase 2: settle result/value fidelity |
+| `mockjdbc/mockjdbc-proto` | `active` | Protobuf schemas, generated stubs, and Buf `FILE` compatibility gate | Phase 2: evolve contracts only for explicitly supported fidelity work |
+| `mockjdbc/mockjdbc-proxy` | `partial`, `active` | Production classes and tests under `mockjdbc-proxy/src/main/java` and `mockjdbc-proxy/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Phase 3: define and enforce sensitive-data masking before Kafka publication |
+| `mockjdbc/mockjdbc-wiremock` | `partial`, `active` | Bridge classes + tests in `mockjdbc-wiremock/src/main/java` and `mockjdbc-wiremock/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Phase 3: bound registration retries and add a dead-letter path |
+| `mockjdbc-spring-users` | `partial` | Independent app with tests for `h2` and `mockjdbc` profiles; mock-profile E2E requires Docker and is exercised in CI | Phase 4: keep clean reactor-to-sample bootstrap and Docker-backed CI coverage documented |
 
 ## Decision notes
 
