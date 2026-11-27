@@ -17,6 +17,30 @@
 
     <name>MockJDBC Ecosystem Parent</name>
     <description>Parent POM for MockJDBC ecosystem with submodules.</description>
+    <url>https://github.com/rroyoo/mockjdbc-foundation</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>rroyoo</id>
+            <name>Ramón Royo</name>
+            <url>https://github.com/rroyoo</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/rroyoo/mockjdbc-foundation.git</connection>
+        <developerConnection>scm:git:https://github.com/rroyoo/mockjdbc-foundation.git</developerConnection>
+        <url>https://github.com/rroyoo/mockjdbc-foundation</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <properties>
         <java.version>17</java.version>

@@ -4,6 +4,10 @@ Hand-off for continuing project improvements. Last updated: 2026-11-22.
 
 Read first: `docs/module-status-matrix.md`, `docs/jdbc-supported-surface.md`, `.github/copilot-instructions.md`.
 
+## Public open-source launch
+
+The user-facing documentation (Docusaurus), community onboarding, and Maven beta publication plan is tracked separately in [`open-source-launch-roadmap.md`](open-source-launch-roadmap.md). This launch roadmap is prioritized independently; the JDBC implementation backlog below remains paused.
+
 ## Current baseline
 
 - Reactor (`mockjdbc/`) and sample (`mockjdbc-spring-users/`) build green on Java 21 in CI.

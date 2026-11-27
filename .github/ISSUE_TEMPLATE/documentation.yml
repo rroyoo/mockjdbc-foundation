@@ -1,0 +1,26 @@
+name: Documentation issue
+description: Report inaccurate, missing, or unclear documentation.
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for problems with README files, `docs/`, ADRs, or (once published) the Docusaurus user guide.
+  - type: input
+    id: location
+    attributes:
+      label: Document location
+      description: File path or URL of the affected documentation.
+      placeholder: e.g. docs/jdbc-supported-surface.md, README.md, website URL
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix (optional)

@@ -10,6 +10,8 @@
     </parent>
 
     <artifactId>mockjdbc-mock</artifactId>
+    <name>MockJDBC Mock Driver</name>
+    <description>Replay-side JDBC driver that resolves captured queries through a gRPC mock backend.</description>
 
     <dependencies>
         <dependency>
