@@ -1,12 +1,12 @@
 # ADR-0003: Mock JDBC driver scope, behavior contracts, and compatibility roadmap
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-03-21
 - Owners: `mockjdbc-project-steward`, `jdbc-interface-implementer`
 
 ## Context
 
-`mockjdbc-mock` has significant implementation progress (dynamic `Connection` and statement-family generation via ByteBuddy), but the supported JDBC surface and compatibility boundaries are still evolving.
+`mockjdbc-mock` has significant implementation progress (dynamic `Connection` and statement-family generation via ByteBuddy), but the supported JDBC surface and compatibility boundaries are still evolving. This accepted policy governs incremental implementation; it does not claim complete JDBC compatibility or production readiness.
 
 The project needs a dedicated ADR to define:
 - what the mock driver guarantees now
@@ -81,4 +81,3 @@ A feature is only considered `implemented` when:
 - `docs/adr/ADR-0001-project-stewardship-and-gap-closure.md`
 - `docs/adr/ADR-0002-jdbc-proxy-capture-and-kafka-event-pipeline.md`
 - `docs/jdbc-supported-surface.md`
-

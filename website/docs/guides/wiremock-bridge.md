@@ -6,26 +6,31 @@ sidebar_position: 1
 
 `mockjdbc-wiremock` consumes `MockedQuery` protobuf events from Kafka and upserts them as deterministic WireMock stub mappings, closing the loop between the proxy agent's captures and the mock driver's replays.
 
-## Registering the extension
+## Automatic extension discovery
 
-`WireMockKafkaBridgeExtension` implements `com.github.tomakehurst.wiremock.extension.Extension` and owns the consumer lifecycle (`start()` / `stop()`):
+The shaded JAR registers `WireMockKafkaBridgeExtensionFactory` through WireMock's `ExtensionFactory` service descriptor. WireMock creates the bridge extension when `MOCKJDBC_KAFKA_BOOTSTRAP_SERVERS` is set in its environment; the extension owns the consumer lifecycle.
 
-```java
-WireMockServer wireMock = new WireMockServer(
-        options().extensions(
-                new WireMockKafkaBridgeExtension(
-                        KafkaMappingConsumerConfig.defaults(
-                                "localhost:9092",
-                                "mockjdbc.query.events",
-                                "mockjdbc-wiremock-bridge",
-                                wireMockServerReference
-                        )
-                )
-        )
-);
+| Environment variable | Required | Default | Purpose |
+|---|---|---|---|
+| `MOCKJDBC_KAFKA_BOOTSTRAP_SERVERS` | yes | — | Enables the bridge and sets Kafka bootstrap servers. |
+| `MOCKJDBC_KAFKA_TOPIC` | no | `mockjdbc.query.events` | Topic to consume. |
+| `MOCKJDBC_KAFKA_GROUP_ID` | no | `mockjdbc-wiremock-bridge` | Consumer group. |
+| `MOCKJDBC_KAFKA_POLL_TIMEOUT_MS` | no | `250` | Consumer poll timeout. |
+| `MOCKJDBC_DATASOURCE_ALLOWLIST` | no | empty | Optional comma-separated datasource IDs to accept. |
+| `MOCKJDBC_SQL_DENY_PREFIXES` | no | empty | Optional comma-separated normalized SQL prefixes to reject. |
+
+For example, configure the WireMock container with:
+
+```yaml
+environment:
+  MOCKJDBC_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  MOCKJDBC_KAFKA_TOPIC: mockjdbc.query.events
+  MOCKJDBC_KAFKA_GROUP_ID: mockjdbc-wiremock-bridge
 ```
 
-Or drive the consumer directly without the extension wrapper:
+## Driving the consumer directly
+
+For embedded use or tests, create the WireMock server first and pass it to the consumer:
 
 ```java
 WireMockServer wireMock = new WireMockServer(8080);

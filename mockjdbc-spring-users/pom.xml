@@ -92,7 +92,7 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Transitive deps of mockjdbc-proxy (system-scoped JARs don't pull transitives) -->
+        <!-- Direct dependencies used by the sample's proxy/Kafka setup. -->
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>

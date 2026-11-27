@@ -1,18 +1,18 @@
 # ADR-0002: JDBC proxy capture for multiple datasources and Proto event publication to Kafka
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-03-21
 - Owners: `mockjdbc-project-steward`, `jdbc-query-proxy-implementer`
 
 ## Context
 
-`mockjdbc-proxy` is currently present in the reactor but its product scope has not been fully implemented or documented as an executable contract.
+This ADR was drafted before the capture pipeline existed. The proxy, Kafka publisher, datasource identity, and record/replay integration are now implemented; see the acceptance checklist and current module matrix. The project's scope is debugging and testing, not production deployment.
 
 The project needs a proxy that can be integrated into generic Java JDBC applications, capture SQL activity from multiple datasources, and publish structured events for downstream processing.
 
 ## Decision
 
-`mockjdbc-proxy` will evolve to an active module with this target behavior:
+`mockjdbc-proxy` is an active module with this behavior:
 
 1. Capture JDBC statements across multiple DataSources in the same process.
 2. Identify datasource origin for each event with a stable datasource identifier.
@@ -33,19 +33,14 @@ Each emitted Proto event must include at least:
 
 ## Datasource identity strategy
 
-Datasource identification is resolved in this precedence order:
-1. Explicit configured datasource name/alias.
-2. Framework-provided bean name (when available).
-3. Deterministic fallback fingerprint from datasource metadata (URL + user + driver, sanitized/hash).
-
-The same datasource must always generate the same logical `datasource_id` in a given deployment.
+Every DataSource registration requires an explicit datasource ID; the agent does not infer one from a bean name or connection metadata. Callers may use `DatasourceIdentityResolver` themselves to derive an ID from an alias, bean name, or datasource metadata before registration.
 
 ## Kafka publication contract
 
 - Serialization: Proto binary payload.
 - Topic naming: configurable, environment-specific.
 - Keying strategy: datasource-oriented key by default to preserve local ordering per datasource.
-- Error handling: retry with bounded policy and explicit dead-letter strategy for non-recoverable failures.
+- Error handling: asynchronous dispatch uses a bounded queue, configured drop behavior, and observable delivery statistics. Retries and a dead-letter strategy are not implemented; consider them only if debugging use cases require them.
 
 ## Integration requirements
 
@@ -65,7 +60,7 @@ Guides must include:
 
 - [x] Define and version Proxy Event Proto schema in `mockjdbc-proto`.
 - [x] Implement datasource-aware statement capture in `mockjdbc-proxy`.
-- [x] Implement datasource identity resolver with precedence policy.
+- [x] Implement datasource identity resolution helpers; require an explicit ID for every DataSource registration.
 - [x] Implement Kafka publisher for Proto events.
 - [x] Add unit tests for event mapping (query + result + error).
 - [x] Add tests for multi-datasource capture and identity consistency.
@@ -92,7 +87,7 @@ Guides must include:
 - Multi-datasource behavior is first-class, not incidental.
 
 ### Trade-offs
-- Additional operational complexity (Kafka, retries, dead-letter handling).
+- Additional operational complexity from Kafka and asynchronous dispatch; queue saturation and delivery failures follow the documented drop/statistics behavior.
 - Requires careful schema/version governance to avoid breaking consumers.
 
 ## Related

@@ -1,6 +1,6 @@
 # ADR-0004: WireMock extension — Kafka-driven JDBC mock mapping pipeline
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-03-21
 - Owners: `mockjdbc-project-steward`, `wiremock-kafka-bridge-implementer`
 
@@ -9,7 +9,7 @@
 `mockjdbc-proxy` captures JDBC executions and publishes `MockedQuery` protobuf events to Kafka.  
 `mockjdbc-mock` (the JDBC mock driver) connects to a WireMock-compatible server to resolve SQL queries into deterministic result sets.
 
-The missing piece in the pipeline is the bridge between these two components:
+At the time this ADR was drafted, the missing piece was the bridge between these two components. The bridge is now implemented and its record/replay integration is covered by the acceptance checklist:
 
 - A **WireMock extension** that consumes `MockedQuery` events from Kafka, transforms them into WireMock stub mappings, and registers those stubs on the WireMock instance.
 - When the mock driver later receives a query matching the SQL captured by the proxy, WireMock returns the pre-recorded result set.
@@ -43,12 +43,12 @@ Test Application                                            │
 
 ## Decision
 
-Create a new Maven module `mockjdbc/mockjdbc-wiremock` implementing a WireMock extension that:
+The `mockjdbc/mockjdbc-wiremock` module implements a WireMock extension that:
 
 1. Reads `MockedQuery` protobuf events from a Kafka topic.
 2. Transforms each event into a WireMock stub mapping keyed by SQL + datasource.
 3. Registers the stub on the WireMock instance (via WireMock Java API or Admin REST API).
-4. Exposes a lifecycle-managed consumer (`KafkaMappingConsumer`) that can be started/stopped.
+4. Exposes a lifecycle-managed consumer (`KafkaMappingConsumer`) that can be started and closed.
 5. Supports configurable topic, consumer group, and datasource-level filtering.
 
 ## Mapping strategy
@@ -56,30 +56,16 @@ Create a new Maven module `mockjdbc/mockjdbc-wiremock` implementing a WireMock e
 Each `MockedQuery` event is mapped to a WireMock stub as follows:
 
 - **Stub identity key**: `datasource_id + "::" + normalized_sql`
-- **Request matcher**: gRPC-style body or HTTP JSON request matching `sql` + optional `datasource_id`.
-- **Response payload**: serialized `SerializedResultSet` from the event, encoded in the stub response body.
-- **Idempotency**: if a mapping for the same key already exists, it is overwritten (last-write-wins by default, configurable).
+- **Request matcher**: POST to the gRPC method path, matching the protobuf-JSON `sql`, supported input parameters, and optional batch index. `QueryLookupRequest` has no datasource ID; the datasource ID is part of the stub identity and may be filtered before mapping.
+- **Response payload**: protobuf-JSON for `MockedQuery`, including `resultSet` and any generated keys, update count, callable parameters, or error. The WireMock gRPC extension converts the JSON body to the protobuf response using the mounted descriptor.
+- **Idempotency**: a mapping for the same key is overwritten (last-write-wins); this behavior is not configurable.
 - **Error mapping**: events with `QUERY_EXECUTION_STATUS_ERROR` create fault/error stubs.
 
 ## Stub mapping structure
 
-```json
-{
-  "request": {
-    "method": "POST",
-    "urlPattern": "/mockjdbc/query",
-    "bodyPatterns": [
-      { "matchesJsonPath": "$.sql", "value": "<normalized sql>" },
-      { "matchesJsonPath": "$.datasourceId", "value": "<datasource_id>" }
-    ]
-  },
-  "response": {
-    "status": 200,
-    "body": "<base64-encoded SerializedResultSet proto bytes>",
-    "headers": { "Content-Type": "application/x-protobuf" }
-  }
-}
-```
+The mapper registers a POST stub at `/io.github.rroyoo.mockjdbc.mock.MockQueryService/FindMock`. The request body is matched as protobuf-JSON, for example by `$.sql` and supported parameter-value paths. The response is JSON with `Content-Type: application/json` and `grpc-status-name: OK`; it contains either a `resultSet` or an `error` field. The WireMock gRPC extension handles protobuf conversion.
+
+The datasource ID is not a request matcher because it is absent from `QueryLookupRequest`. It remains part of the mapping identity and can be used by the bridge's datasource allowlist.
 
 ## Module layout
 
@@ -89,7 +75,7 @@ mockjdbc/
     pom.xml
     src/main/java/
       io/github/rroyoo/mockjdbc/wiremock/
-        KafkaMappingConsumer.java      (lifecycle: start/stop)
+        KafkaMappingConsumer.java      (lifecycle: start/close)
         MockedQueryStubMapper.java     (MockedQuery → WireMock stub)
         WireMockMappingRegistrar.java  (registers stubs on WireMock)
         KafkaMappingConsumerConfig.java (config record)

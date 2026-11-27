@@ -1,6 +1,6 @@
 # Open-Source Launch Roadmap
 
-Last updated: 2026-11-28
+Last updated: 2026-11-27
 
 ## Purpose and scope
 
@@ -29,12 +29,11 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 
 ### Partial
 
-- Existing READMEs explain architecture and sample setup, but are not yet a cohesive, beginner-friendly user guide.
-- Some README details need reconciliation with the current POMs and build flow before becoming the canonical onboarding instructions.
+- The source build and user guides are available, but a public Maven Central install path is not yet available; the first beta still needs required environment credentials, a release tag, publication in Central Portal, and clean-consumer validation.
+- The Maven release profile and tag/manual-dispatch publishing workflow are configured, but no release has been staged or published.
 
 ### Open
 
-- Maven Central publication tooling (release profile, publishing plugin, release workflow) is in place, but no namespace credentials/GPG secrets exist yet and no beta tag has been pushed.
 - A custom social preview image for the repository is still the GitHub default (cosmetic, non-blocking).
 
 ## Roadmap
@@ -54,28 +53,29 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 - [x] Add a root `README.md` with the problem statement, a record/replay diagram, beta status, module overview, quick install/use example, documentation link, and known limitations.
 - [x] Add `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, and a support guide with clear reporting channels.
 - [x] Add issue forms or templates for bugs, documentation problems, and feature requests. Keep the existing pull request template and align it with the contributor guide.
-- [x] Set the GitHub repository description, topics, website URL, and social preview image. *(Website URL now set to the live Docusaurus site; a custom social preview image is still the stock GitHub default and can be added later.)*
-- [ ] Make the first README example reproducible from the documented Maven coordinates rather than relying on stale local paths or generated JARs.
+- [x] Set the GitHub repository description, topics, website URL, and enable Discussions.
+- [ ] Replace the stock repository social preview with a custom image.
+- [ ] Make the first README example reproducible from published Maven coordinates; this depends on the first beta being available.
 
 **Exit criteria:** a first-time visitor can quickly assess the project, run the introductory example, report an issue, and understand how to contribute.
 
 ### 3. Build and publish user documentation with Docusaurus (`done`)
 
-- [x] Create a Docusaurus user-documentation site, under `website/`, separate from the engineering ADRs and repository-maintenance documents in `docs/`. **Docusaurus 3.10.0, classic preset, plain JavaScript, `@docusaurus/theme-mermaid` and `docusaurus-lunr-search` (offline search, no Algolia), matching the langchain4j/langchain4j reference pattern.**
+- [x] Create a Docusaurus user-documentation site, under `website/`, separate from the engineering ADRs and repository-maintenance documents in `docs/`. **Docusaurus 3.10.0, classic preset, plain JavaScript, `@docusaurus/theme-mermaid` and `docusaurus-lunr-search` (offline search, no Algolia).**
 - [x] Organize the guide around user tasks:
-  - What MockJDBC does and how capture/replay works (`docs/intro.md`).
-  - Getting started with the mock JDBC driver from Maven coordinates (`docs/getting-started/installation.md`, `.../replaying-with-the-mock-driver.md`).
-  - Capturing JDBC activity with the proxy agent (`docs/getting-started/capturing-with-the-proxy-agent.md`).
-  - Replaying queries through the WireMock bridge (`docs/guides/wiremock-bridge.md`).
-  - A complete record-to-replay tutorial based on `mockjdbc-spring-users` (`docs/guides/end-to-end-tutorial.md`).
-  - Configuration reference, supported JDBC surface, known limitations, and troubleshooting (`docs/reference/*`).
-  - Contributing and release-status information (`docs/contributing.md`).
+  - What MockJDBC does and how capture/replay works (`website/docs/intro.md`).
+  - Getting started with the mock JDBC driver (`website/docs/getting-started/installation.md`, `.../replaying-with-the-mock-driver.md`).
+  - Capturing JDBC activity with the proxy agent (`website/docs/getting-started/capturing-with-the-proxy-agent.md`).
+  - Replaying queries through the WireMock bridge (`website/docs/guides/wiremock-bridge.md`).
+  - A complete record-to-replay tutorial based on `mockjdbc-spring-users` (`website/docs/guides/end-to-end-tutorial.md`).
+  - Configuration reference, supported JDBC surface, known limitations, and troubleshooting (`website/docs/reference/*`).
+  - Contributing and release-status information (`website/docs/contributing.md`).
 - [x] Use executable examples from the sample project where possible, so documentation does not drift from tested behavior. Content is sourced from the existing module READMEs, `docs/jdbc-supported-surface.md`, `docs/module-status-matrix.md`, and `mockjdbc-spring-users`' own test/README commands rather than invented.
 - [x] Make English the initial documentation language. **Decision: translations are deferred until the English guides have been live and reviewed by real users; no action needed now.**
 - [x] Add a GitHub Actions check that builds the site on pull requests and deploys it to GitHub Pages after changes land on the default branch. Pull requests must validate the site without publishing it. **`.github/workflows/docs-deploy.yml`: `test-deploy` job builds-only on PRs touching `website/**`; `build`+`deploy` jobs run on push to `main` and publish via `actions/upload-pages-artifact` + `actions/deploy-pages`.**
 - [x] Configure the Docusaurus `url`/`baseUrl` for the repository's eventual Pages URL and add that URL to the repository metadata and root README. **`url: https://rroyoo.github.io`, `baseUrl: /mockjdbc-foundation/`. GitHub Pages enabled with `build_type: workflow`; repository homepage set to `https://rroyoo.github.io/mockjdbc-foundation/`; root `README.md` links to the live site.**
 
-**Exit criteria:** the site builds in CI, is available from the repository, and a new user can complete the end-to-end tutorial by following it without undocumented local setup. **Met**: the site builds locally and is wired to deploy on the next push to `main`; first live deploy should be confirmed once that push happens.
+**Exit criteria:** the site builds in CI, is available from the repository, and a new user can complete the end-to-end tutorial by following it without undocumented local setup. **Met**: the main-branch build and GitHub Pages deployment succeeded, and the published site returned HTTP 200.
 
 ### 4. Prepare and validate Maven beta artifacts (`partial`)
 
@@ -83,25 +83,27 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 - [x] Complete inherited Maven metadata: project name and description, URL, license, SCM, developers, and any other Central-required fields.
 - [x] Configure source and Javadoc JARs and artifact signing for publishable JAR modules. Done via the `release` Maven profile in `mockjdbc/pom.xml` (`maven-source-plugin`, `maven-javadoc-plugin`, `maven-gpg-plugin`), activated only with `-Prelease`; verified locally (sources/javadoc jars generate correctly, GPG signing fails as expected without a key).
 - [x] Configure publication through the Maven Central Portal, keeping credentials in protected GitHub Actions secrets or environments. Done via `central-publishing-maven-plugin` (`autoPublish=false`) and the `.github/workflows/release.yml` workflow, gated behind a `maven-central-release` GitHub Environment.
-- [x] Publish only from an intentional version tag, with a manual approval step for the first beta. Do not publish from pull requests or ordinary CI builds. The release workflow only triggers on `v*.*.*` tags (or manual `workflow_dispatch` for a dry run), and `autoPublish=false` means every bundle still needs a manual "Publish" click in the Central Portal.
+- [x] Publish only from an intentional version tag or an explicit manual release dispatch. Do not publish from pull requests or ordinary CI builds. The workflow is gated by the `maven-central-release` environment; configure environment reviewers if approval is required before credentials are released. `autoPublish=false` means every staged bundle still needs a manual "Publish" click in Central Portal.
 - [ ] Test the released coordinates from a clean consumer project that does not depend on reactor outputs or pre-installed snapshot artifacts. **Blocked until the namespace/credentials below are set up and a real tag is pushed.**
 - [x] Document module-specific runtime requirements, especially the WireMock extension packaging and its provided WireMock/gRPC runtime dependencies. See [`mockjdbc-wiremock/README.md`](../mockjdbc/mockjdbc-wiremock/README.md#packaging-and-runtime-requirements-for-publication).
 - [x] Treat every Central beta version as permanent and immutable. Use a new version for each beta (for example, `0.x.0-beta.1`, `0.x.0-beta.2`); use a non-Central repository for disposable builds. The parent POM's CI-friendly `revision` property defaults to `0.1.0-SNAPSHOT` for local/dev builds; the release workflow overrides it with `-Drevision=<tag-derived-version>`.
 
-**Still needed before the first tag can be pushed (maintainer action, requires the verified `io.github.rroyoo` namespace):**
+**Required before the first release workflow can publish (maintainer action, namespace `io.github.rroyoo` is verified):**
 
-1. In [central.sonatype.com → Account → Generate User Token](https://central.sonatype.com/account), generate a Central Portal token (username/password pair). Store them as repository secrets `CENTRAL_PORTAL_USERNAME` and `CENTRAL_PORTAL_PASSWORD`.
-2. Generate a dedicated GPG key for releases (`gpg --full-generate-key`), publish its public key to a keyserver (e.g. `gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>`, required so Central can verify signatures), then export the private key (`gpg --armor --export-secret-keys <KEYID>`) and store it as secret `MAVEN_GPG_PRIVATE_KEY`; store its passphrase as secret `MAVEN_GPG_PASSPHRASE`.
-3. Create a GitHub Environment named `maven-central-release` (Settings → Environments) and add the four secrets there (not at the repository level) so publishing requires the environment's protection rules; optionally require a manual reviewer approval on that environment for extra safety.
-4. Push an annotated tag such as `v0.1.0-beta.1` to trigger `.github/workflows/release.yml`, then visit <https://central.sonatype.com/publishing/deployments> to review and manually publish the validated bundle.
+1. In [central.sonatype.com → Account → Generate User Token](https://central.sonatype.com/account), generate a Central Portal token (username/password pair).
+2. Generate a dedicated GPG key for releases (`gpg --full-generate-key`), publish its public key to a keyserver (e.g. `gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>`, required so Central can verify signatures), then export the private key (`gpg --armor --export-secret-keys <KEYID>`).
+3. Create a GitHub Environment named `maven-central-release` (Settings → Environments) and add the Central token as `CENTRAL_PORTAL_USERNAME` / `CENTRAL_PORTAL_PASSWORD`, the key as `MAVEN_GPG_PRIVATE_KEY`, and its passphrase as `MAVEN_GPG_PASSPHRASE`. Keep all four as environment secrets, not repository secrets; optionally require manual reviewer approval.
+4. Push an annotated tag such as `v0.1.0-beta.1` to stage a release through `.github/workflows/release.yml`. The workflow also accepts `workflow_dispatch` with a version input; both paths stage real artifacts and are not dry runs. Review the bundle at <https://central.sonatype.com/publishing/deployments> and manually publish it there.
 
 **Exit criteria:** all intended artifacts resolve from Maven Central in a clean consumer project, their metadata and signatures are valid, and the sample runs using those published coordinates.
 
 ### 5. Launch the beta and invite the community (`open`)
 
 - [ ] Publish a beta release with installation instructions, module coordinates, release notes, and known limitations.
-- [ ] Link the Docusaurus site and Maven artifacts from the root README and GitHub repository metadata.
-- [ ] Enable GitHub Discussions if maintainers can support it, and create a small set of actionable `good first issue` and `help wanted` issues.
+- [x] Link the Docusaurus site from the root README and GitHub repository metadata.
+- [ ] Add published Maven coordinates to the root README and release notes after the first beta is available.
+- [x] Enable GitHub Discussions.
+- [ ] Create a small set of actionable `good first issue` and `help wanted` issues.
 - [ ] Announce the release in relevant Java, JDBC, database-testing, and developer-tool communities without promising unsupported behavior.
 - [ ] Track onboarding problems, documentation feedback, external issues, forks, and contributions. Treat stars as a useful discovery signal, not the primary measure of user success.
 
@@ -125,7 +127,6 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 
 ## References
 
-- [LangChain4j documentation site README](https://github.com/langchain4j/langchain4j/blob/main/docs/README.md)
 - [Docusaurus: deploy to GitHub Pages](https://docusaurus.io/docs/deployment#deploying-to-github-pages)
 - [Maven Central publishing requirements](https://central.sonatype.org/publish/requirements/)
 - [Maven Central immutability policy](https://central.sonatype.org/publish/requirements/immutability/)

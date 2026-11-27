@@ -9,20 +9,19 @@ sidebar_position: 3
 ## Connection URL
 
 ```
-jdbc:mock://<host>:<port>/?host=<host>&port=<port>&keepAliveTime=<seconds>&keepAliveTimeUnit=<unit>
+jdbc:mock://<host>:<port>/?grpcTimeoutMillis=<milliseconds>
 ```
 
 ```java
 Connection connection = DriverManager.getConnection(
-        "jdbc:mock://localhost:50051/?host=localhost&port=50051&keepAliveTime=60&keepAliveTimeUnit=SECONDS");
+        "jdbc:mock://localhost:50051/?grpcTimeoutMillis=30000");
 ```
 
-| Property | Type | Required | Default | Notes |
+| URL component | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `host` | String | yes | — | gRPC server host (the WireMock gRPC extension endpoint) |
-| `port` | String (parsed as int) | yes | — | gRPC server port |
-| `keepAliveTime` | long | no | `30` | Seconds between gRPC keep-alive pings |
-| `keepAliveTimeUnit` | `TimeUnit` enum name | no | `SECONDS` | e.g. `SECONDS`, `MINUTES` |
+| `<host>` | hostname | yes | — | gRPC server host (the WireMock gRPC extension endpoint) |
+| `<port>` | integer | yes | — | gRPC server port |
+| `grpcTimeoutMillis` | positive integer | no | `30000` | Per-query gRPC deadline in milliseconds; also accepted through JDBC connection properties. |
 
 ## How a query is resolved
 

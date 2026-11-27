@@ -10,7 +10,7 @@ For project stewardship context and backlog status, see [`docs/adr/ADR-0001-proj
 
 ## Overview
 
-MockJDBC is a multi-module Maven project that implements a JDBC-compliant mock driver backed by gRPC for query resolution.
+MockJDBC is a multi-module Maven project with a partially supported mock JDBC driver backed by gRPC for query resolution.
 
 ---
 
@@ -71,7 +71,7 @@ Implements the JDBC `Driver` and dynamically generates `Connection`/statement-fa
 
 ### Parent POM (`pom.xml`)
 
-**Centralized version management** following `maven-management` skill rules:
+Dependency and plugin versions are managed centrally in the parent POM:
 
 ```xml
 <dependencyManagement>
@@ -157,65 +157,35 @@ mvn spotless:apply
 mvn clean verify
 ```
 
-Compiles, tests, and validates:
-- ✅ All modules compile
-- ✅ All tests pass
-- ✅ No compilation warnings
-- ✅ Code follows quality standards
+Compiles and tests the reactor modules, and runs the configured Maven validation checks.
 
 ---
 
-## Quality Standards
+## Quality Gates
 
-### Code Cleanliness
-Enforced via `java-modernizer` skill:
-- ✅ No unused imports
-- ✅ No unused variables
-- ✅ No dead/commented code (exception: explanatory comments for workarounds)
-- ✅ No unused private methods/fields
-
-### Testing
-Enforced via `tdd-expert` skill:
-- ✅ `@DisplayName` mandatory on every test
-- ✅ `@ParameterizedTest` for multiple scenarios
-- ✅ Clear Arrange-Act-Assert structure
-- ✅ No flaky tests (<100ms each)
-- ✅ ≥80% code coverage for business logic
-
-### Maven Discipline
-Enforced via `maven-management` skill:
-- ✅ Centralized versions in parent POM
-- ✅ Properties sorted alphabetically
-- ✅ Canonical POM element order
-- ✅ No hardcoded versions in child modules
-- ✅ Clear dependency scopes (test, provided, runtime)
+- Maven `validate` runs Spotless (Google Java Format, AOSP style) and PMD (cyclomatic-complexity threshold 10) for production and test code.
+- CI builds/tests the reactor and standalone sample, runs Docker-backed integration tests, checks Protobuf compatibility with Buf, and publishes CodeQL results for same-repository changes.
+- CI enforces a 50% combined line-coverage minimum; 90% is the project target, not a current gate.
+- Tests use JUnit 5, behavior-focused `@DisplayName` descriptions, and parameterized tests for scenario matrices.
 
 ---
 
 ## Connection Properties Reference
 
-When creating a JDBC connection, pass configuration as URL parameters:
+The host and port are part of the JDBC URL. The only query option currently consumed by the mock client is `grpcTimeoutMillis`:
 
 ```
-jdbc:mock://localhost:50051/?host=localhost&port=50051&keepAliveTime=60&keepAliveTimeUnit=SECONDS
+jdbc:mock://localhost:50051/?grpcTimeoutMillis=30000
 ```
 
-All properties are parsed into `MockConfig` and used by `ConnectionFactory` / `GrpcMockQueryClient`.
-
-| Property | Type | Required | Default | Notes |
+| URL component / option | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `host` | String | ✅ | — | gRPC server host |
-| `port` | String (parseInt) | ✅ | — | gRPC server port |
-| `keepAliveTime` | long | ❌ | `30` | Seconds between keep-alive pings |
-| `keepAliveTimeUnit` | TimeUnit | ❌ | `SECONDS` | Enum name (e.g., `SECONDS`, `MINUTES`) |
-| `keepAliveTimeout` | long | ❌ | `10` | Seconds to wait for keep-alive response |
-| `keepAliveTimeoutTimeUnit` | TimeUnit | ❌ | `SECONDS` | Enum name |
-| `idleTimeout` | long | ❌ | `10` | Channel idle threshold |
-| `idleTimeoutTimeUnit` | TimeUnit | ❌ | `MINUTES` | Enum name |
-| `grpcTimeoutMillis` | long | ❌ | `30000` | Per-query gRPC deadline in milliseconds; must be positive |
+| `<host>` | hostname | ✅ | — | gRPC server host |
+| `<port>` | integer | ✅ | — | gRPC server port |
+| `grpcTimeoutMillis` | positive integer | ❌ | `30000` | Per-query gRPC deadline in milliseconds; also accepted through JDBC connection properties |
 
-`grpcTimeoutMillis` can also be supplied through the JDBC connection `Properties`. A lookup
-that exceeds the deadline or cannot reach the backend fails with `SQLException`.
+Other URL query parameters are parsed but currently have no effect. A lookup that exceeds the
+deadline or cannot reach the backend fails with `SQLException`.
 
 ---
 
@@ -233,8 +203,8 @@ that exceeds the deadline or cannot reach the backend fails with `SQLException`.
 
 ### Connection/channel lifecycle today
 - **Connection objects** - Generated per `ConnectionFactory.create(...)` invocation
-- **gRPC calls** - `GrpcMockQueryClient` creates a channel per lookup and shuts it down after the call
-- **Current limitation** - No long-lived connection/channel pooling layer is implemented yet
+- **gRPC channels** - Clients share a reference-counted channel per host/port; the channel shuts down when its last client closes
+- **Current limitation** - Channel lifecycle is shared by endpoint, but pooling and keep-alive tuning are not configurable
 
 ---
 
@@ -273,10 +243,9 @@ that exceeds the deadline or cannot reach the backend fails with `SQLException`.
 
 ### Refactor Code
 
-1. Check `java-modernizer` skill for modernization opportunities
-2. Remove unused imports, variables, dead code
-3. Run `mvn clean compile` to catch warnings
-4. Run tests to ensure behavior is preserved
+1. Follow the repository's module-boundary and implementation guidance in `.github/copilot-instructions.md`.
+2. Keep changes focused and remove obsolete code when appropriate.
+3. Run the relevant Maven validation and tests to verify behavior is preserved.
 
 ---
 
