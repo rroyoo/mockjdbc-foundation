@@ -26,7 +26,7 @@
         <javax.annotation.version>1.3.2</javax.annotation.version>
         <kafka.version>3.9.2</kafka.version>
         <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
-        <mockjdbc.version>1.0.0-SNAPSHOT</mockjdbc.version>
+        <mockjdbc.version>0.1.0-SNAPSHOT</mockjdbc.version>
         <protobuf.version>4.36.2</protobuf.version>
         <spotless-maven-plugin.version>3.11.0</spotless-maven-plugin.version>
         <testcontainers.version>1.21.4</testcontainers.version>

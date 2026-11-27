@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest an enhancement or new capability for MockJDBC.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        MockJDBC intentionally does not aim for full JDBC API parity or production readiness. Please check `docs/next-steps.md` and `docs/jdbc-supported-surface.md` to see if this is already planned or explicitly out of scope before requesting it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the debugging/testing use case this would support.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered (optional)
+  - type: dropdown
+    id: module
+    attributes:
+      label: Likely affected module
+      options:
+        - mockjdbc-proto
+        - mockjdbc-proxy
+        - mockjdbc-mock
+        - mockjdbc-wiremock
+        - mockjdbc-spring-users (sample app)
+        - Documentation / website
+        - Not sure
+    validations:
+      required: true

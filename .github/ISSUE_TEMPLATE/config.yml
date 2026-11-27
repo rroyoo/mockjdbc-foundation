@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/rroyoo/mockjdbc-foundation/security/advisories/new
+    about: Please report security vulnerabilities privately rather than through a public issue. See SECURITY.md.
+  - name: Question / discussion
+    url: https://github.com/rroyoo/mockjdbc-foundation/discussions
+    about: Ask usage questions or start a design discussion (if Discussions is enabled for this repository).

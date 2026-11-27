@@ -138,7 +138,7 @@ Assessment notes:
 ### C. Module decisions
 - [x] Confirm the target status of `mockjdbc-proxy`: complete, mark experimental, or remove from the active module path until implemented.
 - [x] Maintain a module status matrix in docs or ADR updates as the repo evolves.
-- [ ] Reclassify `mockjdbc-proxy` from placeholder to active after minimal capture + Kafka publication slice is verified.
+- [x] Reclassify `mockjdbc-proxy` from placeholder to active after minimal capture + Kafka publication slice is verified.
 
 ### D. Build and integration hygiene
 - [x] Replace or reduce `systemPath` usage in `mockjdbc-spring-users` with a more reproducible consumption model.
@@ -170,23 +170,14 @@ Assessment notes:
 - [x] Enforce combined line coverage, publish test/coverage summaries, and publish CodeQL results (ADR-0005).
 
 ### H. Proxy implementation and adoption
-- [ ] Follow `ADR-0002` checklist for proxy event contract, capture, Kafka publication, and integration guides.
+- [x] Follow `ADR-0002` checklist for proxy event contract, capture, Kafka publication, and integration guides.
 
 ### I. WireMock bridge implementation and adoption
-- [ ] Follow `ADR-0004` checklist for Kafka consumer, stub mapper/registrar, integration tests, and module documentation.
+- [x] Follow `ADR-0004` checklist for Kafka consumer, stub mapper/registrar, integration tests, and module documentation.
 
 ## Next recommended slice
 
-The steward agent should normally take the next unchecked item from this order:
-1. proxy Proto event contract (`mockjdbc-proxy` + `mockjdbc-proto`)
-2. datasource identity model and multi-datasource capture wiring
-3. Kafka publication path for Proto events
-4. integration guides for generic Java JDBC adoption
-5. sample-app dependency hygiene
-6. `Connection` coverage backlog
-7. remaining `Statement` contract gaps
-8. result-set fidelity expansion
-9. Raise CI coverage from the 50% baseline toward the 90% target and confirm Docker-backed Kafka suites run without skips
+The phased repository-completion plan is maintained in `docs/next-steps.md`. The next slice is Phase 1, closing the mock JDBC statement contract; M1-M7 integration validation and the ADR-0002/ADR-0004 implementation checklists are complete.
 
 ## Consequences
 

@@ -1,0 +1,83 @@
+name: Release to Maven Central
+
+# Publishes mockjdbc (parent POM) + mockjdbc-proto, mockjdbc-mock, mockjdbc-proxy,
+# mockjdbc-wiremock to Maven Central via the Central Publisher Portal.
+#
+# mockjdbc-spring-users is a sample app, not a published library, and is
+# intentionally excluded (see docs/open-source-launch-roadmap.md, Phase 4).
+#
+# Triggered only by pushing a tag matching v*.*.* (for example
+# v0.1.0-beta.1), or manually via workflow_dispatch for a dry run.
+# The -release Maven profile (declared in mockjdbc/pom.xml) attaches
+# sources/javadoc jars, signs every artifact with GPG, and uploads the
+# bundle to Central. autoPublish is false, so every beta still requires a
+# manual "Publish" click in https://central.sonatype.com/publishing/deployments.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Version to release (e.g. 0.1.0-beta.1). Required for a manual
+          workflow_dispatch run; ignored for tag-triggered runs, which
+          derive the version from the tag name.
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: maven-central-release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Resolve release version
+        id: release_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java 21 with Central and GPG credentials
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Build, sign, and publish release artifacts
+        working-directory: mockjdbc
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: >-
+          mvn -B -ntp -Prelease
+          -Drevision=${{ steps.release_version.outputs.version }}
+          -pl mockjdbc-proto,mockjdbc-mock,mockjdbc-proxy,mockjdbc-wiremock -am
+          clean deploy
+
+      - name: Publishing summary
+        run: |
+          echo "### Release ${{ steps.release_version.outputs.version }} staged" >> "$GITHUB_STEP_SUMMARY"
+          echo "Visit https://central.sonatype.com/publishing/deployments to review and manually publish this deployment." >> "$GITHUB_STEP_SUMMARY"
