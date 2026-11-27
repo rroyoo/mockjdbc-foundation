@@ -36,4 +36,4 @@ MockJDBC tracks its own status transparently rather than aspirationally:
 
 ## Release status
 
-MockJDBC is in **pre-release / beta preparation**. There is no stable `1.0.0` release yet. Beta artifacts are versioned `0.x.0-beta.N` and published to Maven Central under `io.github.rroyoo.mockjdbc`, gated behind a manual publish step in the Central Portal for the first betas. Track the exact first published version and its timeline in the [open-source launch roadmap](https://github.com/rroyoo/mockjdbc-foundation/blob/main/docs/open-source-launch-roadmap.md).
+MockJDBC is in **pre-release / beta preparation**. There is no stable `1.0.0` release, and no beta artifacts have been published to Maven Central yet. The planned beta format is `0.x.0-beta.N`; publication requires maintainer credentials and a tagged release, followed by manual publication in the Central Portal. Track the release prerequisites and status in the [open-source launch roadmap](https://github.com/rroyoo/mockjdbc-foundation/blob/main/docs/open-source-launch-roadmap.md).

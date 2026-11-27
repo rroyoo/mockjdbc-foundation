@@ -7,7 +7,7 @@ Thanks for your interest in contributing. MockJDBC is a debugging/testing tool, 
 - Check [`docs/module-status-matrix.md`](docs/module-status-matrix.md) and [`docs/jdbc-supported-surface.md`](docs/jdbc-supported-surface.md) to understand current module maturity and supported JDBC behavior.
 - Check [`docs/next-steps.md`](docs/next-steps.md) (JDBC implementation backlog) and [`docs/open-source-launch-roadmap.md`](docs/open-source-launch-roadmap.md) (community/launch backlog) for planned work before starting something large; open an issue first to avoid duplicated effort.
 - For bugs or feature requests, open a GitHub issue using the provided templates.
-- For questions, use GitHub Discussions if enabled, or open an issue.
+- For questions, use [GitHub Discussions](https://github.com/rroyoo/mockjdbc-foundation/discussions) or open an issue.
 
 ## Project layout
 
@@ -67,7 +67,7 @@ mvn spotless:apply
 - Use the pull request template (`.github/pull_request_template.md`); it is applied automatically.
 - Keep changes scoped to the module(s) they affect; avoid unrelated refactors in the same PR.
 - Include the commands you ran to validate the change and their outcomes, noting any skipped Docker-backed tests.
-- Expect CI to run the full reactor and sample-app builds, CodeQL, and a Protobuf compatibility check against `main`.
+- Expect CI to run the full reactor and sample-app builds and a Protobuf compatibility check against `main`. CodeQL analysis runs for same-repository pull requests; fork pull requests still run the build/test checks, but skip CodeQL upload.
 
 ## License
 

@@ -12,6 +12,8 @@
 
 ## Context
 
+The context and gap inventory below record the repository state during the initial review on 2026-03-21. Treat statements about missing agents, proxy implementation, CI, and local-jar coupling as historical; current status is maintained in the decision, checklist, and module-status matrix.
+
 The repository already has meaningful implementation progress, especially in `mockjdbc-mock` and in the standalone sample project `mockjdbc-spring-users`, but the project does not yet have a repository-level custom agent that owns:
 - gap inventory
 - module status decisions
@@ -177,7 +179,7 @@ Assessment notes:
 
 ## Next recommended slice
 
-The phased repository-completion plan is maintained in `docs/next-steps.md`. The next slice is Phase 1, closing the mock JDBC statement contract; M1-M7 integration validation and the ADR-0002/ADR-0004 implementation checklists are complete.
+The JDBC backlog in `docs/next-steps.md` is paused while the public beta launch in `docs/open-source-launch-roadmap.md` is prioritized. When implementation resumes, Phase 1 closes the mock JDBC statement contract; M1-M7 integration validation is complete.
 
 ## Consequences
 
