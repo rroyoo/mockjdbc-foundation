@@ -57,7 +57,7 @@ This installs `mockjdbc-proto`, `mockjdbc-mock`, `mockjdbc-proxy`, and `mockjdbc
 <dependency>
     <groupId>io.github.rroyoo.mockjdbc</groupId>
     <artifactId>mockjdbc-mock</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
 

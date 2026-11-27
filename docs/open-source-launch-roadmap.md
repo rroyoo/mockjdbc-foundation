@@ -34,8 +34,7 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 ### Open
 
 - There is no Docusaurus site or documentation deployment workflow.
-- Maven Central publication is not configured: artifact versions still need to move to the `0.x.0-beta.N` scheme, and source/Javadoc jars plus signing are not set up.
-- There is no tag-based artifact release workflow.
+- Maven Central publication tooling (release profile, publishing plugin, release workflow) is in place, but no namespace credentials/GPG secrets exist yet and no beta tag has been pushed.
 - The repository homepage URL is still unset (pending the Docusaurus site's public URL).
 
 ## Roadmap
@@ -78,16 +77,23 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 
 **Exit criteria:** the site builds in CI, is available from the repository, and a new user can complete the end-to-end tutorial by following it without undocumented local setup.
 
-### 4. Prepare and validate Maven beta artifacts (`open`)
+### 4. Prepare and validate Maven beta artifacts (`partial`)
 
-- [ ] Decide the exact artifact set. The likely set is the parent POM plus the reusable reactor modules; keep `mockjdbc-spring-users` as a sample rather than a published library.
-- [ ] Complete inherited Maven metadata: project name and description, URL, license, SCM, developers, and any other Central-required fields.
-- [ ] Configure source and Javadoc JARs and artifact signing for publishable JAR modules.
-- [ ] Configure publication through the Maven Central Portal, keeping credentials in protected GitHub Actions secrets or environments.
-- [ ] Publish only from an intentional version tag, with a manual approval step for the first beta. Do not publish from pull requests or ordinary CI builds.
-- [ ] Test the released coordinates from a clean consumer project that does not depend on reactor outputs or pre-installed snapshot artifacts.
-- [ ] Document module-specific runtime requirements, especially the WireMock extension packaging and its provided WireMock/gRPC runtime dependencies.
-- [ ] Treat every Central beta version as permanent and immutable. Use a new version for each beta (for example, `0.x.0-beta.1`, `0.x.0-beta.2`); use a non-Central repository for disposable builds.
+- [x] Decide the exact artifact set. The likely set is the parent POM plus the reusable reactor modules; keep `mockjdbc-spring-users` as a sample rather than a published library. **Confirmed: `mockjdbc` (parent), `mockjdbc-proto`, `mockjdbc-mock`, `mockjdbc-proxy`, `mockjdbc-wiremock`.**
+- [x] Complete inherited Maven metadata: project name and description, URL, license, SCM, developers, and any other Central-required fields.
+- [x] Configure source and Javadoc JARs and artifact signing for publishable JAR modules. Done via the `release` Maven profile in `mockjdbc/pom.xml` (`maven-source-plugin`, `maven-javadoc-plugin`, `maven-gpg-plugin`), activated only with `-Prelease`; verified locally (sources/javadoc jars generate correctly, GPG signing fails as expected without a key).
+- [x] Configure publication through the Maven Central Portal, keeping credentials in protected GitHub Actions secrets or environments. Done via `central-publishing-maven-plugin` (`autoPublish=false`) and the `.github/workflows/release.yml` workflow, gated behind a `maven-central-release` GitHub Environment.
+- [x] Publish only from an intentional version tag, with a manual approval step for the first beta. Do not publish from pull requests or ordinary CI builds. The release workflow only triggers on `v*.*.*` tags (or manual `workflow_dispatch` for a dry run), and `autoPublish=false` means every bundle still needs a manual "Publish" click in the Central Portal.
+- [ ] Test the released coordinates from a clean consumer project that does not depend on reactor outputs or pre-installed snapshot artifacts. **Blocked until the namespace/credentials below are set up and a real tag is pushed.**
+- [x] Document module-specific runtime requirements, especially the WireMock extension packaging and its provided WireMock/gRPC runtime dependencies. See [`mockjdbc-wiremock/README.md`](../mockjdbc/mockjdbc-wiremock/README.md#packaging-and-runtime-requirements-for-publication).
+- [x] Treat every Central beta version as permanent and immutable. Use a new version for each beta (for example, `0.x.0-beta.1`, `0.x.0-beta.2`); use a non-Central repository for disposable builds. The parent POM's CI-friendly `revision` property defaults to `0.1.0-SNAPSHOT` for local/dev builds; the release workflow overrides it with `-Drevision=<tag-derived-version>`.
+
+**Still needed before the first tag can be pushed (maintainer action, requires the verified `io.github.rroyoo` namespace):**
+
+1. In [central.sonatype.com → Account → Generate User Token](https://central.sonatype.com/account), generate a Central Portal token (username/password pair). Store them as repository secrets `CENTRAL_PORTAL_USERNAME` and `CENTRAL_PORTAL_PASSWORD`.
+2. Generate a dedicated GPG key for releases (`gpg --full-generate-key`), publish its public key to a keyserver (e.g. `gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>`, required so Central can verify signatures), then export the private key (`gpg --armor --export-secret-keys <KEYID>`) and store it as secret `MAVEN_GPG_PRIVATE_KEY`; store its passphrase as secret `MAVEN_GPG_PASSPHRASE`.
+3. Create a GitHub Environment named `maven-central-release` (Settings → Environments) and add the four secrets there (not at the repository level) so publishing requires the environment's protection rules; optionally require a manual reviewer approval on that environment for extra safety.
+4. Push an annotated tag such as `v0.1.0-beta.1` to trigger `.github/workflows/release.yml`, then visit <https://central.sonatype.com/publishing/deployments> to review and manually publish the validated bundle.
 
 **Exit criteria:** all intended artifacts resolve from Maven Central in a clean consumer project, their metadata and signatures are valid, and the sample runs using those published coordinates.
 
