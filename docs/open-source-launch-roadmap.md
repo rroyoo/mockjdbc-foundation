@@ -61,7 +61,7 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 
 ### 3. Build and publish user documentation with Docusaurus (`done`)
 
-- [x] Create a Docusaurus user-documentation site, under `website/`, separate from the engineering ADRs and repository-maintenance documents in `docs/`. **Docusaurus 3.10.0, classic preset, plain JavaScript, `@docusaurus/theme-mermaid` and `docusaurus-lunr-search` (offline search, no Algolia), matching the langchain4j/langchain4j reference pattern.**
+- [x] Create a Docusaurus user-documentation site, under `website/`, separate from the engineering ADRs and repository-maintenance documents in `docs/`. **Docusaurus 3.10.0, classic preset, plain JavaScript, `@docusaurus/theme-mermaid` and `docusaurus-lunr-search` (offline search, no Algolia).**
 - [x] Organize the guide around user tasks:
   - What MockJDBC does and how capture/replay works (`docs/intro.md`).
   - Getting started with the mock JDBC driver from Maven coordinates (`docs/getting-started/installation.md`, `.../replaying-with-the-mock-driver.md`).
@@ -125,7 +125,6 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 
 ## References
 
-- [LangChain4j documentation site README](https://github.com/langchain4j/langchain4j/blob/main/docs/README.md)
 - [Docusaurus: deploy to GitHub Pages](https://docusaurus.io/docs/deployment#deploying-to-github-pages)
 - [Maven Central publishing requirements](https://central.sonatype.org/publish/requirements/)
 - [Maven Central immutability policy](https://central.sonatype.org/publish/requirements/immutability/)
