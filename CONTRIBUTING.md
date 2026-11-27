@@ -62,6 +62,12 @@ mvn spotless:apply
 - Tests use JUnit 5 with behavior-focused `@DisplayName` (Given-When-Then style) and `@ParameterizedTest` for scenario matrices.
 - Update `docs/jdbc-supported-surface.md`, `docs/module-status-matrix.md`, or the relevant ADR in the same change whenever behavior or module scope changes.
 
+## Commit messages and releases
+
+Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for pull request titles and direct commit messages, for example `feat(mock): replay generated keys`, `fix(proxy): preserve null values`, `perf(proxy): reduce capture overhead`, or `feat(mock)!: change result mapping`. Release Please opens a release pull request with the next beta version and generated changelog when it finds a release-worthy change. During the beta, `feat`, `fix`, `perf`, and breaking changes all advance the beta counter (for example, `0.1.0-beta.1` to `0.1.0-beta.2`); they do not automatically change the base version or create a `1.0.0` release. Documentation-only, test-only, and routine maintenance changes do not create a beta release by themselves.
+
+Review and merge the generated release pull request before its tag is created. The tag starts the Maven Central staging workflow; publishing the staged bundle still requires a separate manual confirmation in Central Portal.
+
 ## Submitting a pull request
 
 - Use the pull request template (`.github/pull_request_template.md`); it is applied automatically.

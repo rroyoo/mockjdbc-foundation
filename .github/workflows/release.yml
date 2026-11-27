@@ -6,8 +6,9 @@ name: Release to Maven Central
 # mockjdbc-spring-users is a sample app, not a published library, and is
 # intentionally excluded (see docs/open-source-launch-roadmap.md, Phase 4).
 #
-# Triggered only by pushing a tag matching v*.*.* (for example
-# v0.1.0-beta.1), or manually via workflow_dispatch for a dry run.
+# Triggered by pushing a tag matching v*.*.* (for example
+# v0.1.0-beta.1), or manually via workflow_dispatch. Both paths stage real
+# artifacts; neither is a dry run.
 # The -release Maven profile (declared in mockjdbc/pom.xml) attaches
 # sources/javadoc jars, signs every artifact with GPG, and uploads the
 # bundle to Central. autoPublish is false, so every beta still requires a

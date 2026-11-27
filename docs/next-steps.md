@@ -96,7 +96,7 @@ Completion means the supported debugging/testing workflow is implemented and tes
 - **Transaction effects:** `commit` / `rollback` remain no-ops because replay is stateless; revisit only if mutable transactional replay becomes a requirement.
 - **Connection APIs:** `createSQLXML`, request/sharding methods, and unwired JDBC methods remain explicitly unsupported unless a concrete use case changes scope.
 - **Catalog metadata:** `DatabaseMetaData` catalog queries remain unsupported pending a demonstrated need.
-- **Maven Central release:** versioning policy and tag-triggered publishing are configured; the first release and clean-consumer validation remain pending. See `docs/open-source-launch-roadmap.md`.
+- **Maven Central release:** Conventional Commit release PRs generate the beta version and changelog; merging creates a tag that starts staging. Add the repository Actions secret `RELEASE_PLEASE_TOKEN` before the automation can run. The first release and clean-consumer validation remain pending. See `docs/open-source-launch-roadmap.md`.
 
 ## Sequencing and dependencies
 

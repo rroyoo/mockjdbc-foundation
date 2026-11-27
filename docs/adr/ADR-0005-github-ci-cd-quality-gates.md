@@ -14,7 +14,7 @@ The existing Testcontainers 1.20.4 tests silently skipped on Docker Engine 29 be
 
 ## Decision
 
-Use GitHub Actions on GitHub-hosted standard `ubuntu-24.04` runners as the CI orchestration platform. Keep CI checks on pull requests and pushes and support manual verification runs. Maven Central publishing is handled separately by `.github/workflows/release.yml`: a tag or manual dispatch stages artifacts using protected environment credentials, and `autoPublish=false` requires a maintainer to publish the deployment in Central Portal. A manual release dispatch is not a dry run.
+Use GitHub Actions on GitHub-hosted standard `ubuntu-24.04` runners as the CI orchestration platform. Keep CI checks on pull requests and pushes and support manual verification runs. `.github/workflows/release-please.yml` parses Conventional Commits and opens or updates a release pull request containing the beta version and changelog. Merging that reviewed pull request creates the GitHub prerelease/tag; the tag starts `.github/workflows/release.yml`, which stages artifacts using protected environment credentials. A repository-scoped `RELEASE_PLEASE_TOKEN` secret is required so CI runs for generated pull requests and the tag-triggered publishing workflow is not suppressed by `GITHUB_TOKEN`. `autoPublish=false` still requires a maintainer to publish the deployment in Central Portal. A manual release dispatch is not a dry run.
 
 The workflow must:
 
@@ -61,7 +61,7 @@ The JaCoCo gate does not imply a guarantee of defect-free code. It establishes a
 - [x] Check `mockjdbc-proto` compatibility against `main` with Buf `FILE` rules.
 - [x] Configure `main` branch protection to require a passing, up-to-date `verify` check; no review-count gate is enabled.
 - [ ] Raise the coverage gate toward 90% as coverage debt is closed.
-- [x] Define the version/tag and package-release policy and configure tag-triggered Maven Central publishing; the first published beta remains pending.
+- [x] Configure Conventional Commit release pull requests, beta version/changelog generation, and tag-triggered Maven Central staging; the first published beta remains pending.
 
 ## Consequences
 
@@ -77,6 +77,8 @@ The JaCoCo gate does not imply a guarantee of defect-free code. It establishes a
 - The Protobuf check compares against the current `main` schema; intentional breaking changes require a deliberate compatibility/versioning decision.
 - Test/coverage data is summarized in the Actions run; raw XML is available in runner logs/workspace only and is not retained as a downloadable artifact.
 - The workflow file cannot configure repository rules. The `main` branch protection setting is managed in GitHub and must be updated if the required check name changes.
+- Release Please requires a narrowly scoped repository Actions secret (`RELEASE_PLEASE_TOKEN`) because events created with `GITHUB_TOKEN` do not start the required pull-request CI or tag-publishing workflows.
+- The internal release manifest starts at `0.1.0-beta.0`; the first generated release is `0.1.0-beta.1`. During the beta, each release-worthy change advances only the beta counter; moving to a stable version or `1.0.0` remains an explicit decision.
 - A 50% aggregate baseline can hide weakly tested individual modules. Per-module thresholds remain deferred until a baseline is collected.
 
 ## References
