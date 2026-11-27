@@ -6,7 +6,7 @@ Engineering documentation (ADRs, module status, open-source launch roadmap) live
 
 ## Requirements
 
-Node.js >= 20.
+Node.js >= 22.12.
 
 ## Local development
 
