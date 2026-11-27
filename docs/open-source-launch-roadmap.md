@@ -46,7 +46,12 @@ Statuses: `done`, `partial`, `open`, `deferred`, `blocked`.
 - [x] Choose and add an open-source license before inviting external contributions. **Decision: Apache License 2.0.**
 - [x] Decide which modules will be published in the first beta and describe their maturity and limitations. **Decision: `mockjdbc-proto`, `mockjdbc-mock`, `mockjdbc-proxy`, `mockjdbc-wiremock`; `mockjdbc-spring-users` stays a sample, not a published artifact.**
 - [x] Define the versioning policy, including whether the first public version is `0.x` or `1.0.0` beta. **Decision: `0.x.0-beta.N`, e.g. `0.1.0-beta.1`.**
-- [ ] Confirm ownership of the Maven Central namespace for the existing `io.github.rroyoo.mockjdbc` coordinates.
+- [ ] Confirm ownership of the Maven Central namespace for the existing `io.github.rroyoo.mockjdbc` coordinates. Step-by-step:
+  1. Create (or sign in to) an account at [central.sonatype.com](https://central.sonatype.com), **logging in with the `rroyoo` GitHub account** rather than email/password.
+  2. Sonatype auto-provisions a verified namespace in the form `io.github.rroyoo` for GitHub-authenticated accounts — check [Namespaces](https://central.sonatype.com/publishing/namespaces) for an entry already marked `Verified`.
+  3. If it is *not* there automatically, add it manually from the Namespaces page ("Add Namespace" → `io.github.rroyoo`), then verify ownership by creating a temporary **public** GitHub repo named exactly after the verification key Sonatype shows you (e.g. `github.com/rroyoo/<verification-key>`); it can be deleted once verification completes.
+  4. If sign-in via GitHub exists but no namespace was granted, email `central-support@sonatype.com` referencing the `rroyoo` GitHub account.
+  5. Once verified, record the verified namespace and account status here and proceed to Phase 4 (credentials become GitHub Actions secrets, never committed to the repo).
 
 **Exit criteria:** the repository states what MockJDBC is for, what it does not support, which modules are offered, and under what license and versioning policy.
 
