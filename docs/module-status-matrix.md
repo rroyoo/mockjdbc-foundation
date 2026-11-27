@@ -17,7 +17,7 @@ Status labels:
 
 | Module/Project | Status | Evidence | Next milestone |
 |---|---|---|---|
-| `mockjdbc/mockjdbc-mock` | `partial` | Factories and handlers implemented with tests in `mockjdbc-mock/src/test/java` | Deferred: Phase 1 statement-family contract, then Phase 2 result/value fidelity (`docs/next-steps.md`) |
+| `mockjdbc/mockjdbc-mock` | `partial` | Factories and handlers implemented with tests in `mockjdbc-mock/src/test/java` | Deferred: remaining Phase 1 statement-family contract, then Phase 2 result/value fidelity (`docs/next-steps.md`) |
 | `mockjdbc/mockjdbc-proto` | `active` | Protobuf schemas, generated stubs, and Buf `FILE` compatibility gate | Deferred: evolve contracts only for explicitly supported fidelity work (`docs/next-steps.md`, Phase 2) |
 | `mockjdbc/mockjdbc-proxy` | `partial`, `active` | Production classes and tests under `mockjdbc-proxy/src/main/java` and `mockjdbc-proxy/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Deferred/optional: masking is not implemented; evaluate for debugging data-handling needs in `docs/next-steps.md`, Phase 3 |
 | `mockjdbc/mockjdbc-wiremock` | `partial`, `active` | Bridge classes + tests in `mockjdbc-wiremock/src/main/java` and `mockjdbc-wiremock/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Deferred/optional: retries/dead-letter handling are not implemented and are not production-readiness gates; see `docs/next-steps.md`, Phase 3 |

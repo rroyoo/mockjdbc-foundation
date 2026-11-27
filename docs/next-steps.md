@@ -1,6 +1,6 @@
 # Next Steps
 
-Hand-off for continuing project improvements. Last updated: 2026-11-27.
+Hand-off for continuing project improvements. Last updated: 2026-11-28.
 
 Read first: `docs/module-status-matrix.md`, `docs/jdbc-supported-surface.md`, `.github/copilot-instructions.md`.
 
@@ -17,6 +17,7 @@ The user-facing documentation (Docusaurus), community onboarding, and Maven beta
 - The sample E2E test now proves H2 capture → Kafka → WireMock bridge → gRPC → mock-driver replay without a hand-authored mapping; lookup SQL normalization is aligned with bridge matching.
 - The same end-to-end path now captures and replays `PreparedStatement.executeUpdate` generated keys separately from the affected-row count.
 - Statement and prepared batches now preserve entry indices and per-entry update counts through H2 capture → Kafka → WireMock → mock driver, including repeated identical commands with different results.
+- `Statement`, `PreparedStatement`, and `CallableStatement` wrapper methods report their proxy interfaces and reject unsupported or null unwrap targets with `SQLException`.
 
 ## Local build
 
@@ -47,7 +48,7 @@ Completion means the supported debugging/testing workflow is implemented and tes
 
 ### Phase 1 — Close the mock JDBC statement contract (`open`, paused during public launch)
 
-- [ ] Implement or explicitly reject `unwrap` / `isWrapperFor` for `Statement`, `PreparedStatement`, and `CallableStatement`.
+- [x] Implement `unwrap` / `isWrapperFor` for `Statement`, `PreparedStatement`, and `CallableStatement`; each proxy reports its implemented interfaces, and unsupported or null unwrap targets fail with `SQLException`.
 - [ ] Implement or explicitly reject modern convenience methods (`enquoteLiteral`, `enquoteIdentifier`, `isSimpleIdentifier`, `enquoteNCharLiteral`).
 - [ ] Decide and enforce result-set type, concurrency, and holdability semantics for statement-creation overloads.
 - [ ] Inventory remaining prepared-only and callable methods; resolve name-based OUT getters that currently return defaults, INOUT capture limits, and advanced callable types.
@@ -100,7 +101,7 @@ Completion means the supported debugging/testing workflow is implemented and tes
 
 ## Sequencing and dependencies
 
-- The JDBC implementation backlog remains paused while the public beta launch is prioritized. Phase 1 is the first implementation slice when that backlog resumes.
+- The JDBC implementation backlog remains paused while the public beta launch is prioritized; narrowly scoped, release-worthy slices may be selected deliberately. Phase 1 remains open for its unchecked statement-contract items.
 - Phase 2 follows the JDBC contract decisions; any Protobuf change must pass the Buf compatibility gate, and intentional breaking changes need an explicit versioning decision.
 - Phase 3 is deferred and is not a production-readiness gate for the debugging/testing scope.
 - Phase 4 quality work can proceed independently; first-beta publication and clean-consumer validation are tracked in the public-launch roadmap.

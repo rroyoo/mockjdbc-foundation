@@ -63,6 +63,7 @@ Source of truth:
 - Generated keys for `executeUpdate` calls that request them
 - Batch capture/replay for `Statement` and `PreparedStatement`; each command preserves its index and update count, including `executeLargeBatch` counts, JDBC count sentinels, partial `BatchUpdateException` counts, and duplicate entries with distinct outcomes.
 - Result-state APIs (`executeBatch`, `executeLargeBatch`, `getResultSet`, `getGeneratedKeys`, `getUpdateCount`, `getMoreResults`)
+- Wrapper methods: `unwrap` and `isWrapperFor` report the interfaces implemented by the statement proxy; unwrapping unsupported or null interfaces throws `SQLException`.
 - Lifecycle and warnings
 - Config (`maxRows`, `largeMaxRows`, timeout, fetch direction/size, result-set config getters)
 - Misc (`setPoolable`, `cancel`, `getConnection`, cursor/escape hooks)
@@ -71,7 +72,6 @@ Source of truth:
 - Overloads carrying result-set type/concurrency/holdability are accepted but not fully enforced end-to-end
 
 **Open groups**
-- Wrapper methods: `unwrap`, `isWrapperFor`
 - Remaining modern convenience methods (for example `enquote*`)
 
 ### 4.3 PreparedStatement
@@ -118,6 +118,7 @@ Source of truth:
 - 2026-11-20: `DATE`/`TIME` values backed by protobuf timestamps now use UTC rather than the JVM default zone; temporal values and nulls are covered by record/replay tests.
 - 2026-11-20: `BLOB` and `CLOB` columns now preserve their binary/text contents and materialize as JDBC `Blob` / `Clob` during replay, with unit and record/replay coverage.
 - 2026-11-22: Empty mock responses without metadata now materialize as zero-column, zero-row `ResultSet` instances, so the default response for unmatched SQL can be consumed without a row-set construction failure.
+- 2026-11-28: `Statement`, `PreparedStatement`, and `CallableStatement` wrapper methods now report their implemented proxy interfaces and unwrap to the proxy itself.
 
 
 ## 7. Result-set materialization (replay side)

@@ -22,6 +22,7 @@ import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Wrapper;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -220,9 +221,27 @@ public final class StatementFactory implements AutoCloseable {
             if (isObjectMethod(name)) {
                 return invokeObjectMethod(proxy, name, args);
             }
+            if (method.getDeclaringClass() == Wrapper.class) {
+                return invokeWrapperMethod(proxy, method, args);
+            }
 
             var invoker = dispatch.get(method);
             return invoker == null ? defaultValue(method.getReturnType()) : invoker.invoke(args);
+        }
+
+        private static Object invokeWrapperMethod(Object proxy, Method method, Object[] args)
+                throws SQLException {
+            var iface = (Class<?>) args[0];
+            if (iface == null) {
+                throw new SQLException("Interface must not be null");
+            }
+            if ("isWrapperFor".equals(method.getName())) {
+                return iface.isInstance(proxy);
+            }
+            if (iface.isInstance(proxy)) {
+                return iface.cast(proxy);
+            }
+            throw new SQLException("Not a wrapper for " + iface.getName());
         }
 
         private static boolean isObjectMethod(String name) {
@@ -414,14 +433,6 @@ public final class StatementFactory implements AutoCloseable {
             d.put(s.getMethod("getResultSetHoldability"), args -> config.getResultSetHoldability());
             d.put(s.getMethod("setMaxFieldSize", int.class), args -> null);
             d.put(s.getMethod("getMaxFieldSize"), args -> 0);
-
-            // ── unwrap ───────────────────────────────────────────────────────
-            d.put(s.getMethod("isWrapperFor", Class.class), args -> false);
-            d.put(
-                    s.getMethod("unwrap", Class.class),
-                    args -> {
-                        throw new SQLException("Not a wrapper for " + args[0]);
-                    });
         }
     }
 
@@ -595,14 +606,6 @@ public final class StatementFactory implements AutoCloseable {
             d.put(s.getMethod("getResultSetHoldability"), args -> config.getResultSetHoldability());
             d.put(s.getMethod("setMaxFieldSize", int.class), args -> null);
             d.put(s.getMethod("getMaxFieldSize"), args -> 0);
-
-            // ── unwrap ───────────────────────────────────────────────────────
-            d.put(s.getMethod("isWrapperFor", Class.class), args -> false);
-            d.put(
-                    s.getMethod("unwrap", Class.class),
-                    args -> {
-                        throw new SQLException("Not a wrapper for " + args[0]);
-                    });
 
             // ── clear parameters ─────────────────────────────────────────────
             d.put(

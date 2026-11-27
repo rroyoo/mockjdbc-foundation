@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,10 +21,15 @@ import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
 import java.math.BigDecimal;
+import java.sql.CallableStatement;
 import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.sql.Wrapper;
 import java.util.Calendar;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -114,6 +120,33 @@ class StatementFactoryTest {
             statement.close();
             assertTrue(statement.isClosed());
         }
+    }
+
+    @Test
+    @DisplayName(
+            "Given statement-family proxies, when wrapper methods are called, then they expose their implemented JDBC interfaces")
+    void shouldExposeStatementFamilyWrapperInterfaces() throws Exception {
+        try (var statement = statementFactory.createStatement();
+                var prepared = statementFactory.prepareStatement("SELECT 1");
+                var callable = statementFactory.prepareCall("{call test()}")) {
+            assertStatementWrapperContract(statement, Statement.class);
+            assertStatementWrapperContract(prepared, PreparedStatement.class);
+            assertStatementWrapperContract(callable, CallableStatement.class);
+        }
+    }
+
+    private static void assertStatementWrapperContract(Statement statement, Class<?> specificType)
+            throws SQLException {
+        assertTrue(statement.isWrapperFor(specificType));
+        assertTrue(statement.isWrapperFor(Statement.class));
+        assertTrue(statement.isWrapperFor(Wrapper.class));
+        assertTrue(statement.isWrapperFor(AutoCloseable.class));
+        assertSame(statement, statement.unwrap(specificType));
+        assertSame(statement, statement.unwrap(Wrapper.class));
+        assertFalse(statement.isWrapperFor(String.class));
+        assertThrows(SQLException.class, () -> statement.unwrap(String.class));
+        assertThrows(SQLException.class, () -> statement.unwrap(null));
+        assertThrows(SQLException.class, () -> statement.isWrapperFor(null));
     }
 
     @Test
