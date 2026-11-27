@@ -14,7 +14,7 @@ The existing Testcontainers 1.20.4 tests silently skipped on Docker Engine 29 be
 
 ## Decision
 
-Use GitHub Actions on GitHub-hosted standard `ubuntu-24.04` runners as the only CI orchestration platform. Keep CI checks on pull requests and pushes, support manual runs, and do not publish release artifacts or deploy applications automatically. Release/CD automation is deferred until a versioning and publication policy is adopted.
+Use GitHub Actions on GitHub-hosted standard `ubuntu-24.04` runners as the CI orchestration platform. Keep CI checks on pull requests and pushes and support manual verification runs. Maven Central publishing is handled separately by `.github/workflows/release.yml`: a tag or manual dispatch stages artifacts using protected environment credentials, and `autoPublish=false` requires a maintainer to publish the deployment in Central Portal. A manual release dispatch is not a dry run.
 
 The workflow must:
 
@@ -61,7 +61,7 @@ The JaCoCo gate does not imply a guarantee of defect-free code. It establishes a
 - [x] Check `mockjdbc-proto` compatibility against `main` with Buf `FILE` rules.
 - [x] Configure `main` branch protection to require a passing, up-to-date `verify` check; no review-count gate is enabled.
 - [ ] Raise the coverage gate toward 90% as coverage debt is closed.
-- [ ] Define version/tag and package-release policy before adding automatic release/deployment.
+- [x] Define the version/tag and package-release policy and configure tag-triggered Maven Central publishing; the first published beta remains pending.
 
 ## Consequences
 

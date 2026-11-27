@@ -28,7 +28,7 @@ This almost always means the WireMock gRPC backend has no stub registered for th
 
 ## Kafka/WireMock integration tests are skipped
 
-These tests use Testcontainers and require Docker. If Docker (or Docker Compose v2) isn't available in your environment, the tests are skipped rather than failing the build. Install Docker to exercise them locally, or rely on CI, which has Docker available.
+These tests use Testcontainers and require Docker (including Docker Compose v2 for the sample stack). Locally, Testcontainers may skip them when Docker is unavailable. CI has Docker available and its quality gate fails if either required Kafka integration suite is skipped.
 
 ## GPG signing fails during `-Prelease verify`
 

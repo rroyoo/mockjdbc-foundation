@@ -75,7 +75,7 @@ Conventions: JUnit 5, `@DisplayName` in Given-When-Then, `should...` method name
 
 ## Next recommended slice
 
-All active M1-M7 validation work is complete. The next repository delivery is Phase 1, “Close the mock JDBC statement contract,” in `docs/next-steps.md`; add phase-specific integration evidence here as those features land.
+All active M1-M7 validation work is complete. The public beta launch in `docs/open-source-launch-roadmap.md` is the current priority; the JDBC implementation backlog remains paused. Add phase-specific integration evidence here when implementation work resumes.
 
 ## Log
 

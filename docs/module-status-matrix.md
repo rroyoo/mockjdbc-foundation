@@ -4,6 +4,8 @@
 
 This matrix provides the current status of each project area and the next milestone expected by repository stewardship.
 
+The JDBC implementation backlog is paused while the public beta launch is prioritized in [`open-source-launch-roadmap.md`](open-source-launch-roadmap.md). The milestones below are candidates for when implementation work resumes, not current launch blockers.
+
 Status labels:
 - `active`: implemented and used as part of the current baseline.
 - `partial`: implemented in part; some contract or coverage gaps remain.
@@ -15,11 +17,11 @@ Status labels:
 
 | Module/Project | Status | Evidence | Next milestone |
 |---|---|---|---|
-| `mockjdbc/mockjdbc-mock` | `partial` | Factories and handlers implemented with tests in `mockjdbc-mock/src/test/java` | Phase 1: close statement-family contract; Phase 2: settle result/value fidelity |
-| `mockjdbc/mockjdbc-proto` | `active` | Protobuf schemas, generated stubs, and Buf `FILE` compatibility gate | Phase 2: evolve contracts only for explicitly supported fidelity work |
-| `mockjdbc/mockjdbc-proxy` | `partial`, `active` | Production classes and tests under `mockjdbc-proxy/src/main/java` and `mockjdbc-proxy/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Phase 3: define and enforce sensitive-data masking before Kafka publication |
-| `mockjdbc/mockjdbc-wiremock` | `partial`, `active` | Bridge classes + tests in `mockjdbc-wiremock/src/main/java` and `mockjdbc-wiremock/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Phase 3: bound registration retries and add a dead-letter path |
-| `mockjdbc-spring-users` | `partial` | Independent app with tests for `h2` and `mockjdbc` profiles; mock-profile E2E requires Docker and is exercised in CI | Phase 4: keep clean reactor-to-sample bootstrap and Docker-backed CI coverage documented |
+| `mockjdbc/mockjdbc-mock` | `partial` | Factories and handlers implemented with tests in `mockjdbc-mock/src/test/java` | Deferred: Phase 1 statement-family contract, then Phase 2 result/value fidelity (`docs/next-steps.md`) |
+| `mockjdbc/mockjdbc-proto` | `active` | Protobuf schemas, generated stubs, and Buf `FILE` compatibility gate | Deferred: evolve contracts only for explicitly supported fidelity work (`docs/next-steps.md`, Phase 2) |
+| `mockjdbc/mockjdbc-proxy` | `partial`, `active` | Production classes and tests under `mockjdbc-proxy/src/main/java` and `mockjdbc-proxy/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Deferred/optional: masking is not implemented; evaluate for debugging data-handling needs in `docs/next-steps.md`, Phase 3 |
+| `mockjdbc/mockjdbc-wiremock` | `partial`, `active` | Bridge classes + tests in `mockjdbc-wiremock/src/main/java` and `mockjdbc-wiremock/src/test/java`; Docker-backed Kafka integration passes in CI (ADR-0005) | Deferred/optional: retries/dead-letter handling are not implemented and are not production-readiness gates; see `docs/next-steps.md`, Phase 3 |
+| `mockjdbc-spring-users` | `partial` | Independent app with tests for `h2` and `mockjdbc` profiles; mock-profile E2E requires Docker and is exercised in CI | Maintain the documented reactor install and built-jar prerequisites when the sample changes |
 
 ## Decision notes
 

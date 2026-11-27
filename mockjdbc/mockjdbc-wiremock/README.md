@@ -2,28 +2,18 @@
 
 WireMock extension module that consumes `MockedQuery` protobuf events from Kafka and upserts WireMock stub mappings for replay.
 
-## Extension entrypoint
+## Extension discovery and configuration
 
-`WireMockKafkaBridgeExtension` implements `com.github.tomakehurst.wiremock.extension.Extension` and controls bridge lifecycle:
-- `start()` -> starts Kafka consumer loop
-- `stop()` -> stops and closes Kafka consumer
+The shaded JAR registers `WireMockKafkaBridgeExtensionFactory` through WireMock's `ExtensionFactory` service descriptor. The factory creates the bridge extension only when `MOCKJDBC_KAFKA_BOOTSTRAP_SERVERS` is set; the extension controls the consumer lifecycle (`start()` / `stop()`).
 
-You can register it on a `WireMockServer` options object.
-
-```java
-WireMockServer wireMock = new WireMockServer(
-        options().extensions(
-                new WireMockKafkaBridgeExtension(
-                        KafkaMappingConsumerConfig.defaults(
-                                "localhost:9092",
-                                "mockjdbc.query.events",
-                                "mockjdbc-wiremock-bridge",
-                                wireMockServerReference
-                        )
-                )
-        )
-);
-```
+| Environment variable | Required | Default |
+|---|---|---|
+| `MOCKJDBC_KAFKA_BOOTSTRAP_SERVERS` | yes | — |
+| `MOCKJDBC_KAFKA_TOPIC` | no | `mockjdbc.query.events` |
+| `MOCKJDBC_KAFKA_GROUP_ID` | no | `mockjdbc-wiremock-bridge` |
+| `MOCKJDBC_KAFKA_POLL_TIMEOUT_MS` | no | `250` |
+| `MOCKJDBC_DATASOURCE_ALLOWLIST` | no | empty |
+| `MOCKJDBC_SQL_DENY_PREFIXES` | no | empty |
 
 ## What it does
 
@@ -31,6 +21,7 @@ WireMockServer wireMock = new WireMockServer(
 - Normalizes SQL and builds deterministic stub keys:
   - `<datasource_id>::<normalized_sql>`
   - Parameters (when present) are appended to the key for deduplication: `::p<index>=<value>`
+- The lookup request does not contain a datasource ID; the datasource ID is used in the mapping identity and can be filtered with `MOCKJDBC_DATASOURCE_ALLOWLIST`.
 ## Main classes
 
 - `WireMockKafkaBridgeExtension`
@@ -40,6 +31,8 @@ WireMockServer wireMock = new WireMockServer(
 - `WireMockMappingRegistrar`
 
 ## Quick usage
+
+For embedded use or tests, create the WireMock server first, then pass it to a consumer:
 
 ```java
 WireMockServer wireMock = new WireMockServer(8080);

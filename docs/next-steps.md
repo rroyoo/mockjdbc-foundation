@@ -1,6 +1,6 @@
 # Next Steps
 
-Hand-off for continuing project improvements. Last updated: 2026-11-22.
+Hand-off for continuing project improvements. Last updated: 2026-11-27.
 
 Read first: `docs/module-status-matrix.md`, `docs/jdbc-supported-surface.md`, `.github/copilot-instructions.md`.
 
@@ -11,7 +11,7 @@ The user-facing documentation (Docusaurus), community onboarding, and Maven beta
 ## Current baseline
 
 - Reactor (`mockjdbc/`) and sample (`mockjdbc-spring-users/`) build green on Java 21 in CI.
-- Test counts: proxy 68 (1 skipped), mock 232, wiremock 22 (1 skipped). The skipped tests are the Testcontainers/Kafka integration tests.
+- Last recorded test counts (2026-11-22): proxy 68 (1 skipped), mock 232, wiremock 22 (1 skipped). The skipped tests are the Testcontainers/Kafka integration tests.
 - `Connection` gaps are closed (validity/abort, wrappers, metadata, type map, LOB/array/struct factories). `createSQLXML` and request/sharding methods are explicitly unsupported.
 - `ResultSetFactory` coerces values to the declared SQL type; `DriverManager` discovers `MockDriver` via `META-INF/services/java.sql.Driver` and static self-registration.
 - The sample E2E test now proves H2 capture → Kafka → WireMock bridge → gRPC → mock-driver replay without a hand-authored mapping; lookup SQL normalization is aligned with bridge matching.
@@ -35,7 +35,7 @@ Notes from CI debugging:
 
 This is the canonical repository-level delivery plan. `docs/test-validation-roadmap.md` remains the evidence log for the completed M1-M7 integration-validation work.
 
-Completion means the supported JDBC contract is implemented and tested, unsupported behavior is explicit, the record/replay path remains verified in CI, production-readiness risks are addressed or deliberately excluded, and module/ADR documentation matches the code. It does not imply full JDBC API parity.
+Completion means the supported debugging/testing workflow is implemented and tested, unsupported behavior is explicit, the record/replay path remains verified in CI, relevant data-handling risks are documented or deliberately excluded, and module/ADR documentation matches the code. It does not imply full JDBC API parity or production deployment readiness.
 
 ### Phase 0 — Record/replay foundation and validation (`done`)
 
@@ -45,7 +45,7 @@ Completion means the supported JDBC contract is implemented and tested, unsuppor
 
 **Exit criteria:** M1-M7 are complete in `docs/test-validation-roadmap.md`; required end-to-end CI checks pass.
 
-### Phase 1 — Close the mock JDBC statement contract (`open`, next)
+### Phase 1 — Close the mock JDBC statement contract (`open`, paused during public launch)
 
 - [ ] Implement or explicitly reject `unwrap` / `isWrapperFor` for `Statement`, `PreparedStatement`, and `CallableStatement`.
 - [ ] Implement or explicitly reject modern convenience methods (`enquoteLiteral`, `enquoteIdentifier`, `isSimpleIdentifier`, `enquoteNCharLiteral`).
@@ -64,30 +64,30 @@ Completion means the supported JDBC contract is implemented and tested, unsuppor
 
 **Exit criteria:** each value type in scope round-trips with deterministic type/null behavior; incompatible or unsupported values fail clearly, with unit and end-to-end coverage where applicable.
 
-### Phase 3 — Data safety and bridge resilience (`open`)
+### Phase 3 — Data handling and bridge resilience (`deferred`)
 
-- [ ] Define a masking policy for sensitive parameters/columns and implement it before proxy events are published to Kafka.
-- [ ] Add bounded retries and a dead-letter path for WireMock registration failures so a poison record cannot retry indefinitely on the consumer poll thread.
-- [ ] Test redaction, retry limits, dead-letter contents, and continued processing of later records.
+- [ ] Decide whether masking of captured values is needed for debugging workflows; captured parameters and results are currently unmasked and sent to Kafka.
+- [ ] Consider bounded retries or a dead-letter path for WireMock registration failures if debugging use cases require recovery beyond the current behavior.
+- [ ] If either behavior is adopted, add focused tests for the chosen policy and its effect on later records.
 
-**Exit criteria:** sensitive values follow the configured policy before publication; persistent registration failures are bounded, observable, and do not block unrelated events.
+**Exit criteria:** document and test any adopted data-handling or recovery policy. These are not production-readiness or public-beta launch gates for this debugging/testing tool.
 
 ### Phase 4 — Build, test, and release readiness (`open`)
 
 - [ ] Raise combined line coverage from the 50% gate toward the 90% target; adopt staged thresholds based on measured coverage.
 - [ ] Pin Maven plugin versions that currently produce model warnings (`maven-jar-plugin` in `mockjdbc-proxy`, `maven-surefire-plugin` in proxy and WireMock); decide whether a Maven Wrapper is needed.
 - [ ] Keep the standalone sample's clean bootstrap documented (`mvn install` for the reactor first); Docker-backed `mockjdbc` profile tests must continue running without skips in CI and may be unavailable locally without Docker.
-- [ ] Define version/tag and package-publication policy before deciding whether to add release automation.
+- [x] Define the version/tag and package-publication policy and configure tag-triggered publishing. The first beta and clean-consumer validation are tracked in `docs/open-source-launch-roadmap.md`.
 
-**Exit criteria:** a clean environment can build the reactor and sample using documented commands; coverage reaches 90% combined or the target is explicitly revised by ADR; required integrations pass in CI; release policy is explicit even if automatic publication remains out of scope.
+**Exit criteria:** a clean environment can build the reactor and sample using documented commands; coverage reaches 90% combined or the target is explicitly revised by ADR; required integrations pass in CI; release policy and publishing workflow are documented.
 
 ### Phase 5 — Documentation and governance closeout (`open`)
 
-- [ ] Reconcile remaining historical proxy-placeholder wording and checklists in ADR-0001 with the implemented active/partial modules and this roadmap.
-- [ ] Review ADR-0002 / ADR-0004 status labels against their completed acceptance checklists; close or retain statuses with an explicit reason.
+- [x] Reconcile historical proxy-placeholder wording and checklists in ADR-0001 with the implemented active/partial modules and this roadmap.
+- [x] Review ADR-0002 / ADR-0004 status labels against their completed acceptance checklists; retain `Accepted` with the implementation status recorded explicitly.
 - [ ] Reconcile ADR-0003's open exception-policy and supported-surface checks with current implementation and tests.
-- [ ] Decide whether to adopt Qodana: its config/workflow are absent from the current tree; if it is out of scope, close the stale reference rather than claiming the files are untracked.
-- [ ] Keep the module-status matrix and validation roadmap aligned with these phase statuses.
+- [x] Keep Qodana out of scope; current quality gates use GitHub Actions, CodeQL, Buf, and JaCoCo.
+- [x] Keep the module-status matrix and validation roadmap aligned with these phase statuses.
 
 **Exit criteria:** status labels, acceptance checklists, and next milestones agree across `docs/next-steps.md`, ADRs, `docs/module-status-matrix.md`, and `docs/test-validation-roadmap.md`.
 
@@ -96,14 +96,14 @@ Completion means the supported JDBC contract is implemented and tested, unsuppor
 - **Transaction effects:** `commit` / `rollback` remain no-ops because replay is stateless; revisit only if mutable transactional replay becomes a requirement.
 - **Connection APIs:** `createSQLXML`, request/sharding methods, and unwired JDBC methods remain explicitly unsupported unless a concrete use case changes scope.
 - **Catalog metadata:** `DatabaseMetaData` catalog queries remain unsupported pending a demonstrated need.
-- **Release automation:** publishing/deployment remains out of scope until the versioning and package policy in Phase 4 is decided.
+- **Maven Central release:** versioning policy and tag-triggered publishing are configured; the first release and clean-consumer validation remain pending. See `docs/open-source-launch-roadmap.md`.
 
 ## Sequencing and dependencies
 
-- Phase 1 is the next implementation slice and has no blocker beyond agreeing on the supported method boundary.
+- The JDBC implementation backlog remains paused while the public beta launch is prioritized. Phase 1 is the first implementation slice when that backlog resumes.
 - Phase 2 follows the JDBC contract decisions; any Protobuf change must pass the Buf compatibility gate, and intentional breaking changes need an explicit versioning decision.
-- Phase 3 can proceed independently, but must be complete before calling the pipeline production-ready.
-- Phase 4 validates the agreed feature set and depends on Phases 1-3 decisions; Phase 5 is maintained throughout and completed before declaring project completion.
+- Phase 3 is deferred and is not a production-readiness gate for the debugging/testing scope.
+- Phase 4 quality work can proceed independently; first-beta publication and clean-consumer validation are tracked in the public-launch roadmap.
 
 ## Working agreements
 
